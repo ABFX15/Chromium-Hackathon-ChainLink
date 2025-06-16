@@ -1,16 +1,21 @@
 // SPDX-License-Identifier: MIT
 pragma solidity 0.8.30;
 
-import "@chainlink/contracts/src/v0.8/shared/access/ConfirmedOwner.sol";
-import "./CollateralVault.sol";
-import "@chainlink/contracts/src/v0.8/ChainlinkClient.sol";
+import {ConfirmedOwner} from "@chainlink/contracts/src/v0.8/shared/access/ConfirmedOwner.sol";
+import {CollateralVault} from "./CollateralVault.sol";
+import {ChainlinkClient} from "@chainlink/contracts/src/v0.8/ChainlinkClient.sol";
+import {FunctionsClient} from "@chainlink/contracts/src/v0.8/functions/dev/v1_0_0/FunctionsClient.sol";
+import {Chainlink} from "@chainlink/contracts/src/v0.8/Chainlink.sol";
+import {LinkTokenInterface} from "@chainlink/contracts/src/v0.8/shared/interfaces/LinkTokenInterface.sol";
+import {FunctionsRequest} from "@chainlink/contracts/src/v0.8/functions/dev/v1_0_0/libraries/FunctionsRequest.sol";
 
 /// @title PropertyOracle
 /// @author ABFX15
 /// @notice Fetches and updates real-world property values for NFTs using Chainlink oracles
 /// @dev Integrates with CollateralVault to update on-chain collateral values
-contract PropertyOracle is ChainlinkClient, ConfirmedOwner {
+contract PropertyOracle is ChainlinkClient, ConfirmedOwner, FunctionsClient {
     using Chainlink for Chainlink.Request;
+    using FunctionsRequest for FunctionsRequest.Request;
 
     error PropertyOracle__WithdrawFailed();
 
@@ -24,6 +29,7 @@ contract PropertyOracle is ChainlinkClient, ConfirmedOwner {
 
     /// @notice Mapping from tokenId to last fetched property value
     mapping(uint256 => uint256) public tokenIdToValue;
+
     /// @notice Mapping from Chainlink requestId to tokenId
     mapping(bytes32 => uint256) private requestIdToTokenId;
 
@@ -31,6 +37,7 @@ contract PropertyOracle is ChainlinkClient, ConfirmedOwner {
     /// @param requestId The Chainlink request ID
     /// @param tokenId The NFT token ID
     event PropertyValueRequested(bytes32 indexed requestId, uint256 tokenId);
+
     /// @notice Emitted when a property value is updated on-chain
     /// @param tokenId The NFT token ID
     /// @param value The new property value
@@ -41,7 +48,10 @@ contract PropertyOracle is ChainlinkClient, ConfirmedOwner {
 
     /// @notice Initializes the PropertyOracle contract
     /// @param _collateralVault The address of the CollateralVault contract
-    constructor(address _collateralVault) ConfirmedOwner(msg.sender) {
+    constructor(
+        address router,
+        address _collateralVault
+    ) FunctionsClient(router) ConfirmedOwner(msg.sender) {
         setChainlinkToken(LINK_TOKEN);
         setChainlinkOracle(ORACLE);
         collateralVault = CollateralVault(_collateralVault);
@@ -55,33 +65,32 @@ contract PropertyOracle is ChainlinkClient, ConfirmedOwner {
 
     /// @notice Requests the property value for a given tokenId from the Chainlink oracle
     /// @param tokenId The NFT token ID
+    /// @param args The arguments for the Chainlink Functions request
+    /// @param secrets The secrets for the Chainlink Functions request
+    /// @param subscriptionId The subscription ID for the Chainlink Functions request
+    /// @param gasLimit The gas limit for the Chainlink Functions request
+    /// @param donId The DON ID for the Chainlink Functions request
+    /// @param source The source for the Chainlink Functions request
     /// @return requestId The Chainlink request ID
     function requestPropertyValue(
-        uint256 tokenId
+        uint256 tokenId,
+        string[] calldata args,
+        bytes calldata secrets,
+        uint64 subscriptionId,
+        uint32 gasLimit,
+        bytes32 donId,
+        string calldata source
     ) external onlyOwner returns (bytes32 requestId) {
-        Chainlink.Request memory req = buildChainlinkRequest(
-            JOB_ID,
-            address(this),
-            this.fulfill.selector
+        FunctionsRequest.Request memory req;
+        req.initializeRequest(
+            FunctionsRequest.Location.Inline,
+            FunctionsRequest.CodeLanguage.JavaScript,
+            source
         );
-
-        // Set the request parameters
-        req.add("method", "GET");
-        req.add(
-            "url",
-            string.concat(
-                "https://your-api-endpoint.com/properties/",
-                _toString(tokenId)
-            )
-        );
-        req.add("headers", "['content-type', 'application/json']");
-        req.add("path", "value"); // JSON path to extract value
-
-        // Send the request
-        requestId = sendChainlinkRequest(req, FEE);
+        req.setArgs(args);
+        bytes memory requestData = req.encodeCBOR();
+        requestId = _sendRequest(requestData, subscriptionId, gasLimit, donId);
         requestIdToTokenId[requestId] = tokenId;
-
-        emit PropertyValueRequested(requestId, tokenId);
     }
 
     /// @notice Callback function for Chainlink oracle to fulfill property value requests
@@ -122,5 +131,15 @@ contract PropertyOracle is ChainlinkClient, ConfirmedOwner {
         LinkTokenInterface link = LinkTokenInterface(chainlinkTokenAddress());
         if (!link.transfer(msg.sender, link.balanceOf(address(this))))
             revert PropertyOracle__WithdrawFailed();
+    }
+
+    function fulfillRequest(
+        bytes32 requestId,
+        bytes memory response,
+        bytes memory /* err */
+    ) internal override {
+        uint256 value = abi.decode(response, (uint256));
+        uint256 tokenId = requestIdToTokenId[requestId];
+        collateralVault.updatePropertyValue(tokenId, value);
     }
 }

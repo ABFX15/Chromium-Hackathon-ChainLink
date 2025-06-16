@@ -14,6 +14,7 @@ contract CollateralVault {
     using DepositNftTypes for DepositNftTypes.DepositNft;
 
     error CollateralVault__NotAuthorized();
+    error CollateralVault__InvalidOracle();
 
     IERC721 public immutable i_nft;
     AggregatorV3Interface public immutable i_priceFeed;
@@ -40,6 +41,15 @@ contract CollateralVault {
         address borrower
     );
 
+    /// @notice Emitted when the appraised value of a property is updated
+    /// @param tokenId The NFT token ID
+    /// @param newValue The new appraised value
+    event PropertyValueUpdated(uint256 tokenId, uint256 newValue);
+
+    /// @notice Emitted when the oracle address is set
+    /// @param oracle The address of the oracle contract
+    event OracleSet(address oracle);
+
     /// @notice Initializes the CollateralVault contract
     /// @param nft The address of the NFT contract
     /// @param priceFeed The address of the Chainlink price feed (legacy, not used for RWA)
@@ -57,8 +67,9 @@ contract CollateralVault {
     /// @notice Sets the oracle address allowed to update property values
     /// @param _oracle The address of the oracle contract
     function setOracle(address _oracle) external /* onlyOwner */ {
-        // TODO: Add onlyOwner modifier for production
+        if (_oracle == address(0)) revert CollateralVault__InvalidOracle();
         oracle = _oracle;
+        emit OracleSet(_oracle);
     }
 
     /// @notice Updates the appraised value of a property (NFT)
@@ -70,6 +81,7 @@ contract CollateralVault {
         uint256 newValue
     ) external onlyOracle {
         propertyValues[tokenId] = newValue;
+        emit PropertyValueUpdated(tokenId, newValue);
     }
 
     /// @notice Deposits an NFT as collateral and links it to a loan
@@ -86,6 +98,7 @@ contract CollateralVault {
             isActive: true
         });
         loanIdToTokenId[loanId] = tokenId;
+        i_nft.transferFrom(msg.sender, address(this), tokenId);
         emit DepositNFT(tokenId, loanId, value, block.timestamp, msg.sender);
     }
 
@@ -105,21 +118,6 @@ contract CollateralVault {
         uint256 tokenId
     ) internal view returns (uint256) {
         return propertyValues[tokenId];
-    }
-
-    /// @notice Placeholder for Chainlink Automation checkUpkeep
-    /// @dev Always returns true for demonstration
-    function checkUpkeep(
-        bytes calldata checkData
-    ) external pure returns (bool upkeepNeeded, bytes memory performData) {
-        upkeepNeeded = true;
-        performData = "";
-    }
-
-    /// @notice Placeholder for Chainlink Automation performUpkeep
-    /// @dev Not implemented
-    function performUpkeep(bytes calldata performData) external {
-        // TODO: Implement performUpkeep
     }
 
     /// @notice Returns the tokenId associated with a given loanId

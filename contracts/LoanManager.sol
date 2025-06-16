@@ -54,8 +54,9 @@ contract LoanManager is AutomationCompatibleInterface {
     /// @notice Initializes the LoanManager contract
     /// @param nft The address of the NFT contract
     /// @param collateralVault The address of the CollateralVault contract
-    constructor(address nft, address collateralVault) {
+    constructor(address nft, address collateralVault, address ccipRouter) {
         i_nft = IERC721(nft);
+        i_ccipRouter = IRouterClient(ccipRouter);
         i_collateralVault = CollateralVault(collateralVault);
     }
 
