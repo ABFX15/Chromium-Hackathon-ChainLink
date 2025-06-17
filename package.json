@@ -18,6 +18,7 @@
     "hardhat": "^2.19.5"
   },
   "dependencies": {
-    "@chainlink/contracts-ccip": "^1.6.0"
+    "@chainlink/contracts-ccip": "^1.6.0",
+    "next-app": "^0.0.0"
   }
 }
