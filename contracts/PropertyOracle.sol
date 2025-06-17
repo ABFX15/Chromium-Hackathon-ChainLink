@@ -3,29 +3,22 @@ pragma solidity 0.8.30;
 
 import {ConfirmedOwner} from "@chainlink/contracts/src/v0.8/shared/access/ConfirmedOwner.sol";
 import {CollateralVault} from "./CollateralVault.sol";
-import {ChainlinkClient} from "@chainlink/contracts/src/v0.8/ChainlinkClient.sol";
 import {FunctionsClient} from "@chainlink/contracts/src/v0.8/functions/dev/v1_0_0/FunctionsClient.sol";
-import {Chainlink} from "@chainlink/contracts/src/v0.8/Chainlink.sol";
-import {LinkTokenInterface} from "@chainlink/contracts/src/v0.8/shared/interfaces/LinkTokenInterface.sol";
 import {FunctionsRequest} from "@chainlink/contracts/src/v0.8/functions/dev/v1_0_0/libraries/FunctionsRequest.sol";
+import {SafeERC20, IERC20} from "@openzeppelin/contracts/token/ERC20/utils/SafeERC20.sol";
 
 /// @title PropertyOracle
 /// @author ABFX15
 /// @notice Fetches and updates real-world property values for NFTs using Chainlink oracles
 /// @dev Integrates with CollateralVault to update on-chain collateral values
-contract PropertyOracle is ChainlinkClient, ConfirmedOwner, FunctionsClient {
-    using Chainlink for Chainlink.Request;
+contract PropertyOracle is ConfirmedOwner, FunctionsClient {
     using FunctionsRequest for FunctionsRequest.Request;
 
-    error PropertyOracle__WithdrawFailed();
+    error PropertyOracle__InvalidCollateralVault();
 
     // Chainlink config (Sepolia testnet)
     address private constant LINK_TOKEN =
         0x779877A7B0D9E8603169DdbD7836e478b4624789;
-    address private constant ORACLE =
-        0x6090149792dAAeE9D1D568c9f9a6F6B46AA29eFD;
-    bytes32 private constant JOB_ID = "ca98366cc7314957b8c012c72f05aeeb"; // Functions job ID
-    uint256 private constant FEE = 0.1 * 10 ** 18; // 0.1 LINK
 
     /// @notice Mapping from tokenId to last fetched property value
     mapping(uint256 => uint256) public tokenIdToValue;
@@ -47,26 +40,28 @@ contract PropertyOracle is ChainlinkClient, ConfirmedOwner, FunctionsClient {
     CollateralVault public collateralVault;
 
     /// @notice Initializes the PropertyOracle contract
+    /// @param router The address of the Chainlink Functions router
     /// @param _collateralVault The address of the CollateralVault contract
     constructor(
         address router,
         address _collateralVault
     ) FunctionsClient(router) ConfirmedOwner(msg.sender) {
-        setChainlinkToken(LINK_TOKEN);
-        setChainlinkOracle(ORACLE);
+        if (_collateralVault == address(0))
+            revert PropertyOracle__InvalidCollateralVault();
         collateralVault = CollateralVault(_collateralVault);
     }
 
     /// @notice Sets the CollateralVault contract address
     /// @param _collateralVault The address of the CollateralVault contract
     function setCollateralVault(address _collateralVault) external onlyOwner {
+        if (_collateralVault == address(0))
+            revert PropertyOracle__InvalidCollateralVault();
         collateralVault = CollateralVault(_collateralVault);
     }
 
     /// @notice Requests the property value for a given tokenId from the Chainlink oracle
     /// @param tokenId The NFT token ID
     /// @param args The arguments for the Chainlink Functions request
-    /// @param secrets The secrets for the Chainlink Functions request
     /// @param subscriptionId The subscription ID for the Chainlink Functions request
     /// @param gasLimit The gas limit for the Chainlink Functions request
     /// @param donId The DON ID for the Chainlink Functions request
@@ -75,7 +70,6 @@ contract PropertyOracle is ChainlinkClient, ConfirmedOwner, FunctionsClient {
     function requestPropertyValue(
         uint256 tokenId,
         string[] calldata args,
-        bytes calldata secrets,
         uint64 subscriptionId,
         uint32 gasLimit,
         bytes32 donId,
@@ -99,38 +93,17 @@ contract PropertyOracle is ChainlinkClient, ConfirmedOwner, FunctionsClient {
     function fulfill(
         bytes32 requestId,
         uint256 value
-    ) external recordChainlinkFulfillment(requestId) {
+    ) external /*recordChainlinkFulfillment(requestId)*/ {
         uint256 tokenId = requestIdToTokenId[requestId];
         tokenIdToValue[tokenId] = value;
         collateralVault.updatePropertyValue(tokenId, value);
         emit PropertyValueUpdated(tokenId, value);
     }
 
-    /// @notice Converts a uint256 to its decimal string representation
-    /// @param value The value to convert
-    /// @return The string representation
-    function _toString(uint256 value) internal pure returns (string memory) {
-        if (value == 0) return "0";
-        uint256 temp = value;
-        uint256 digits;
-        while (temp != 0) {
-            digits++;
-            temp /= 10;
-        }
-        bytes memory buffer = new bytes(digits);
-        while (value != 0) {
-            digits -= 1;
-            buffer[digits] = bytes1(uint8(48 + uint256(value % 10)));
-            value /= 10;
-        }
-        return string(buffer);
-    }
-
     /// @notice Withdraws LINK tokens from the contract
     function withdrawLink() external onlyOwner {
-        LinkTokenInterface link = LinkTokenInterface(chainlinkTokenAddress());
-        if (!link.transfer(msg.sender, link.balanceOf(address(this))))
-            revert PropertyOracle__WithdrawFailed();
+        IERC20 link = IERC20(LINK_TOKEN);
+        SafeERC20.safeTransfer(link, msg.sender, link.balanceOf(address(this)));
     }
 
     function fulfillRequest(

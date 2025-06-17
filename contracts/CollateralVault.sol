@@ -2,7 +2,6 @@
 
 pragma solidity 0.8.30;
 
-import {AggregatorV3Interface} from "@chainlink/contracts/src/v0.8/interfaces/AggregatorV3Interface.sol";
 import {IERC721} from "@openzeppelin/contracts/token/ERC721/IERC721.sol";
 import {DepositNftTypes} from "./DepositNftTypes.sol";
 
@@ -17,7 +16,6 @@ contract CollateralVault {
     error CollateralVault__InvalidOracle();
 
     IERC721 public immutable i_nft;
-    AggregatorV3Interface public immutable i_priceFeed;
     address public oracle;
 
     /// @notice Mapping from tokenId to deposit struct
@@ -52,10 +50,8 @@ contract CollateralVault {
 
     /// @notice Initializes the CollateralVault contract
     /// @param nft The address of the NFT contract
-    /// @param priceFeed The address of the Chainlink price feed (legacy, not used for RWA)
-    constructor(address nft, address priceFeed) {
+    constructor(address nft) {
         i_nft = IERC721(nft);
-        i_priceFeed = AggregatorV3Interface(priceFeed);
     }
 
     /// @notice Restricts function to only the oracle address
