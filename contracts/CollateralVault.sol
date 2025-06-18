@@ -110,8 +110,6 @@ contract CollateralVault is Ownable {
         uint256 loanId
     ) external onlyLoanManager {
         if (activeLoans[tokenId]) revert CollateralVault__LoanStillActive();
-        if (i_nft.ownerOf(tokenId) != msg.sender)
-            revert CollateralVault__NotNFTOwner();
 
         uint256 value = propertyValues[tokenId]; // Gets preset value
 
@@ -123,9 +121,13 @@ contract CollateralVault is Ownable {
             borrower: msg.sender,
             isActive: true
         });
-
-        activeLoans[tokenId] = true;
+        
         loanIdToTokenId[loanId] = tokenId;
+        activeLoans[tokenId] = true;
+
+        if (i_nft.ownerOf(tokenId) != msg.sender)
+            revert CollateralVault__NotNFTOwner();
+
         i_nft.transferFrom(msg.sender, address(this), tokenId);
 
         emit DepositNFT(tokenId, loanId, value, block.timestamp, msg.sender);
