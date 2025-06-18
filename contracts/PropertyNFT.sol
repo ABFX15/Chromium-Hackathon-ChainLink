@@ -70,7 +70,7 @@ contract PropertyNFT is ERC721, ERC721Enumerable, ERC721Burnable, Ownable {
         if (bytes(_tokenURI).length > 0) {
             return _tokenURI;
         }
-        return string(abi.encodePacked(_baseTokenURI, tokenId.toString()));
+        return string(abi.encode(_baseTokenURI, tokenId.toString()));
     }
 
     /**
