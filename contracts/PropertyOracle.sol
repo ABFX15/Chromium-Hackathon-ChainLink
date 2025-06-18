@@ -21,7 +21,6 @@ contract PropertyOracle is FunctionsClient, ConfirmedOwner {
     // Custom Errors
     error PropertyOracle__InvalidCollateralVault();
     error PropertyOracle__InvalidRequest();
-    error PropertyOracle__UnauthorizedFulfillment();
     error PropertyOracle__InvalidTokenId();
 
     // Chainlink Configuration

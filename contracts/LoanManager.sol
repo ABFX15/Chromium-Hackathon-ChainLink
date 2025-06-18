@@ -118,6 +118,13 @@ contract LoanManager is AutomationCompatibleInterface, Ownable {
     );
 
     /**
+     * @notice Emitted when a loan is funded
+     * @param loanId The loan ID
+     * @param amount The amount funded
+     */
+    event LoanFunded(uint256 indexed loanId, uint256 amount);
+
+    /**
      * @notice Emitted when the origination fee is paid
      * @param loanId The loan ID
      * @param feeAmount The fee amount paid to the protocol
@@ -218,6 +225,7 @@ contract LoanManager is AutomationCompatibleInterface, Ownable {
             )
         );
         if (!success) revert LoanManager__CCIPSendFailed();
+        emit LoanFunded(loanId, amount);
     }
 
     /**
