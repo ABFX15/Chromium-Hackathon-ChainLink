@@ -1,0 +1,185 @@
+@import url('https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;500;600;700;800&display=swap');
+
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+/* 3D Card Animations */
+@layer utilities {
+  .perspective-1000 {
+    perspective: 1000px;
+  }
+  
+  .transform-style-preserve-3d {
+    transform-style: preserve-3d;
+  }
+  
+  .backface-hidden {
+    backface-visibility: hidden;
+  }
+  
+  .rotate-y-180 {
+    transform: rotateY(180deg);
+  }
+  
+  .rotate-x-5 {
+    transform: rotateX(5deg);
+  }
+  
+  .rotate-y-5 {
+    transform: rotateY(5deg);
+  }
+}
+
+/* Custom Animations */
+@keyframes float {
+  0%, 100% { transform: translateY(0px); }
+  50% { transform: translateY(-10px); }
+}
+
+@keyframes glow {
+  0%, 100% { box-shadow: 0 0 5px rgba(6, 182, 212, 0.3); }
+  50% { box-shadow: 0 0 20px rgba(6, 182, 212, 0.6), 0 0 30px rgba(6, 182, 212, 0.3); }
+}
+
+@keyframes shimmer {
+  0% { background-position: -1000px 0; }
+  100% { background-position: 1000px 0; }
+}
+
+.animate-float {
+  animation: float 3s ease-in-out infinite;
+}
+
+.animate-glow {
+  animation: glow 2s ease-in-out infinite;
+}
+
+.animate-shimmer {
+  background: linear-gradient(90deg, transparent, rgba(6, 182, 212, 0.1), transparent);
+  background-size: 1000px 100%;
+  animation: shimmer 2s infinite;
+}
+
+:root {
+  --background: 0 0% 4%;
+  --foreground: 180 100% 80%;
+  --card: 0 0% 8%;
+  --card-foreground: 180 100% 80%;
+  --popover: 0 0% 8%;
+  --popover-foreground: 180 100% 80%;
+  --primary: 180 100% 50%;
+  --primary-foreground: 0 0% 4%;
+  --secondary: 0 0% 12%;
+  --secondary-foreground: 180 100% 80%;
+  --muted: 180 60% 25%;
+  --muted-foreground: 180 60% 35%;
+  --accent: 180 100% 40%;
+  --accent-foreground: 0 0% 4%;
+  --destructive: 0 84% 60%;
+  --destructive-foreground: 0 0% 98%;
+  --border: 180 100% 25%;
+  --input: 0 0% 6%;
+  --ring: 180 100% 50%;
+  --radius: 0.5rem;
+}
+
+/* Terminal styling */
+* {
+  box-sizing: border-box;
+}
+
+html {
+  background: #0a0a0a;
+}
+
+body {
+  background: #0a0a0a !important;
+  color: #00ffff !important;
+  min-height: 100vh;
+  font-family: 'JetBrains Mono', monospace !important;
+  overflow-x: hidden;
+  position: relative;
+  letter-spacing: 0.025em;
+}
+
+/* Scanline effect */
+body::before {
+  content: '';
+  position: fixed;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  background: repeating-linear-gradient(
+    0deg,
+    transparent,
+    transparent 2px,
+    rgba(0, 255, 255, 0.02) 2px,
+    rgba(0, 255, 255, 0.02) 4px
+  );
+  pointer-events: none;
+  z-index: 1000;
+}
+
+/* Override any white backgrounds */
+.bg-white,
+.bg-background {
+  background: #0a0a0a !important;
+}
+
+.text-white,
+.text-foreground {
+  color: #00ffff !important;
+}
+
+/* Ensure all containers are dark */
+main,
+nav,
+div {
+  background-color: transparent;
+}
+
+/* Terminal fade-in animation */
+@keyframes fade-in {
+  from { opacity: 0; transform: translateY(20px); }
+  to { opacity: 1; transform: translateY(0); }
+}
+
+.animate-fade-in {
+  animation: fade-in 0.5s ease-out;
+}
+
+/* Terminal cursor blink */
+@keyframes blink {
+  0%, 50% { opacity: 1; }
+  51%, 100% { opacity: 0; }
+}
+
+.cursor-blink::after {
+  content: '_';
+  animation: blink 1s infinite;
+  color: #00ff00;
+}
+
+/* Floating animation for terminal elements */
+@keyframes floating {
+  0% { transform: translate(0, 0px); }
+  50% { transform: translate(0, -5px); }
+  100% { transform: translate(0, 0px); }
+}
+
+.floating-animation {
+  animation: floating 3s ease-in-out infinite;
+}
+
+@layer base {
+  * {
+    @apply border-border;
+  }
+  body {
+    @apply bg-background text-foreground;
+    background: #0a0a0a !important;
+    color: #00ff00 !important;
+  }
+}

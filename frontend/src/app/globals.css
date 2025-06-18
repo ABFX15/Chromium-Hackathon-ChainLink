@@ -1,34 +1,203 @@
-@import "tailwindcss";
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
 
-:root {
-  --background: #ffffff;
-  --foreground: #171717;
+body,
+.grid-bg {
+  background: #0a0f13;
+  min-height: 100vh;
+  font-family: "Fira Mono", "Menlo", "Monaco", "Consolas", monospace;
+  color: #22d3ee;
 }
 
-@theme inline {
-  --color-background: var(--background);
-  --color-foreground: var(--foreground);
-  --font-sans: var(--font-geist-sans);
-  --font-mono: var(--font-geist-mono);
+.grid-bg {
+  background-color: #0a0f13;
+  background-image: linear-gradient(
+      rgba(44, 255, 255, 0.07) 1px,
+      transparent 1px
+    ),
+    linear-gradient(90deg, rgba(44, 255, 255, 0.07) 1px, transparent 1px);
+  background-size: 32px 32px;
 }
 
-@media (prefers-color-scheme: dark) {
-  :root {
-    --background: #0a0a0a;
-    --foreground: #ededed;
+nav {
+  font-family: "Fira Mono", "Menlo", "Monaco", "Consolas", monospace;
+}
+
+a {
+  color: #22d3ee;
+  text-decoration: none;
+}
+a:hover {
+  color: #67e8f9;
+}
+
+.card,
+.dashboard-card {
+  border: 1px solid #22d3ee;
+  background: rgba(10, 15, 19, 0.95);
+  border-radius: 10px;
+  box-shadow: 0 0 8px #22d3ee33;
+}
+
+input,
+select {
+  background: #0a0f13;
+  color: #22d3ee;
+  border: 1px solid #22d3ee;
+  border-radius: 6px;
+  padding: 0.5em 1em;
+}
+
+::-webkit-scrollbar {
+  width: 8px;
+  background: #0a0f13;
+}
+::-webkit-scrollbar-thumb {
+  background: #22d3ee44;
+  border-radius: 8px;
+}
+
+.glass-effect {
+  backdrop-filter: blur(10px);
+  background: rgba(255, 255, 255, 0.05);
+  border: 1px solid rgba(255, 255, 255, 0.1);
+}
+
+.gradient-border {
+  background: linear-gradient(135deg, hsl(217, 91%, 60%), hsl(270, 91%, 65%));
+  padding: 1px;
+  border-radius: 12px;
+}
+
+.gradient-border-content {
+  background: hsl(217, 33%, 17%);
+  border-radius: 11px;
+}
+
+.nft-card {
+  transition: all 0.3s ease;
+}
+
+.nft-card:hover {
+  transform: translateY(-5px);
+  box-shadow: 0 20px 25px -5px rgba(0, 0, 0, 0.3);
+}
+
+.loan-card {
+  background: linear-gradient(
+    135deg,
+    rgba(59, 130, 246, 0.1) 0%,
+    rgba(139, 92, 246, 0.1) 100%
+  );
+}
+
+/* Custom animations */
+.floating-animation {
+  animation: float 6s ease-in-out infinite;
+}
+
+@keyframes float {
+  0%,
+  100% {
+    transform: translateY(0px);
+  }
+  50% {
+    transform: translateY(-10px);
   }
 }
 
-body {
-  background: linear-gradient(135deg, #e0e7ff 0%, #f0f4ff 50%, #c7d2fe 100%);
-  color: var(--foreground);
-  font-family: Arial, Helvetica, sans-serif;
+.pulse-animation {
+  animation: pulse 2s cubic-bezier(0.4, 0, 0.6, 1) infinite;
 }
 
-.glass-card {
-  background: rgba(255, 255, 255, 0.25);
-  border-radius: 1rem;
-  box-shadow: 0 4px 24px 0 rgba(0, 0, 0, 0.08);
-  border: 1px solid rgba(255, 255, 255, 0.18);
-  backdrop-filter: blur(8px);
+@keyframes pulse {
+  0%,
+  100% {
+    opacity: 1;
+  }
+  50% {
+    opacity: 0.5;
+  }
+}
+
+.bounce-animation {
+  animation: bounce 1s infinite;
+}
+
+@keyframes bounce {
+  0%,
+  20%,
+  53%,
+  80%,
+  100% {
+    transform: translate3d(0, 0, 0);
+  }
+  40%,
+  43% {
+    transform: translate3d(0, -30px, 0);
+  }
+  70% {
+    transform: translate3d(0, -15px, 0);
+  }
+  90% {
+    transform: translate3d(0, -4px, 0);
+  }
+}
+
+.glow-effect {
+  box-shadow: 0 0 20px rgba(59, 130, 246, 0.3);
+}
+
+.text-gradient {
+  background: linear-gradient(135deg, hsl(217, 91%, 60%), hsl(270, 91%, 65%));
+  -webkit-background-clip: text;
+  -webkit-text-fill-color: transparent;
+  background-clip: text;
+}
+
+/* Custom color classes */
+.text-dark-400 {
+  color: hsl(215, 20%, 65%);
+}
+
+.text-primary-400 {
+  color: hsl(217, 91%, 60%);
+}
+
+.text-secondary-400 {
+  color: hsl(270, 91%, 65%);
+}
+
+.bg-primary-500\/20 {
+  background-color: rgba(59, 130, 246, 0.2);
+}
+
+.bg-secondary-500\/20 {
+  background-color: rgba(139, 92, 246, 0.2);
+}
+
+.animate-glow {
+  animation: glow 1.5s infinite alternate;
+}
+@keyframes glow {
+  from {
+    text-shadow: 0 0 8px #22d3ee;
+  }
+  to {
+    text-shadow: 0 0 24px #67e8f9;
+  }
+}
+.animate-fade-in {
+  animation: fadeIn 1s ease;
+}
+@keyframes fadeIn {
+  from {
+    opacity: 0;
+    transform: translateY(20px);
+  }
+  to {
+    opacity: 1;
+    transform: none;
+  }
 }

@@ -6,333 +6,420 @@ import {AutomationCompatibleInterface} from "@chainlink/contracts/src/v0.8/autom
 import {IERC721} from "@openzeppelin/contracts/token/ERC721/IERC721.sol";
 import {IERC20} from "@openzeppelin/contracts/token/ERC20/IERC20.sol";
 import {CollateralVault} from "./CollateralVault.sol";
+import {LenderNFT} from "./LenderNFT.sol";
 import {IRouterClient} from "@chainlink/contracts-ccip/contracts/interfaces/IRouterClient.sol";
 import {DepositNftTypes} from "./DepositNftTypes.sol";
 import {Client} from "@chainlink/contracts-ccip/contracts/libraries/Client.sol";
 import {Ownable} from "@openzeppelin/contracts/access/Ownable.sol";
 import {SafeERC20} from "@openzeppelin/contracts/token/ERC20/utils/SafeERC20.sol";
+import {AggregatorV3Interface} from "@chainlink/contracts/src/v0.8/interfaces/AggregatorV3Interface.sol";
 
 /**
- * @title LoanManager
+ * @title LoanManager - Updated for Complete Workflow
  * @author ABFX15
- * @notice Manages NFT-backed loans, yield, and liquidations for the protocol.
- * @dev Integrates with CollateralVault for NFT collateral, Chainlink CCIP for cross-chain, and Chainlink Automation for liquidations.
+ * @notice Manages NFT-backed loans with complete workflow implementation
+ * @dev Implements: Borrower collateral → Lender funding → AI risk adjustment → Chainlink automation liquidation
  */
 contract LoanManager is AutomationCompatibleInterface, Ownable {
     using SafeERC20 for IERC20;
 
-    /// @notice Thrown when a loan is not active
+    // Custom Errors
     error LoanManager__LoanNotActive();
-    /// @notice Thrown when an invalid amount is provided
     error LoanManager__InvalidAmount();
-    /// @notice Thrown when a caller is not authorized
     error LoanManager__NotAuthorized();
-    /// @notice Thrown when a CCIP send fails
-    error LoanManager__CCIPSendFailed();
-    /// @notice Thrown when the router address is invalid
-    error LoanManager__InvalidRouterAddress();
-    /// @notice Thrown when the sender is the zero address
-    error LoanManager__InvalidSender();
-    /// @notice Thrown when the NFT is already collateral for an active loan
     error LoanManager__NFTAlreadyCollateral();
-    /// @notice Thrown when there is no yield to withdraw
     error LoanManager__NoYieldToWithdraw();
+    error LoanManager__InsufficientCollateral();
+    error LoanManager__LiquidationNotNeeded();
+    error LoanManager__InvalidVaultAddress();
+    error LoanManager__InvalidOracleAddress();
 
-    /// @notice Chainlink CCIP router for cross-chain messaging
+    // Immutable contracts
     IRouterClient public immutable i_ccipRouter;
-    /// @notice ERC721 NFT contract used as collateral
     IERC721 public immutable i_nft;
-    /// @notice USDC token contract for loan funding and repayments
     IERC20 public immutable i_usdc;
-    /// @notice CollateralVault contract for managing NFT collateral
     CollateralVault public immutable i_collateralVault;
-    using DepositNftTypes for DepositNftTypes.DepositNft;
+    LenderNFT public immutable i_lenderNFT;
+    AggregatorV3Interface public immutable i_priceFeed;
 
-    /// @notice Struct representing a loan
-    struct Loan {
-        uint256 loanId; ///< Unique loan ID
-        uint256 tokenId; ///< NFT token ID used as collateral
-        uint256 debt; ///< Principal debt (after origination fee)
-        uint256 startTimestamp; ///< Timestamp when loan was created
-        address borrower; ///< Borrower address
-        bool isActive; ///< Loan active status
-        uint256 apr; ///< Annual percentage rate (dynamic, set by AI)
-    }
-    /// @notice Mapping from loanId to Loan struct
-    mapping(uint256 => Loan) public loans;
-    /// @notice Next loan ID to be assigned
-    uint256 public nextLoanId;
-    /// @notice Number of days in a year (for APR calculation)
-    uint256 public constant DAYS = 365;
-    /// @notice Precision for basis points calculations
+    // State variables
+    uint64 public immutable i_destinationChainSelector; // Avalanche chain selector
+    address public avalancheVaultAddress;
+    address public awsLambdaOracle; // For AI risk scoring
+    uint256 public nextLoanId = 1;
+
+    // Constants
     uint256 public constant PRECISION = 1e4;
-    /// @notice Address of the Avalanche vault for cross-chain operations
-    address public avalanceVaultAddress;
-    /// @notice Mapping from address to protocol yield accrued (protocol owner only)
-    mapping(address => uint256) public protocolYield;
-    /// @notice Mapping to prevent duplicate loans on the same NFT
-    mapping(uint256 => bool) public nftIsCollateral;
-    /// @notice Origination fee basis points
-    uint256 public constant ORIGINATION_FEE_BPS = 100;
-    /// @notice Liquidation penalty basis points
-    uint256 public constant LIQUIDATION_PENALTY_BPS = 1000;
-    /// @notice Mapping from loanId to lender address
-    mapping(uint256 => address) public loanToLender;
-    /// @notice Mapping from address to lender yield accrued
-    mapping(address => uint256) public lenderYield;
-    /// @notice Seconds in a year for precise interest calculation
+    uint256 public constant ORIGINATION_FEE_BPS = 100; // 1%
+    uint256 public constant LIQUIDATION_THRESHOLD = 8000; // 80% LTV
+    uint256 public constant LIQUIDATION_PENALTY_BPS = 1000; // 10%
     uint256 public constant SECONDS_PER_YEAR = 365 days;
+    uint256 public constant BASE_RATE = 500; // 5% base rate in basis points
 
-    /**
-     * @notice Emitted when a new loan is created
-     * @param loanId The loan ID
-     * @param tokenId The NFT token ID used as collateral
-     * @param borrower The address of the borrower
-     * @param netDebt The loan amount after origination fee
-     */
-    event LoanCreated(
-        uint256 loanId,
-        uint256 tokenId,
-        address borrower,
-        uint256 netDebt
-    );
-
-    /**
-     * @notice Emitted when a loan is repaid
-     * @param loanId The loan ID
-     * @param totalRepaid The total amount repaid (principal + interest)
-     */
-    event LoanRepaid(uint256 indexed loanId, uint256 totalRepaid);
-
-    /**
-     * @notice Emitted when a loan is liquidated
-     * @param loanId The loan ID
-     * @param liquidator The address of the liquidator
-     * @param penalty The penalty amount paid to the liquidator
-     */
-    event Liquidated(
-        uint256 indexed loanId,
-        address liquidator,
-        uint256 penalty
-    );
-
-    /**
-     * @notice Emitted when a loan is funded
-     * @param loanId The loan ID
-     * @param amount The amount funded
-     */
-    event LoanFunded(uint256 indexed loanId, uint256 amount);
-
-    /**
-     * @notice Emitted when the origination fee is paid
-     * @param loanId The loan ID
-     * @param feeAmount The fee amount paid to the protocol
-     */
-    event OriginationFeePaid(uint256 indexed loanId, uint256 feeAmount);
-
-    /**
-     * @notice Emitted when protocol yield is withdrawn
-     * @param lender The address of the protocol owner
-     * @param amount The amount withdrawn
-     */
-    event YieldWithdrawn(address indexed lender, uint256 amount);
-
-    /**
-     * @notice Emitted for debugging purposes
-     * @param message The debug message
-     */
-    event DebugLog(string message);
-
-    /**
-     * @notice Restricts function to only the borrower of a given loan
-     * @param loanId The loan ID
-     */
-    modifier onlyBorrower(uint256 loanId) {
-        if (msg.sender != loans[loanId].borrower)
-            revert LoanManager__NotAuthorized();
-        _;
+    // Loan structure matching your workflow
+    struct Loan {
+        uint256 loanId;
+        uint256 tokenId; // NFT collateral
+        uint256 principalAmount; // Loan amount
+        uint256 interestRate; // Dynamic rate from AI (basis points)
+        uint256 startTimestamp;
+        address borrower;
+        address lender;
+        bool isActive;
+        bool isFunded;
     }
 
-    /**
-     * @notice Initializes the LoanManager contract
-     * @param nft The address of the NFT contract
-     * @param collateralVault The address of the CollateralVault contract
-     * @param ccipRouter The address of the Chainlink CCIP router
-     * @param usdc The address of the USDC token contract
-     */
+    // Mappings
+    mapping(uint256 => Loan) public loans;
+    mapping(uint256 => bool) public nftIsCollateral;
+    mapping(address => uint256) public protocolYield;
+    mapping(address => uint256) public lenderYield;
+    mapping(uint256 => uint256) public aiRiskScores; // loanId => risk score (0-100)
+
+    // Events matching your sequence diagrams
+    event LoanCreated(
+        uint256 indexed loanId,
+        uint256 indexed tokenId,
+        address indexed borrower,
+        uint256 amount
+    );
+    event LoanFunded(
+        uint256 indexed loanId,
+        address indexed lender,
+        uint256 amount,
+        uint256 lenderNFTId
+    );
+    event AIRiskUpdated(
+        uint256 indexed loanId,
+        uint256 riskScore,
+        uint256 newInterestRate
+    );
+    event LoanRepaid(uint256 indexed loanId, uint256 totalAmount);
+    event CollateralLiquidated(
+        uint256 indexed loanId,
+        address indexed liquidator,
+        uint256 recoveredAmount
+    );
+    event CCIPMessageSent(
+        bytes32 indexed messageId,
+        uint256 indexed loanId,
+        uint64 destinationChain
+    );
+
     constructor(
         address nft,
         address collateralVault,
+        address lenderNFT,
         address ccipRouter,
-        address usdc
+        address usdc,
+        address priceFeed,
+        uint64 _destinationChainSelector
     ) Ownable(msg.sender) {
         i_nft = IERC721(nft);
-        i_ccipRouter = IRouterClient(ccipRouter);
         i_collateralVault = CollateralVault(collateralVault);
+        i_lenderNFT = LenderNFT(lenderNFT);
+        i_ccipRouter = IRouterClient(ccipRouter);
         i_usdc = IERC20(usdc);
+        i_priceFeed = AggregatorV3Interface(priceFeed);
+        i_destinationChainSelector = _destinationChainSelector;
     }
 
     /**
-     * @notice Creates a new loan and deposits the NFT as collateral.
-     * @param tokenId The NFT token ID to be used as collateral.
-     * @param debt The loan amount requested (before fee).
-     * @param apr The annual percentage rate for this loan (from AI risk model).
+     * @notice Step 1: Borrower deposits NFT as collateral
+     * @param tokenId NFT token ID to deposit
+     * @param requestedAmount Loan amount requested
      */
-    function createLoan(uint256 tokenId, uint256 debt, uint256 apr) external {
-        emit DebugLog("createLoan: start");
-        if (msg.sender == address(0)) revert LoanManager__InvalidSender();
+    function depositNFTCollateral(
+        uint256 tokenId,
+        uint256 requestedAmount
+    ) external {
         if (nftIsCollateral[tokenId])
             revert LoanManager__NFTAlreadyCollateral();
-        nextLoanId++;
-        uint256 fee = (debt * ORIGINATION_FEE_BPS) / PRECISION;
-        uint256 netDebt = debt - fee;
-        loans[nextLoanId] = Loan({
-            loanId: nextLoanId,
+        if (requestedAmount == 0) revert LoanManager__InvalidAmount();
+
+        // Create loan with initial base interest rate (AI will adjust later)
+        uint256 loanId = nextLoanId++;
+        loans[loanId] = Loan({
+            loanId: loanId,
             tokenId: tokenId,
-            debt: netDebt,
+            principalAmount: requestedAmount,
+            interestRate: BASE_RATE, // Will be updated by AI
             startTimestamp: block.timestamp,
             borrower: msg.sender,
+            lender: address(0), // Set when funded
             isActive: true,
-            apr: apr
+            isFunded: false
         });
         nftIsCollateral[tokenId] = true;
-        emit DebugLog("createLoan: before USDC transfer");
-        i_usdc.safeTransferFrom(msg.sender, address(this), fee);
-        emit DebugLog("createLoan: after USDC transfer");
-        protocolYield[owner()] += fee;
-        emit OriginationFeePaid(nextLoanId, fee);
-        emit DebugLog("createLoan: before NFT transfer");
-        i_nft.transferFrom(msg.sender, address(this), tokenId);
-        emit DebugLog("createLoan: after NFT transfer");
-        emit DebugLog("createLoan: before depositNFT");
-        i_collateralVault.depositNFT(tokenId, nextLoanId);
-        emit DebugLog("createLoan: after depositNFT");
-        emit LoanCreated(nextLoanId, tokenId, msg.sender, netDebt);
+        // Verify NFT ownership and get property value from Chainlink data feed
+        if (i_nft.ownerOf(tokenId) != msg.sender)
+            revert LoanManager__NotAuthorized();
+
+        (, int256 propertyValue, , , ) = i_priceFeed.latestRoundData();
+        uint256 maxLoanAmount = (uint256(propertyValue) *
+            LIQUIDATION_THRESHOLD) / PRECISION;
+
+        if (requestedAmount > maxLoanAmount)
+            revert LoanManager__InsufficientCollateral();
+
+        // Transfer NFT to CollateralVault
+        i_nft.transferFrom(msg.sender, address(i_collateralVault), tokenId);
+        i_collateralVault.depositNFT(tokenId, loanId);
+
+        emit LoanCreated(loanId, tokenId, msg.sender, requestedAmount);
     }
 
     /**
-     * @notice Funds a loan and sends a cross-chain message via Chainlink CCIP.
-     * @param loanId The loan ID to fund.
-     * @param amount The amount to fund (in ETH for CCIP).
+     * @notice Step 2: Lender funds loan cross-chain via CCIP
+     * @param loanId Loan ID to fund
      */
-    function fundLoan(
-        uint256 loanId,
-        uint256 amount
-    ) external payable onlyBorrower(loanId) {
-        if (address(i_ccipRouter) == address(0))
-            revert LoanManager__InvalidRouterAddress();
-        if (msg.value != amount) revert LoanManager__InvalidAmount();
-        // Track lender for this loan
-        loanToLender[loanId] = msg.sender;
-        // Transfer USDC to Avalanche vault
-        i_usdc.safeTransferFrom(msg.sender, avalanceVaultAddress, amount);
-        Client.EVM2AnyMessage memory message = Client.EVM2AnyMessage({
-            receiver: abi.encode(avalanceVaultAddress),
-            data: abi.encode(loanId, amount),
-            tokenAmounts: new Client.EVMTokenAmount[](1),
-            feeToken: address(0), // Pay fees in native gas token (ETH)
-            extraArgs: abi.encode(Client.EVMExtraArgsV1({gasLimit: 1e6}))
-        });
-        (bool success, ) = address(i_ccipRouter).call{value: msg.value}(
-            abi.encodeWithSignature(
-                "send((bytes,bytes,(address,uint256)[],address,bytes))",
-                message
-            )
+    function fundLoanCrossChain(uint256 loanId) external payable {
+        Loan storage loan = loans[loanId];
+        if (!loan.isActive || loan.isFunded)
+            revert LoanManager__LoanNotActive();
+        if (msg.sender == address(0)) revert LoanManager__NotAuthorized();
+
+        // Update loan with lender info
+        loan.lender = msg.sender;
+        loan.isFunded = true;
+        // Transfer USDC from lender
+        i_usdc.safeTransferFrom(
+            msg.sender,
+            address(this),
+            loan.principalAmount
         );
-        if (!success) revert LoanManager__CCIPSendFailed();
-        emit LoanFunded(loanId, amount);
+
+        // Mint lenderNFT representing position
+        uint256 lenderNFTId = i_lenderNFT.mintLenderPosition(
+            msg.sender,
+            loanId,
+            loan.principalAmount
+        );
+
+        // Send USDC to borrower's chain via CCIP
+        Client.EVM2AnyMessage memory message = Client.EVM2AnyMessage({
+            receiver: abi.encode(avalancheVaultAddress),
+            data: abi.encode(loanId, loan.borrower, loan.principalAmount),
+            tokenAmounts: new Client.EVMTokenAmount[](1),
+            feeToken: address(0), // Pay fees in native token
+            extraArgs: Client._argsToBytes(
+                Client.EVMExtraArgsV1({gasLimit: 5e6})
+            )
+        });
+
+        // Add USDC token transfer to message
+        message.tokenAmounts[0] = Client.EVMTokenAmount({
+            token: address(i_usdc),
+            amount: loan.principalAmount
+        });
+
+        // Approve CCIP router to spend USDC
+        i_usdc.approve(address(i_ccipRouter), loan.principalAmount);
+
+        // Send cross-chain message with USDC
+        bytes32 messageId = i_ccipRouter.ccipSend{value: msg.value}(
+            i_destinationChainSelector,
+            message
+        );
+
+        emit LoanFunded(loanId, msg.sender, loan.principalAmount, lenderNFTId);
+        emit CCIPMessageSent(messageId, loanId, i_destinationChainSelector);
     }
 
     /**
-     * @notice Calculates interest owed for a loan (simple APR).
-     * @param loanId The loan ID.
-     * @return The interest owed (in USDC).
+     * @notice Step 3: AWS Lambda calls to update AI risk score
+     * @param loanId Loan ID to update
+     * @param riskScore AI risk score (0-100)
      */
-    function calculateInterest(uint256 loanId) public view returns (uint256) {
-        Loan memory loan = loans[loanId];
-        uint256 elapsed = block.timestamp - loan.startTimestamp;
-        // Use SECONDS_PER_YEAR for precision, and 100 for percent
-        return (loan.debt * loan.apr * elapsed) / (SECONDS_PER_YEAR * 100);
-    }
+    function updateAIRiskScore(uint256 loanId, uint256 riskScore) external {
+        if (msg.sender != awsLambdaOracle) revert LoanManager__NotAuthorized();
 
-    /**
-     * @notice Repays a loan (principal + interest) and returns NFT to borrower.
-     * @param loanId The loan ID to repay.
-     */
-    function repayLoan(uint256 loanId) external onlyBorrower(loanId) {
         Loan storage loan = loans[loanId];
         if (!loan.isActive) revert LoanManager__LoanNotActive();
-        uint256 interest = calculateInterest(loanId);
-        uint256 totalOwed = loan.debt + interest;
-        loan.isActive = false;
-        nftIsCollateral[loan.tokenId] = false;
-        i_usdc.safeTransferFrom(msg.sender, address(this), totalOwed);
-        // Split interest: 20% protocol, 80% lender
-        uint256 protocolCut = interest / 5; // 20%
-        uint256 lenderCut = interest - protocolCut;
-        protocolYield[owner()] += protocolCut;
-        lenderYield[loanToLender[loanId]] += lenderCut;
-        i_nft.transferFrom(address(this), loan.borrower, loan.tokenId);
-        emit LoanRepaid(loanId, totalOwed);
+
+        // Store risk score
+        aiRiskScores[loanId] = riskScore;
+
+        // Calculate new interest rate based on risk (5% base + risk adjustment)
+        // Higher risk = higher rate: 5% + (riskScore * 0.1%)
+        uint256 newInterestRate = BASE_RATE + (riskScore * 10); // In basis points
+        loan.interestRate = newInterestRate;
+
+        emit AIRiskUpdated(loanId, riskScore, newInterestRate);
     }
 
     /**
-     * @notice Checks if upkeep (liquidation) is needed for a given NFT collateral (Chainlink Automation).
-     * @param checkData Encoded tokenId to check.
-     * @return upkeepNeeded True if collateral value is below debt and loan is active.
-     * @return performData The same checkData for use in performUpkeep.
+     * @notice Step 4: Chainlink Automation checks for liquidation
+     * @param checkData Encoded loan ID to check
      */
     function checkUpkeep(
         bytes calldata checkData
-    ) external view returns (bool upkeepNeeded, bytes memory performData) {
-        uint256 tokenId = abi.decode(checkData, (uint256));
-        DepositNftTypes.DepositNft memory deposit = i_collateralVault
-            .getDeposit(tokenId);
-        uint256 loanId = deposit.loanId;
+    )
+        external
+        view
+        override
+        returns (bool upkeepNeeded, bytes memory performData)
+    {
+        uint256 loanId = abi.decode(checkData, (uint256));
         Loan memory loan = loans[loanId];
-        upkeepNeeded = deposit.collateralValue < loan.debt && loan.isActive;
-        performData = checkData;
-        return (upkeepNeeded, performData);
+
+        if (!loan.isActive || !loan.isFunded) {
+            return (false, checkData);
+        }
+
+        // Get current collateral value from Chainlink price feed
+        (, int256 currentValue, , , ) = i_priceFeed.latestRoundData();
+        uint256 collateralValue = uint256(currentValue);
+
+        // Calculate current debt (principal + accrued interest)
+        uint256 currentDebt = calculateCurrentDebt(loanId);
+
+        // Check if liquidation threshold breached (collateral < 80% of debt)
+        uint256 requiredCollateral = (currentDebt * LIQUIDATION_THRESHOLD) /
+            PRECISION;
+        upkeepNeeded = collateralValue < requiredCollateral;
+
+        return (upkeepNeeded, checkData);
     }
 
     /**
-     * @notice Performs upkeep (liquidation) if needed (Chainlink Automation).
-     * @param performData Encoded tokenId to liquidate.
+     * @notice Step 4: Chainlink Automation performs liquidation
+     * @param performData Encoded loan ID to liquidate
      */
-    function performUpkeep(bytes calldata performData) external {
-        if (msg.sender != address(i_ccipRouter))
-            revert LoanManager__NotAuthorized();
-        uint256 tokenId = abi.decode(performData, (uint256));
-        DepositNftTypes.DepositNft memory deposit = i_collateralVault
-            .getDeposit(tokenId);
-        _liquidate(deposit.loanId);
+    function performUpkeep(bytes calldata performData) external override {
+        uint256 loanId = abi.decode(performData, (uint256));
+        liquidateLoan(loanId);
     }
 
     /**
-     * @notice Internal function to liquidate a loan and transfer NFT collateral
-     * @param loanId The loan ID to liquidate
+     * @notice Liquidate undercollateralized loan
+     * @param loanId Loan ID to liquidate
      */
-    function _liquidate(uint256 loanId) internal {
+    function liquidateLoan(uint256 loanId) public {
         Loan storage loan = loans[loanId];
-        if (!loan.isActive) revert LoanManager__LoanNotActive();
-        uint256 penalty = (loan.debt * LIQUIDATION_PENALTY_BPS) / PRECISION;
-        uint256 protocolShare = loan.debt - penalty;
-        i_usdc.safeTransfer(msg.sender, penalty);
-        protocolYield[owner()] += protocolShare;
-        i_nft.transferFrom(address(this), msg.sender, loan.tokenId);
+        // Calculate liquidation penalty
+        uint256 penalty = (loan.principalAmount * LIQUIDATION_PENALTY_BPS) /
+            PRECISION;
+        if (!loan.isActive || !loan.isFunded)
+            revert LoanManager__LoanNotActive();
+
         loan.isActive = false;
         nftIsCollateral[loan.tokenId] = false;
-        emit Liquidated(loanId, msg.sender, penalty);
+
+        if (protocolYield[owner()] >= penalty) {
+            protocolYield[owner()] -= penalty;
+            if (msg.sender != address(0)) {
+                i_usdc.safeTransfer(msg.sender, penalty);
+            }
+        }
+
+        // Verify liquidation is needed
+        (, int256 currentValue, , , ) = i_priceFeed.latestRoundData();
+        uint256 collateralValue = uint256(currentValue);
+        uint256 currentDebt = calculateCurrentDebt(loanId);
+        uint256 requiredCollateral = (currentDebt * LIQUIDATION_THRESHOLD) /
+            PRECISION;
+
+        if (collateralValue >= requiredCollateral)
+            revert LoanManager__LiquidationNotNeeded();
+
+        // Release NFT from vault to liquidator for sale on OpenSea
+        i_collateralVault.releaseNFT(loan.tokenId);
+        i_nft.transferFrom(
+            address(i_collateralVault),
+            msg.sender,
+            loan.tokenId
+        );
+
+        // Burn lender NFT
+        uint256 lenderNFTId = i_lenderNFT.loanIdToToken(loanId);
+        i_lenderNFT.burnLenderPosition(lenderNFTId);
+
+        emit CollateralLiquidated(loanId, msg.sender, penalty);
     }
 
     /**
-     * @notice Withdraws protocol yield (owner only).
+     * @notice Calculate current debt including accrued interest
+     * @param loanId Loan ID
+     * @return Current total debt
      */
-    function withdrawYield() external onlyOwner {
+    function calculateCurrentDebt(
+        uint256 loanId
+    ) public view returns (uint256) {
+        Loan memory loan = loans[loanId];
+        if (!loan.isActive) return 0;
+
+        uint256 timeElapsed = block.timestamp - loan.startTimestamp;
+        uint256 interest = (loan.principalAmount *
+            loan.interestRate *
+            timeElapsed) / (PRECISION * SECONDS_PER_YEAR);
+
+        return loan.principalAmount + interest;
+    }
+
+    /**
+     * @notice Repay loan and release collateral
+     * @param loanId Loan ID to repay
+     */
+    function repayLoan(uint256 loanId) external {
+        Loan storage loan = loans[loanId];
+        if (msg.sender != loan.borrower) revert LoanManager__NotAuthorized();
+        if (!loan.isActive || !loan.isFunded)
+            revert LoanManager__LoanNotActive();
+
+        uint256 totalDebt = calculateCurrentDebt(loanId);
+        // Calculate yield distribution (80% lender, 20% protocol)
+        uint256 interest = totalDebt - loan.principalAmount;
+        uint256 lenderShare = (interest * 8000) / PRECISION; // 80%
+        uint256 protocolShare = interest - lenderShare; // 20%
+        // Burn lender NFT
+        protocolYield[owner()] += protocolShare;
+
+        // Mark loan as repaid
+        loan.isActive = false;
+        nftIsCollateral[loan.tokenId] = false;
+        uint256 lenderNFTId = i_lenderNFT.loanIdToToken(loanId);
+        // Transfer repayment from borrower
+        i_usdc.safeTransferFrom(msg.sender, address(this), totalDebt);
+
+        // Release NFT collateral back to borrower
+        i_collateralVault.releaseNFT(loan.tokenId);
+
+        // Transfer principal + lender share to lender
+        i_usdc.safeTransfer(loan.lender, loan.principalAmount + lenderShare);
+
+        i_lenderNFT.burnLenderPosition(lenderNFTId);
+
+        emit LoanRepaid(loanId, totalDebt);
+    }
+
+    // Admin functions
+    function setAvalancheVaultAddress(address _vault) external onlyOwner {
+        if (_vault == address(0)) revert LoanManager__InvalidVaultAddress();
+        avalancheVaultAddress = _vault;
+    }
+
+    function setAWSLambdaOracle(address _oracle) external onlyOwner {
+        if (_oracle == address(0)) revert LoanManager__InvalidOracleAddress();
+        awsLambdaOracle = _oracle;
+    }
+
+    function withdrawProtocolYield() external onlyOwner {
         uint256 amount = protocolYield[msg.sender];
         if (amount == 0) revert LoanManager__NoYieldToWithdraw();
+
         protocolYield[msg.sender] = 0;
         i_usdc.safeTransfer(msg.sender, amount);
-        emit YieldWithdrawn(msg.sender, amount);
+    }
+
+    // View functions
+    function getLoanDetails(
+        uint256 loanId
+    ) external view returns (Loan memory) {
+        return loans[loanId];
+    }
+
+    function getAIRiskScore(uint256 loanId) external view returns (uint256) {
+        return aiRiskScores[loanId];
     }
 }
