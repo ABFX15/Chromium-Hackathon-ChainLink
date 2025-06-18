@@ -1,6 +1,6 @@
 // SPDX-License-Identifier: MIT
 
-pragma solidity 0.8.30;
+pragma solidity 0.8.20;
 
 import {AutomationCompatibleInterface} from "@chainlink/contracts/src/v0.8/automation/interfaces/AutomationCompatibleInterface.sol";
 import {IERC721} from "@openzeppelin/contracts/token/ERC721/IERC721.sol";
@@ -15,8 +15,8 @@ import {SafeERC20} from "@openzeppelin/contracts/token/ERC20/utils/SafeERC20.sol
 /**
  * @title LoanManager
  * @author ABFX15
- * @notice Manages NFT-backed loans, yield, and liquidations for a private credit protocol
- * @dev Integrates with CollateralVault for NFT collateral, Chainlink CCIP for cross-chain, and Chainlink Automation for liquidations
+ * @notice Manages NFT-backed loans, yield, and liquidations for the protocol.
+ * @dev Integrates with CollateralVault for NFT collateral, Chainlink CCIP for cross-chain, and Chainlink Automation for liquidations.
  */
 contract LoanManager is AutomationCompatibleInterface, Ownable {
     using SafeERC20 for IERC20;
@@ -77,6 +77,12 @@ contract LoanManager is AutomationCompatibleInterface, Ownable {
     uint256 public constant ORIGINATION_FEE_BPS = 100;
     /// @notice Liquidation penalty basis points
     uint256 public constant LIQUIDATION_PENALTY_BPS = 1000;
+    /// @notice Mapping from loanId to lender address
+    mapping(uint256 => address) public loanToLender;
+    /// @notice Mapping from address to lender yield accrued
+    mapping(address => uint256) public lenderYield;
+    /// @notice Seconds in a year for precise interest calculation
+    uint256 public constant SECONDS_PER_YEAR = 365 days;
 
     /**
      * @notice Emitted when a new loan is created
@@ -155,10 +161,9 @@ contract LoanManager is AutomationCompatibleInterface, Ownable {
     }
 
     /**
-     * @notice Creates a new loan and deposits the NFT as collateral
-     * @dev Collects origination fee, stores net debt, and emits events
-     * @param tokenId The NFT token ID to be used as collateral
-     * @param debt The loan amount requested (before fee)
+     * @notice Creates a new loan and deposits the NFT as collateral.
+     * @param tokenId The NFT token ID to be used as collateral.
+     * @param debt The loan amount requested (before fee).
      */
     function createLoan(uint256 tokenId, uint256 debt) external {
         if (msg.sender == address(0)) revert LoanManager__InvalidSender();
@@ -184,10 +189,9 @@ contract LoanManager is AutomationCompatibleInterface, Ownable {
     }
 
     /**
-     * @notice Funds a loan and sends a cross-chain message via Chainlink CCIP
-     * @dev Only the borrower can call this function
-     * @param loanId The loan ID to fund
-     * @param amount The amount to fund (in ETH for CCIP)
+     * @notice Funds a loan and sends a cross-chain message via Chainlink CCIP.
+     * @param loanId The loan ID to fund.
+     * @param amount The amount to fund (in ETH for CCIP).
      */
     function fundLoan(
         uint256 loanId,
@@ -196,11 +200,15 @@ contract LoanManager is AutomationCompatibleInterface, Ownable {
         if (address(i_ccipRouter) == address(0))
             revert LoanManager__InvalidRouterAddress();
         if (msg.value != amount) revert LoanManager__InvalidAmount();
+        // Track lender for this loan
+        loanToLender[loanId] = msg.sender;
+        // Transfer USDC to Avalanche vault
+        i_usdc.safeTransferFrom(msg.sender, avalanceVaultAddress, amount);
         Client.EVM2AnyMessage memory message = Client.EVM2AnyMessage({
             receiver: abi.encode(avalanceVaultAddress),
             data: abi.encode(loanId, amount),
             tokenAmounts: new Client.EVMTokenAmount[](1),
-            feeToken: address(i_usdc),
+            feeToken: address(0), // Pay fees in native gas token (ETH)
             extraArgs: abi.encode(Client.EVMExtraArgsV1({gasLimit: 1e6}))
         });
         (bool success, ) = address(i_ccipRouter).call{value: msg.value}(
@@ -213,21 +221,21 @@ contract LoanManager is AutomationCompatibleInterface, Ownable {
     }
 
     /**
-     * @notice Calculates interest owed for a loan (simple APR)
-     * @param loanId The loan ID
-     * @return The interest owed (in USDC)
+     * @notice Calculates interest owed for a loan (simple APR).
+     * @param loanId The loan ID.
+     * @return The interest owed (in USDC).
      */
     function calculateInterest(uint256 loanId) public view returns (uint256) {
         Loan memory loan = loans[loanId];
         uint256 rate = BASE_RATE;
         uint256 elapsed = block.timestamp - loan.startTimestamp;
-        return (loan.debt * rate * elapsed) / (DAYS * PRECISION);
+        // Use SECONDS_PER_YEAR for precision, and 100 for percent
+        return (loan.debt * rate * elapsed) / (SECONDS_PER_YEAR * 100);
     }
 
     /**
-     * @notice Repays a loan (principal + interest) and returns NFT to borrower
-     * @dev Only the borrower can call this function
-     * @param loanId The loan ID to repay
+     * @notice Repays a loan (principal + interest) and returns NFT to borrower.
+     * @param loanId The loan ID to repay.
      */
     function repayLoan(uint256 loanId) external onlyBorrower(loanId) {
         Loan storage loan = loans[loanId];
@@ -237,23 +245,27 @@ contract LoanManager is AutomationCompatibleInterface, Ownable {
         loan.isActive = false;
         nftIsCollateral[loan.tokenId] = false;
         i_usdc.safeTransferFrom(msg.sender, address(this), totalOwed);
-        protocolYield[owner()] += interest;
+        // Split interest: 20% protocol, 80% lender
+        uint256 protocolCut = interest / 5; // 20%
+        uint256 lenderCut = interest - protocolCut;
+        protocolYield[owner()] += protocolCut;
+        lenderYield[loanToLender[loanId]] += lenderCut;
         i_nft.transferFrom(address(this), loan.borrower, loan.tokenId);
         emit LoanRepaid(loanId, totalOwed);
     }
 
     /**
-     * @notice Checks if upkeep (liquidation) is needed for a given NFT collateral (Chainlink Automation)
-     * @param checkData Encoded tokenId to check
-     * @return upkeepNeeded True if collateral value is below debt and loan is active
-     * @return performData The same checkData for use in performUpkeep
+     * @notice Checks if upkeep (liquidation) is needed for a given NFT collateral (Chainlink Automation).
+     * @param checkData Encoded tokenId to check.
+     * @return upkeepNeeded True if collateral value is below debt and loan is active.
+     * @return performData The same checkData for use in performUpkeep.
      */
     function checkUpkeep(
         bytes calldata checkData
     ) external view returns (bool upkeepNeeded, bytes memory performData) {
         uint256 tokenId = abi.decode(checkData, (uint256));
         DepositNftTypes.DepositNft memory deposit = i_collateralVault
-            .getDepositNft(tokenId);
+            .getDeposit(tokenId);
         uint256 loanId = deposit.loanId;
         Loan memory loan = loans[loanId];
         upkeepNeeded = deposit.collateralValue < loan.debt && loan.isActive;
@@ -262,15 +274,15 @@ contract LoanManager is AutomationCompatibleInterface, Ownable {
     }
 
     /**
-     * @notice Performs upkeep (liquidation) if needed (Chainlink Automation)
-     * @param performData Encoded tokenId to liquidate
+     * @notice Performs upkeep (liquidation) if needed (Chainlink Automation).
+     * @param performData Encoded tokenId to liquidate.
      */
     function performUpkeep(bytes calldata performData) external {
         if (msg.sender != address(i_ccipRouter))
             revert LoanManager__NotAuthorized();
         uint256 tokenId = abi.decode(performData, (uint256));
         DepositNftTypes.DepositNft memory deposit = i_collateralVault
-            .getDepositNft(tokenId);
+            .getDeposit(tokenId);
         _liquidate(deposit.loanId);
     }
 
@@ -292,17 +304,7 @@ contract LoanManager is AutomationCompatibleInterface, Ownable {
     }
 
     /**
-     * @notice Sets the APR for a loan (admin only)
-     * @param loanId The loan ID
-     * @param apr The new APR (basis points)
-     */
-    function setLoanApr(uint256 loanId, uint256 apr) external onlyOwner {
-        // For demo: not used in interest calculation, but can be extended
-        // (kept for compatibility with previous interface)
-    }
-
-    /**
-     * @notice Withdraws protocol yield (owner only)
+     * @notice Withdraws protocol yield (owner only).
      */
     function withdrawYield() external onlyOwner {
         uint256 amount = protocolYield[msg.sender];

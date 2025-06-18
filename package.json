@@ -19,6 +19,7 @@
   },
   "dependencies": {
     "@chainlink/contracts-ccip": "^1.6.0",
-    "next-app": "^0.0.0"
+    "next-app": "^0.0.0",
+    "viem": "^2.31.3"
   }
 }
