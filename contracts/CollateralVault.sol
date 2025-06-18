@@ -121,7 +121,7 @@ contract CollateralVault is Ownable {
             borrower: msg.sender,
             isActive: true
         });
-        
+
         loanIdToTokenId[loanId] = tokenId;
         activeLoans[tokenId] = true;
 
@@ -161,5 +161,16 @@ contract CollateralVault is Ownable {
 
     function getTokenIdByLoan(uint256 loanId) external view returns (uint256) {
         return loanIdToTokenId[loanId];
+    }
+
+    /**
+     * @dev TESTING ONLY: Allows the owner to set property values directly. Remove before production!
+     */
+    function setPropertyValueTest(
+        uint256 tokenId,
+        uint256 value
+    ) external onlyOwner {
+        propertyValues[tokenId] = value;
+        emit PropertyValueUpdated(tokenId, value);
     }
 }

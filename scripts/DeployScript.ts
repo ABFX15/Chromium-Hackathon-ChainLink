@@ -3,18 +3,36 @@ import "@nomicfoundation/hardhat-toolbox-viem";
 import { ethers } from "hardhat";
 
 async function main() {
-    const PropertyNFT = await ethers.getContractFactory("MyToken");
-    const propertyNFT = await PropertyNFT.deploy();
+    // 1. Deploy PropertyNFT
+    const PropertyNFT = await ethers.getContractFactory("PropertyNFT");
+    const propertyNFT = await PropertyNFT.deploy(
+        "PropertyNFT",
+        "pNFT",
+        "https://your-base-uri.com/"
+    );
     await propertyNFT.waitForDeployment();
     console.log("PropertyNFT deployed to:", await propertyNFT.getAddress());
 
+    // 2. Deploy CollateralVault
     const CollateralVault = await ethers.getContractFactory("CollateralVault");
     const collateralVault = await CollateralVault.deploy(await propertyNFT.getAddress());
     await collateralVault.waitForDeployment();
     console.log("CollateralVault deployed to:", await collateralVault.getAddress());
 
+    // 3. Deploy PropertyOracle
+    const functionsRouter = "0x6eed6a1c74bb1ea4e6cc7e0201c7ba8db6bdaba0"; // Sepolia Functions Router
+    const linkToken = "0x779877A7B0D9E8603169DdbD7836e478b4624789"; // Sepolia LINK
+    const PropertyOracle = await ethers.getContractFactory("PropertyOracle");
+    const propertyOracle = await PropertyOracle.deploy(
+        functionsRouter,
+        linkToken,
+        await collateralVault.getAddress()
+    );
+    await propertyOracle.waitForDeployment();
+    console.log("PropertyOracle deployed to:", await propertyOracle.getAddress());
 
-    const ccipRouter = "0xD0daae2231E9CB96b94C8512223533293C3693Bf";
+    // 4. Deploy LoanManager
+    const ccipRouter = "0xD0daae2231E9CB96b94C8512223533293C3693Bf"; // Sepolia CCIP Router
     const usdc = "0x4d06f916930877A66530913AF69c3890c431D892"; // Mock USDC on Sepolia
     const LoanManager = await ethers.getContractFactory("LoanManager");
     const loanManager = await LoanManager.deploy(
@@ -25,16 +43,12 @@ async function main() {
     );
     await loanManager.waitForDeployment();
     console.log("LoanManager deployed to:", await loanManager.getAddress());
+    // IMPORTANT: After deployment, update frontend/src/constants.ts with the new LoanManager address
 
-
-    const functionsRouter = "0x6eed6a1c74bb1ea4e6cc7e0201c7ba8db6bdaba0";
-    const PropertyOracle = await ethers.getContractFactory("PropertyOracle");
-    const propertyOracle = await PropertyOracle.deploy(
-        functionsRouter,
-        await collateralVault.getAddress()
-    );
-    await propertyOracle.waitForDeployment();
-    console.log("PropertyOracle deployed to:", await propertyOracle.getAddress());
+    // 5. Set Oracle and LoanManager in CollateralVault
+    await collateralVault.setOracle(await propertyOracle.getAddress());
+    await collateralVault.setLoanManager(await loanManager.getAddress());
+    console.log("CollateralVault oracle and loanManager set.");
 }
 
 main().catch((error) => {

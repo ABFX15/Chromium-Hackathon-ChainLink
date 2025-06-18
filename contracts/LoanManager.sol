@@ -56,6 +56,7 @@ contract LoanManager is AutomationCompatibleInterface, Ownable {
         uint256 startTimestamp; ///< Timestamp when loan was created
         address borrower; ///< Borrower address
         bool isActive; ///< Loan active status
+        uint256 apr; ///< Annual percentage rate (dynamic, set by AI)
     }
     /// @notice Mapping from loanId to Loan struct
     mapping(uint256 => Loan) public loans;
@@ -65,8 +66,6 @@ contract LoanManager is AutomationCompatibleInterface, Ownable {
     uint256 public constant DAYS = 365;
     /// @notice Precision for basis points calculations
     uint256 public constant PRECISION = 1e4;
-    /// @notice Base interest rate (APR, e.g., 5%)
-    uint256 public constant BASE_RATE = 5;
     /// @notice Address of the Avalanche vault for cross-chain operations
     address public avalanceVaultAddress;
     /// @notice Mapping from address to protocol yield accrued (protocol owner only)
@@ -139,6 +138,12 @@ contract LoanManager is AutomationCompatibleInterface, Ownable {
     event YieldWithdrawn(address indexed lender, uint256 amount);
 
     /**
+     * @notice Emitted for debugging purposes
+     * @param message The debug message
+     */
+    event DebugLog(string message);
+
+    /**
      * @notice Restricts function to only the borrower of a given loan
      * @param loanId The loan ID
      */
@@ -171,8 +176,10 @@ contract LoanManager is AutomationCompatibleInterface, Ownable {
      * @notice Creates a new loan and deposits the NFT as collateral.
      * @param tokenId The NFT token ID to be used as collateral.
      * @param debt The loan amount requested (before fee).
+     * @param apr The annual percentage rate for this loan (from AI risk model).
      */
-    function createLoan(uint256 tokenId, uint256 debt) external {
+    function createLoan(uint256 tokenId, uint256 debt, uint256 apr) external {
+        emit DebugLog("createLoan: start");
         if (msg.sender == address(0)) revert LoanManager__InvalidSender();
         if (nftIsCollateral[tokenId])
             revert LoanManager__NFTAlreadyCollateral();
@@ -185,13 +192,21 @@ contract LoanManager is AutomationCompatibleInterface, Ownable {
             debt: netDebt,
             startTimestamp: block.timestamp,
             borrower: msg.sender,
-            isActive: true
+            isActive: true,
+            apr: apr
         });
         nftIsCollateral[tokenId] = true;
+        emit DebugLog("createLoan: before USDC transfer");
         i_usdc.safeTransferFrom(msg.sender, address(this), fee);
+        emit DebugLog("createLoan: after USDC transfer");
         protocolYield[owner()] += fee;
         emit OriginationFeePaid(nextLoanId, fee);
+        emit DebugLog("createLoan: before NFT transfer");
+        i_nft.transferFrom(msg.sender, address(this), tokenId);
+        emit DebugLog("createLoan: after NFT transfer");
+        emit DebugLog("createLoan: before depositNFT");
         i_collateralVault.depositNFT(tokenId, nextLoanId);
+        emit DebugLog("createLoan: after depositNFT");
         emit LoanCreated(nextLoanId, tokenId, msg.sender, netDebt);
     }
 
@@ -235,10 +250,9 @@ contract LoanManager is AutomationCompatibleInterface, Ownable {
      */
     function calculateInterest(uint256 loanId) public view returns (uint256) {
         Loan memory loan = loans[loanId];
-        uint256 rate = BASE_RATE;
         uint256 elapsed = block.timestamp - loan.startTimestamp;
         // Use SECONDS_PER_YEAR for precision, and 100 for percent
-        return (loan.debt * rate * elapsed) / (SECONDS_PER_YEAR * 100);
+        return (loan.debt * loan.apr * elapsed) / (SECONDS_PER_YEAR * 100);
     }
 
     /**

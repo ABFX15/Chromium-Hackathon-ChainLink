@@ -3,7 +3,7 @@ import { privateKeyToAccount } from 'viem/accounts';
 import { sepolia } from 'viem/chains';
 
 // Replace with your deployed contract addresses and ABIs
-const PROPERTY_ORACLE_ADDRESS = '0xYourPropertyOracle';
+const PROPERTY_ORACLE_ADDRESS = '0x681E8Ca5D2E520e867Fe6f9AEC7D946EfcFed6bE';
 const propertyOracleAbi = require('./abis/PropertyOracle.json');
 
 const account = privateKeyToAccount('0xYOUR_PRIVATE_KEY');
@@ -15,7 +15,7 @@ async function main() {
     const txHash = await walletClient.writeContract({
         address: PROPERTY_ORACLE_ADDRESS,
         abi: propertyOracleAbi,
-        functionName: 'requestPropertyValue',
+        functionName: 'requestValuation',
         args: [
             1, // tokenId
             ['123 Main St', 'City', 'ST', '12345'], // args for Chainlink Functions

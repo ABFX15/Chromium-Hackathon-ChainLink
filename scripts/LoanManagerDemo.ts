@@ -1,15 +1,13 @@
-import { createPublicClient, createWalletClient, http } from 'viem';
-import { privateKeyToAccount } from 'viem/accounts';
-import { sepolia } from 'viem/chains';
 import dotenv from 'dotenv';
+import { ethers } from "hardhat";
 dotenv.config();
 
-
-const LOAN_MANAGER_ADDRESS = '0x88cc3c656e7022e99d64849738ded1CFC2630773';
-const PROPERTY_ORACLE_ADDRESS = '0xc565EB65E92f04927C329aC75Ef0cBD87a29f45f';
-const COLLATERAL_VAULT_ADDRESS = '0xFBc99667CFc0Fd6389855065F0FF017202d3b18a';
-const NFT_ADDRESS = '0x32FB31A9d36b5acAFfb03C978c1F7E194c577AF7';
+const LOAN_MANAGER_ADDRESS = '0xa06E2EC33adD56Eab0629Ba6A0C9A709822941ac';
+const PROPERTY_ORACLE_ADDRESS = '0xB778e095E88da7466005B72ceBF6e78341401a30';
+const COLLATERAL_VAULT_ADDRESS = '0xe2f72471c2D1Acc74F410a1AD481F87d77A512A7';
+const NFT_ADDRESS = '0x23d7Ae1B750e174a915A95606E64927324df3548';
 const USDC_ADDRESS = '0x4d06f916930877A66530913AF69c3890c431D892'; // Mock USDC on Sepolia
+const TOKEN_ID = 2;
 
 import loanManagerArtifact from '../artifacts/contracts/LoanManager.sol/LoanManager.json';
 const loanManagerAbi = loanManagerArtifact.abi;
@@ -17,102 +15,75 @@ import propertyOracleArtifact from '../artifacts/contracts/PropertyOracle.sol/Pr
 const propertyOracleAbi = propertyOracleArtifact.abi;
 import collateralVaultArtifact from '../artifacts/contracts/CollateralVault.sol/CollateralVault.json';
 const collateralVaultAbi = collateralVaultArtifact.abi;
-import nftArtifact from '../artifacts/contracts/PropertyNFT.sol/MyToken.json';
+import nftArtifact from '../artifacts/contracts/PropertyNFT.sol/PropertyNFT.json';
 const nftAbi = nftArtifact.abi;
-
-
-const usdcAbi = [
-    { "constant": true, "inputs": [], "name": "decimals", "outputs": [{ "name": "", "type": "uint8" }], "type": "function" },
-    { "constant": false, "inputs": [{ "name": "_spender", "type": "address" }, { "name": "_value", "type": "uint256" }], "name": "approve", "outputs": [{ "name": "", "type": "bool" }], "type": "function" },
-    { "constant": true, "inputs": [{ "name": "_owner", "type": "address" }], "name": "balanceOf", "outputs": [{ "name": "balance", "type": "uint256" }], "type": "function" },
-    { "constant": false, "inputs": [{ "name": "_to", "type": "address" }, { "name": "_value", "type": "uint256" }], "name": "transfer", "outputs": [{ "name": "", "type": "bool" }], "type": "function" },
-    { "constant": false, "inputs": [{ "name": "_from", "type": "address" }, { "name": "_to", "type": "address" }, { "name": "_value", "type": "uint256" }], "name": "transferFrom", "outputs": [{ "name": "", "type": "bool" }], "type": "function" }
-];
-
-const account = privateKeyToAccount(process.env.PRIVATE_KEY as `0x${string}`);
-console.log('Using account:', account.address);
-
-const publicClient = createPublicClient({ chain: sepolia, transport: http(process.env.SEPOLIA_RPC_URL) });
-const walletClient = createWalletClient({
-    account,
-    chain: sepolia,
-    transport: http(process.env.SEPOLIA_RPC_URL),
-});
-
-const TOKEN_ID = 2;
+import usdcArtifact from '../artifacts/contracts/MockUSDC.sol/MockUSDC.json';
+const usdcAbi = usdcArtifact.abi;
 
 async function main() {
-    // Check and print MockUSDC balance
-    const balance = await publicClient.readContract({
-        address: USDC_ADDRESS,
-        abi: usdcAbi,
-        functionName: 'balanceOf',
-        args: [account.address],
-    });
-    console.log('MockUSDC balance:', (balance as bigint).toString());
+    const [signer] = await ethers.getSigners();
+    console.log('Using account:', signer.address);
 
-    await walletClient.writeContract({
-        address: NFT_ADDRESS,
-        abi: nftAbi,
-        functionName: 'approve',
-        args: [LOAN_MANAGER_ADDRESS, TOKEN_ID],
-    });
+    // USDC Contract
+    const usdc = await ethers.getContractAt(usdcAbi, USDC_ADDRESS, signer);
+    // NFT Contract
+    const nft = await ethers.getContractAt(nftAbi, NFT_ADDRESS, signer);
+    // LoanManager Contract
+    const loanManager = await ethers.getContractAt(loanManagerAbi, LOAN_MANAGER_ADDRESS, signer);
+    // CollateralVault Contract
+    const vault = await ethers.getContractAt(collateralVaultAbi, COLLATERAL_VAULT_ADDRESS, signer);
+
+    // 1. Check and print MockUSDC balance
+    const balance = await usdc.balanceOf(signer.address);
+    console.log('MockUSDC balance:', balance.toString());
+
+    // 2. Approve LoanManager to spend USDC (origination fee)
+    const loanAmount = ethers.parseUnits("1000", 6); // Example loan amount
+    const fee = loanAmount / 100n; // 1% fee
+    const approveFeeTx = await usdc.approve(LOAN_MANAGER_ADDRESS, fee);
+    await approveFeeTx.wait();
+    console.log('USDC approved for origination fee:', fee.toString());
+
+    // 3. Approve NFT for LoanManager
+    const approveNftTx = await nft.approve(LOAN_MANAGER_ADDRESS, TOKEN_ID);
+    await approveNftTx.wait();
     console.log('NFT approved for LoanManager');
 
+    // 4. Approve USDC for LoanManager (full loan amount)
+    const approveLoanTx = await usdc.approve(LOAN_MANAGER_ADDRESS, loanAmount);
+    await approveLoanTx.wait();
+    console.log('USDC approved for LoanManager (loan amount):', loanAmount.toString());
 
-    await walletClient.writeContract({
-        address: USDC_ADDRESS,
-        abi: usdcAbi,
-        functionName: 'approve',
-        args: [LOAN_MANAGER_ADDRESS, 1_000_000n * 10n ** 6n], // Approve 1,000,000 USDC
-    });
-    console.log('USDC approved for LoanManager');
-    await walletClient.writeContract({
-        address: LOAN_MANAGER_ADDRESS,
-        abi: loanManagerAbi,
-        functionName: 'createLoan',
-        args: [TOKEN_ID, 1000n * 10n ** 6n], // tokenId, debt (e.g., 1000 USDC)
-    });
+    // 5. Create loan
+    const createLoanTx = await loanManager.createLoan(TOKEN_ID, loanAmount);
+    await createLoanTx.wait();
     console.log('Loan created');
 
-    await walletClient.writeContract({
-        address: USDC_ADDRESS,
-        abi: usdcAbi,
-        functionName: 'approve',
-        args: [LOAN_MANAGER_ADDRESS, 1100n * 10n ** 6n], // Repay principal + interest
-    });
-    await walletClient.writeContract({
-        address: LOAN_MANAGER_ADDRESS,
-        abi: loanManagerAbi,
-        functionName: 'repayLoan',
-        args: [TOKEN_ID], // loanId (assuming loanId == tokenId for demo)
-    });
+    // 6. Approve USDC for loan repayment (principal + interest)
+    const repayAmount = ethers.parseUnits("1100", 6); // Repay principal + interest
+    const approveRepayTx = await usdc.approve(LOAN_MANAGER_ADDRESS, repayAmount);
+    await approveRepayTx.wait();
+    console.log('USDC approved for loan repayment:', repayAmount.toString());
+
+    // 7. Repay loan
+    // Find the latest loanId (assuming incrementing loanId)
+    const nextLoanId = await loanManager.nextLoanId();
+    const loanId = nextLoanId.toNumber();
+    const repayTx = await loanManager.repayLoan(loanId);
+    await repayTx.wait();
     console.log('Loan repaid');
 
-    await walletClient.writeContract({
-        address: LOAN_MANAGER_ADDRESS,
-        abi: loanManagerAbi,
-        functionName: 'withdrawYield',
-        args: [],
-    });
+    // 8. Withdraw protocol yield
+    const withdrawTx = await loanManager.withdrawYield();
+    await withdrawTx.wait();
     console.log('Protocol yield withdrawn');
 
-
-    const loan = await publicClient.readContract({
-        address: LOAN_MANAGER_ADDRESS,
-        abi: loanManagerAbi,
-        functionName: 'loans',
-        args: [TOKEN_ID], // loanId
-    });
+    // 9. Read loan details
+    const loan = await loanManager.loans(loanId);
     console.log('Loan:', loan);
 
-
-    const deposit = await publicClient.readContract({
-        address: COLLATERAL_VAULT_ADDRESS,
-        abi: collateralVaultAbi,
-        functionName: 'getDepositNft',
-        args: [TOKEN_ID], // tokenId
-    });
+    // 10. Read deposit details
+    const deposit = await vault.getDeposit(TOKEN_ID);
     console.log('Deposit:', deposit);
 }
 
