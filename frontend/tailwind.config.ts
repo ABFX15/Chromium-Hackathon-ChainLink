@@ -2,7 +2,7 @@ import type { Config } from "tailwindcss";
 
 const config: Config = {
     content: [
-        "./src/pages/**/*.{js,ts,jsx,tsx,mdx}",
+        "./src/**/*.{js,ts,jsx,tsx,mdx}",
         "./src/components/**/*.{js,ts,jsx,tsx,mdx}",
         "./src/app/**/*.{js,ts,jsx,tsx,mdx}",
     ],
@@ -48,6 +48,28 @@ const config: Config = {
                 md: "calc(0.75rem - 2px)",
                 sm: "calc(0.75rem - 4px)",
             },
+            keyframes: {
+                shimmer: {
+                    '0%': { transform: 'translateX(-100%)' },
+                    '100%': { transform: 'translateX(100%)' }
+                },
+                pulse: {
+                    '0%, 100%': { opacity: '1' },
+                    '50%': { opacity: '0.5' }
+                },
+                glow: {
+                    '0%, 100%': { opacity: '0.5' },
+                    '50%': { opacity: '0.8' }
+                }
+            },
+            animation: {
+                shimmer: 'shimmer 2s infinite',
+                pulse: 'pulse 2s infinite',
+                glow: 'glow 3s infinite'
+            },
+            backgroundImage: {
+                'gradient-radial': 'radial-gradient(var(--tw-gradient-stops))',
+            }
         },
     },
     plugins: [],

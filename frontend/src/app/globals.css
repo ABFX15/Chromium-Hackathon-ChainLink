@@ -2,12 +2,45 @@
 @tailwind components;
 @tailwind utilities;
 
-body,
-.grid-bg {
-  background: #0a0f13;
-  min-height: 100vh;
-  font-family: "Fira Mono", "Menlo", "Monaco", "Consolas", monospace;
-  color: #22d3ee;
+:root {
+  --foreground-rgb: 0, 255, 255;
+  --background-rgb: 0, 0, 0;
+  --cyan: #0ff;
+  --warning: #ffd700;
+  --danger: #ff4444;
+  --success: #00ff9d;
+}
+
+* {
+  margin: 0;
+  padding: 0;
+  box-sizing: border-box;
+}
+
+body {
+  color: rgb(var(--foreground-rgb));
+  background: rgb(var(--background-rgb));
+  font-family: monospace;
+}
+
+table {
+  width: 100%;
+  border-spacing: 0;
+}
+
+td,
+th {
+  padding: 8px;
+  text-align: left;
+}
+
+a {
+  color: #a855f7;
+  text-decoration: none;
+}
+
+a:hover {
+  text-decoration: underline;
 }
 
 .grid-bg {
@@ -22,14 +55,6 @@ body,
 
 nav {
   font-family: "Fira Mono", "Menlo", "Monaco", "Consolas", monospace;
-}
-
-a {
-  color: #22d3ee;
-  text-decoration: none;
-}
-a:hover {
-  color: #67e8f9;
 }
 
 .card,
@@ -200,4 +225,210 @@ select {
     opacity: 1;
     transform: none;
   }
+}
+
+/* Custom Animations */
+@keyframes shimmer {
+  0% {
+    transform: translateX(-100%);
+  }
+  100% {
+    transform: translateX(100%);
+  }
+}
+
+@keyframes pulse {
+  0%,
+  100% {
+    opacity: 1;
+  }
+  50% {
+    opacity: 0.5;
+  }
+}
+
+@keyframes glow {
+  0%,
+  100% {
+    opacity: 0.5;
+  }
+  50% {
+    opacity: 0.8;
+  }
+}
+
+.animate-shimmer {
+  animation: shimmer 2s infinite;
+}
+
+.animate-pulse {
+  animation: pulse 2s infinite;
+}
+
+.animate-glow {
+  animation: glow 3s infinite;
+}
+
+/* Risk Indicator Styles */
+.risk-gauge {
+  position: relative;
+  height: 8px;
+  border-radius: 4px;
+  overflow: hidden;
+  background: rgba(0, 255, 255, 0.1);
+}
+
+.risk-gauge-fill {
+  position: absolute;
+  top: 0;
+  left: 0;
+  height: 100%;
+  border-radius: 4px;
+  transition: width 0.3s ease;
+}
+
+.risk-gauge-fill.warning {
+  background: #ffd700;
+}
+
+.risk-gauge-fill.danger {
+  background: #ff4444;
+}
+
+.risk-gauge-fill.success {
+  background: #00ff9d;
+}
+
+/* Glow Effects */
+.glow-effect {
+  position: relative;
+}
+
+.glow-effect::after {
+  content: "";
+  position: absolute;
+  top: 50%;
+  left: 50%;
+  width: 150%;
+  height: 150%;
+  transform: translate(-50%, -50%);
+  background: radial-gradient(
+    circle,
+    rgba(0, 255, 255, 0.2) 0%,
+    rgba(0, 255, 255, 0) 70%
+  );
+  pointer-events: none;
+  z-index: -1;
+}
+
+.glow-warning::after {
+  background: radial-gradient(
+    circle,
+    rgba(255, 215, 0, 0.2) 0%,
+    rgba(255, 215, 0, 0) 70%
+  );
+}
+
+.glow-danger::after {
+  background: radial-gradient(
+    circle,
+    rgba(255, 68, 68, 0.2) 0%,
+    rgba(255, 68, 68, 0) 70%
+  );
+}
+
+/* Card Styles */
+.dashboard-card {
+  @apply border border-[#0ff]/20 rounded-lg p-4 bg-black/30 backdrop-blur-sm;
+  position: relative;
+  overflow: hidden;
+}
+
+.dashboard-card::before {
+  content: "";
+  position: absolute;
+  inset: 0;
+  background: linear-gradient(
+    to right bottom,
+    rgba(0, 255, 255, 0.1),
+    transparent
+  );
+  pointer-events: none;
+}
+
+/* Table Styles */
+.monitoring-table {
+  @apply w-full border-collapse;
+}
+
+.monitoring-table th {
+  @apply text-left p-3 border-b border-[#0ff]/20 text-[#0ff]/60;
+}
+
+.monitoring-table td {
+  @apply p-3 border-b border-[#0ff]/10;
+}
+
+.monitoring-table tr:hover {
+  @apply bg-[#0ff]/5;
+}
+
+/* Risk Indicators */
+.risk-indicator {
+  @apply inline-flex items-center gap-2 px-2 py-1 rounded text-sm;
+}
+
+.risk-indicator.warning {
+  @apply bg-[#ffd700]/10 text-[#ffd700];
+}
+
+.risk-indicator.danger {
+  @apply bg-[#ff4444]/10 text-[#ff4444];
+}
+
+.risk-indicator.success {
+  @apply bg-[#00ff9d]/10 text-[#00ff9d];
+}
+
+/* Chart Styles */
+.recharts-wrapper {
+  @apply !text-[#0ff];
+}
+
+.recharts-cartesian-grid-horizontal line,
+.recharts-cartesian-grid-vertical line {
+  @apply !stroke-[#0ff]/10;
+}
+
+.recharts-line {
+  @apply !stroke-[#0ff];
+}
+
+.recharts-pie {
+  @apply !stroke-transparent;
+}
+
+.recharts-tooltip {
+  @apply !bg-black/90 !border !border-[#0ff]/20 !rounded-lg !shadow-lg !text-[#0ff];
+}
+
+/* Progress Bar Styles */
+.progress-bar {
+  @apply h-2 rounded-full bg-[#0ff]/10 overflow-hidden;
+}
+
+.progress-bar-fill {
+  @apply h-full transition-all duration-500 ease-in-out;
+}
+
+.progress-bar-fill.warning {
+  @apply bg-[#ffd700];
+}
+
+.progress-bar-fill.danger {
+  @apply bg-[#ff4444];
+}
+
+.progress-bar-fill.success {
+  @apply bg-[#00ff9d];
 }

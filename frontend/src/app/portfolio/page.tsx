@@ -1,37 +1,121 @@
+"use client";
+
+import { useContracts } from "../../hooks/use-contracts";
+import { usePropertyNfts } from "../../hooks/use-property-nfts";
+import { PropertyNFTCard } from "../components/PropertyNFTCard";
+import { StatsCard } from "../../components/ui/stats-card";
+import { Building2, Wallet, TrendingUp } from "lucide-react";
+import { Property } from "../../types/property";
+
 export default function PortfolioPage() {
+  const { userNFTs, userUSDCBalance } = useContracts();
+  const { propertyNfts, isLoading } = usePropertyNfts();
+
+  const totalValue =
+    propertyNfts?.reduce((sum: number, nft: Property) => sum + nft.value, 0) ||
+    0;
+  const averageValue = propertyNfts?.length
+    ? totalValue / propertyNfts.length
+    : 0;
+
   return (
-    <div>
-      <div className="text-2xl font-bold text-cyan-400 mb-4">
-        Property Portfolio
+    <div
+      style={{
+        backgroundColor: "black",
+        color: "#0ff",
+        fontFamily: "monospace",
+        padding: "20px",
+      }}
+    >
+      {/* Header */}
+      <div
+        style={{
+          display: "flex",
+          justifyContent: "space-between",
+          marginBottom: "20px",
+        }}
+      >
+        <div style={{ display: "flex", alignItems: "center", gap: "10px" }}>
+          <span>📊</span>
+          <span>My Portfolio</span>
+        </div>
       </div>
-      <div className="text-cyan-200 text-xs mb-6">
-        4 property nfts in wallet
+
+      {/* Stats Grid */}
+      <div
+        style={{
+          display: "grid",
+          gridTemplateColumns: "repeat(auto-fit, minmax(250px, 1fr))",
+          gap: "20px",
+          marginBottom: "30px",
+        }}
+      >
+        <StatsCard
+          title="Total Properties"
+          value={String(userNFTs || 0)}
+          icon={Building2}
+          description="Number of properties owned"
+        />
+        <StatsCard
+          title="Portfolio Value"
+          value={`$${totalValue.toLocaleString()}`}
+          icon={Wallet}
+          description="Total value of properties"
+        />
+        <StatsCard
+          title="Average Value"
+          value={`$${averageValue.toLocaleString()}`}
+          icon={TrendingUp}
+          description="Average property value"
+        />
       </div>
-      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-8 mb-8">
-        {[1, 2, 3, 4].map((i) => (
-          <div key={i} className="card p-4 flex flex-col items-center">
-            <img
-              src={`https://source.unsplash.com/400x300/?house,property,${i}`}
-              alt="Property"
-              className="rounded mb-4 w-full h-40 object-cover"
-            />
-            <div className="font-bold text-cyan-200 mb-1">
-              Waterfront Villa #{i}
-            </div>
-            <div className="text-xs text-cyan-400 mb-2">$500,000</div>
-            <div className="flex gap-2 text-xs">
-              <span className="bg-cyan-900/30 px-2 py-1 rounded">
-                REAL ESTATE
-              </span>
-              <span className="bg-cyan-900/30 px-2 py-1 rounded">COMMON</span>
+
+      {/* Properties Grid */}
+      <div
+        style={{
+          border: "1px solid rgba(0, 255, 255, 0.2)",
+          padding: "20px",
+          marginBottom: "20px",
+        }}
+      >
+        <div style={{ color: "#0ff", marginBottom: "20px" }}>My Properties</div>
+        {isLoading ? (
+          <div>Loading properties...</div>
+        ) : propertyNfts?.length ? (
+          <div
+            style={{
+              display: "grid",
+              gridTemplateColumns: "repeat(auto-fill, minmax(300px, 1fr))",
+              gap: "20px",
+            }}
+          >
+            {propertyNfts.map((nft: Property) => (
+              <PropertyNFTCard key={nft.tokenId} property={nft} />
+            ))}
+          </div>
+        ) : (
+          <div style={{ textAlign: "center", padding: "40px" }}>
+            <div style={{ marginBottom: "20px" }}>No properties found</div>
+            <div style={{ color: "rgba(0, 255, 255, 0.6)" }}>
+              Visit the marketplace to browse available properties
             </div>
           </div>
-        ))}
+        )}
       </div>
-      <div className="flex justify-center">
-        <button className="bg-cyan-700 hover:bg-cyan-600 text-black font-bold py-2 px-6 rounded transition-colors">
-          Mint Property NFT
-        </button>
+
+      {/* USDC Balance */}
+      <div
+        style={{
+          border: "1px solid rgba(0, 255, 255, 0.2)",
+          padding: "20px",
+        }}
+      >
+        <div style={{ color: "#0ff", marginBottom: "10px" }}>
+          Available USDC Balance
+        </div>
+        <div style={{ fontSize: "24px" }}>
+          ${Number(userUSDCBalance).toLocaleString()}
+        </div>
       </div>
     </div>
   );

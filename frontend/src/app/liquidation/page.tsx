@@ -1,39 +1,122 @@
+"use client";
+
+import { useState } from "react";
+import { useContracts } from "../../hooks/use-contracts";
+import { useLoanHealth, type LoanHealth } from "../../hooks/use-loan-health";
+
+const WARNING_THRESHOLD = 8500; // 85%
+const SOFT_LIQUIDATION_THRESHOLD = 8000; // 80%
+const HARD_LIQUIDATION_THRESHOLD = 7500; // 75%
+
 export default function LiquidationPage() {
+  const { userLoans } = useContracts();
+  const [selectedLoanId, setSelectedLoanId] = useState<number | null>(null);
+  const { health } = useLoanHealth(selectedLoanId || 0);
+
+  const loans = Array.isArray(userLoans) ? userLoans : [];
+  const atRiskLoans = loans.filter((loan) => {
+    const loanHealth = useLoanHealth(loan.loanId);
+    return (loanHealth.health?.currentLTV ?? 0) >= SOFT_LIQUIDATION_THRESHOLD;
+  });
+
   return (
-    <div>
-      <div className="text-2xl font-bold text-cyan-400 mb-4">
-        Liquidation Dashboard
+    <div
+      style={{
+        backgroundColor: "black",
+        color: "#0ff",
+        fontFamily: "monospace",
+        padding: "20px",
+      }}
+    >
+      {/* Dashboard Title */}
+      <div
+        style={{
+          display: "flex",
+          justifyContent: "space-between",
+          marginBottom: "20px",
+        }}
+      >
+        <div style={{ display: "flex", alignItems: "center", gap: "10px" }}>
+          <span>⚡</span>
+          <span>Liquidation Dashboard</span>
+        </div>
+        <div style={{ color: "#00ff00" }}>⚡Chainlink Automation Active</div>
       </div>
-      <div className="grid grid-cols-1 md:grid-cols-4 gap-6 mb-8">
-        <div className="card p-6 flex flex-col items-center">
-          <span className="text-2xl">🧮</span>
-          <span className="text-lg font-bold">3</span>
-          <span className="text-xs mt-1">Total Monitored</span>
+
+      {/* Stats Grid */}
+      <div
+        style={{
+          display: "grid",
+          gridTemplateColumns: "repeat(1, 1fr)",
+          gap: "10px",
+          marginBottom: "30px",
+        }}
+      >
+        <div
+          style={{
+            border: "1px solid rgba(0, 255, 255, 0.2)",
+            padding: "15px",
+          }}
+        >
+          <div style={{ color: "rgba(255, 255, 255, 0.6)" }}>
+            Total Monitored
+          </div>
+          <div style={{ fontSize: "24px", color: "#0ff" }}>{loans.length}</div>
         </div>
-        <div className="card p-6 flex flex-col items-center">
-          <span className="text-2xl">⚠️</span>
-          <span className="text-lg font-bold">2</span>
-          <span className="text-xs mt-1">At Risk</span>
+        <div
+          style={{
+            border: "1px solid rgba(0, 255, 255, 0.2)",
+            padding: "15px",
+          }}
+        >
+          <div style={{ color: "rgba(255, 255, 255, 0.6)" }}>At Risk</div>
+          <div style={{ fontSize: "24px", color: "#0ff" }}>
+            {atRiskLoans.length}
+          </div>
         </div>
-        <div className="card p-6 flex flex-col items-center">
-          <span className="text-2xl">⚡</span>
-          <span className="text-lg font-bold">3</span>
-          <span className="text-xs mt-1">Automated</span>
+        <div
+          style={{
+            border: "1px solid rgba(0, 255, 255, 0.2)",
+            padding: "15px",
+          }}
+        >
+          <div style={{ color: "rgba(255, 255, 255, 0.6)" }}>Automated</div>
+          <div style={{ fontSize: "24px", color: "#0ff" }}>{loans.length}</div>
         </div>
-        <div className="card p-6 flex flex-col items-center">
-          <span className="text-2xl">📉</span>
-          <span className="text-lg font-bold">80%</span>
-          <span className="text-xs mt-1">Liquidation Threshold</span>
+        <div
+          style={{
+            border: "1px solid rgba(0, 255, 255, 0.2)",
+            padding: "15px",
+          }}
+        >
+          <div style={{ color: "rgba(255, 255, 255, 0.6)" }}>
+            Liquidation Threshold
+          </div>
+          <div style={{ fontSize: "24px", color: "#0ff" }}>80%</div>
         </div>
       </div>
-      <div className="card p-6">
-        <div className="font-bold text-cyan-300 mb-4">
+
+      {/* Active Loan Monitoring */}
+      <div
+        style={{
+          border: "1px solid rgba(0, 255, 255, 0.2)",
+          padding: "20px",
+          marginBottom: "30px",
+        }}
+      >
+        <div style={{ color: "#0ff", marginBottom: "20px" }}>
           Active Loan Monitoring
         </div>
-        <table className="w-full text-cyan-200 text-xs">
+        <table
+          style={{
+            width: "100%",
+            borderCollapse: "separate",
+            borderSpacing: "0 10px",
+          }}
+        >
           <thead>
-            <tr className="border-b border-cyan-700">
-              <th className="py-2">Loan ID</th>
+            <tr style={{ color: "rgba(255, 255, 255, 0.6)" }}>
+              <th>Loan ID</th>
               <th>Borrower</th>
               <th>Property Value</th>
               <th>Debt</th>
@@ -44,24 +127,120 @@ export default function LiquidationPage() {
             </tr>
           </thead>
           <tbody>
-            {[1, 2, 3].map((i) => (
-              <tr key={i} className="border-b border-cyan-900">
-                <td className="py-2">#{i}</td>
-                <td>0x742d...E5C2</td>
-                <td>$750,000</td>
-                <td>$487,500</td>
-                <td>65%</td>
-                <td>1.23</td>
-                <td>
-                  <span className="bg-yellow-900/30 px-2 py-1 rounded">
-                    Warning
-                  </span>
-                </td>
-                <td>2.3 hours</td>
-              </tr>
-            ))}
+            {loans.map((loan) => {
+              const { health } = useLoanHealth(loan.loanId);
+              const ltv = health?.currentLTV || 0;
+              const healthFactor = health?.healthFactor || 0;
+              const riskLevel = health?.riskLevel || "LOADING";
+              const timeToLiquidation = health?.timeToLiquidation;
+
+              return (
+                <tr
+                  key={loan.loanId}
+                  style={{ borderBottom: "1px solid rgba(0, 255, 255, 0.1)" }}
+                >
+                  <td style={{ color: "#0ff" }}>#{loan.loanId}</td>
+                  <td>
+                    {loan.borrower.slice(0, 6)}...{loan.borrower.slice(-4)}
+                  </td>
+                  <td style={{ color: "#0ff" }}>
+                    ${Number(loan.principalAmount).toLocaleString()}
+                  </td>
+                  <td style={{ color: "#0ff" }}>
+                    $
+                    {(
+                      Number(loan.principalAmount) *
+                      (1 + loan.interestRate / 10000)
+                    ).toLocaleString()}
+                  </td>
+                  <td
+                    style={{
+                      color:
+                        ltv >= 80
+                          ? "#ff4444"
+                          : ltv >= 75
+                          ? "#ffd700"
+                          : "#00ff00",
+                    }}
+                  >
+                    {ltv.toFixed(2)}%
+                  </td>
+                  <td
+                    style={{
+                      color:
+                        healthFactor < 1
+                          ? "#ff4444"
+                          : healthFactor < 1.2
+                          ? "#ffd700"
+                          : "#00ff00",
+                    }}
+                  >
+                    {healthFactor.toFixed(2)}
+                  </td>
+                  <td
+                    style={{
+                      color:
+                        riskLevel === "HARD_LIQUIDATION"
+                          ? "#ff4444"
+                          : riskLevel === "SOFT_LIQUIDATION"
+                          ? "#ffd700"
+                          : riskLevel === "WARNING"
+                          ? "#ffd700"
+                          : "#00ff00",
+                    }}
+                  >
+                    {riskLevel}
+                  </td>
+                  <td>
+                    {timeToLiquidation
+                      ? timeToLiquidation < 1
+                        ? "⏲ < 1 hour"
+                        : `⏲ ${timeToLiquidation.toFixed(1)} hours`
+                      : "⏲ > 1 week"}
+                  </td>
+                </tr>
+              );
+            })}
           </tbody>
         </table>
+      </div>
+
+      {/* Automation Performance */}
+      <div
+        style={{ border: "1px solid rgba(0, 255, 255, 0.2)", padding: "20px" }}
+      >
+        <div style={{ color: "#0ff", marginBottom: "20px" }}>
+          Automation Performance
+        </div>
+        <div
+          style={{
+            display: "flex",
+            justifyContent: "center",
+            alignItems: "center",
+            flexDirection: "column",
+            gap: "30px",
+          }}
+        >
+          <div style={{ textAlign: "center" }}>
+            <div style={{ fontSize: "36px", color: "#00ff00" }}>⚡</div>
+            <div style={{ fontSize: "36px", color: "#00ff00" }}>99.9%</div>
+            <div style={{ color: "rgba(255, 255, 255, 0.6)" }}>Uptime</div>
+          </div>
+          <div style={{ textAlign: "center" }}>
+            <div style={{ fontSize: "36px", color: "#0ff" }}>◎</div>
+            <div style={{ fontSize: "36px", color: "#0ff" }}>0.002</div>
+            <div style={{ color: "rgba(255, 255, 255, 0.6)" }}>
+              ETH Gas Used
+            </div>
+          </div>
+          <div style={{ textAlign: "center" }}>
+            <div style={{ fontSize: "36px", color: "#0ff" }}>⏲</div>
+            <div style={{ fontSize: "36px", color: "#0ff" }}>12</div>
+            <div style={{ color: "rgba(255, 255, 255, 0.6)" }}>
+              Liquidations Prevented
+            </div>
+          </div>
+        </div>
       </div>
     </div>
   );

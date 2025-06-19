@@ -10,14 +10,20 @@ export interface PropertyRiskData {
     yearBuilt: number
     squareFootage: number
     loanAmount: number
+    borrowerCreditScore?: number
+    debtToIncomeRatio?: number
+    marketTrends?: string
 }
 
 export interface RiskAssessment {
     riskScore: number // 0-100
     confidence: number // 0-100
     factors: string[]
-    recommendation: string
+    recommendations: string[]
     apr: number // Annual Percentage Rate
+    riskCategory: 'low' | 'medium' | 'high'
+    suggestedInterestRate: number
+    maxLTV: number
 }
 
 export interface MarketInsights {
@@ -38,8 +44,11 @@ export async function assessPropertyRisk(propertyData: PropertyRiskData): Promis
         riskScore,
         confidence: 85,
         factors: ['Location risk', 'Market volatility', 'Property condition'],
-        recommendation: riskScore > 70 ? 'High risk - consider higher collateral' : 'Standard risk profile',
-        apr
+        recommendations: riskScore > 70 ? ['High risk - consider higher collateral'] : ['Standard risk profile'],
+        apr,
+        riskCategory: riskScore > 70 ? 'high' : riskScore > 40 ? 'medium' : 'low',
+        suggestedInterestRate: apr,
+        maxLTV: 100 - (riskScore * 0.3)
     }
 }
 
