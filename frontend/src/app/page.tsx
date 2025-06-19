@@ -1,723 +1,360 @@
 "use client";
-import { useAccount } from "wagmi";
 import { useState, useEffect } from "react";
-import { useContracts } from "./hooks/useContracts";
+import { useAccount } from "wagmi";
+import { useContracts } from "../hooks/use-contracts";
+import { useProperties } from "../hooks/use-properties";
+import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { Button } from "@/components/ui/button";
+import Image from "next/image";
+import {
+  Building2,
+  Wallet,
+  TrendingUp,
+  Brain,
+  Activity,
+  Plus,
+  Eye,
+  ArrowUpRight,
+  ArrowDownRight,
+  Sparkles,
+  Shield,
+  Zap,
+  ImageIcon,
+} from "lucide-react";
+import { Marketplace } from "../components/Marketplace";
 
-function getRandomTip() {
-  const tips = [
-    "Tip: Diversify your NFT portfolio for better risk management!",
-    "AI Insight: Properties in trending locations have higher loan approval rates.",
-    "Did you know? You can mint demo NFTs for testing anytime.",
-    "Pro move: Monitor your health factor to avoid liquidation.",
-    "AI: Your portfolio risk is recalculated every hour for your safety!",
-    "Cross-chain: Add liquidity to multiple chains for better yields!",
-    "Oracle: Property values are updated in real-time via Chainlink!",
-  ];
-  return tips[Math.floor(Math.random() * tips.length)];
-}
+// Fallback image for properties without photos
+const FALLBACK_IMAGE = "/properties/property-placeholder.jpg";
 
 export default function Home() {
-  const { address, isConnected, isConnecting } = useAccount();
-  const [tip, setTip] = useState("");
-  const [riskScore, setRiskScore] = useState(0);
-  const [animValue, setAnimValue] = useState(0);
-  const [selectedNFT, setSelectedNFT] = useState<number | null>(null);
-  const [loanAmount, setLoanAmount] = useState("");
-  const [assetType, setAssetType] = useState(0);
+  const { address, isConnected } = useAccount();
   const [mounted, setMounted] = useState(false);
-  const [selectedChain, setSelectedChain] = useState(12532609583862916517n); // Avalanche Fuji
-  const [liquidityAmount, setLiquidityAmount] = useState("");
-  const [propertyValue, setPropertyValueInput] = useState("");
-  const [selectedLoanForRisk, setSelectedLoanForRisk] = useState<number | null>(
-    null
-  );
+  const [selectedTab, setSelectedTab] = useState("overview");
+  const [isLoading, setIsLoading] = useState(false);
+  const {
+    properties,
+    isLoading: propertiesLoading,
+    loadMore,
+  } = useProperties();
 
   const {
     userNFTs,
     userLoans,
-    lenderPositions,
-    chainLiquidity,
-    aiRiskScores,
-    loading,
-    nextLoanId,
     userUSDCBalance,
     protocolYield,
-    minting,
-    approving,
-    depositing,
-    funding,
-    repaying,
-    requestingValuation,
-    addingLiquidity,
-    withdrawingYield,
-    mintSuccess,
-    approveSuccess,
-    depositSuccess,
-    fundSuccess,
-    repaySuccess,
-    valuationSuccess,
-    liquiditySuccess,
-    withdrawSuccess,
-    mintPropertyNFT,
-    approveNFTForLoan,
+    aiRiskScores,
     createLoan,
-    fundLoanCrossChain,
-    repayLoanAmount,
-    approveUSDCForLoan,
-    requestAIRiskScore,
-    updateAIRiskScore,
-    requestPropertyValuation,
-    addChainLiquidity,
-    withdrawChainLiquidity,
-    withdrawProtocolYield,
-    setPropertyValue,
-    calculateCurrentDebt,
-    getLoanDetails,
-    getAIRiskScore,
-    ASSET_TYPES,
-    LOAN_CONSTANTS,
-    CHAINLINK_FUNCTIONS_ROUTER,
-    CHAINLINK_LINK_TOKEN,
-    CHAINLINK_CCIP_ROUTER,
+    addLiquidity,
+    withdrawYield,
   } = useContracts();
 
-  // Handle hydration
   useEffect(() => {
     setMounted(true);
   }, []);
 
-  // Animate portfolio value
-  useEffect(() => {
-    if (!mounted) return;
-
-    let start = 0;
-    const end = 2600000;
-    if (animValue < end) {
-      const interval = setInterval(() => {
-        setAnimValue((v) => (v + 50000 > end ? end : v + 50000));
-      }, 30);
-      return () => clearInterval(interval);
-    }
-  }, [animValue, mounted]);
-
-  // Animate risk score
-  useEffect(() => {
-    if (!mounted) return;
-
-    let i = 0;
-    const target = 72;
-    const interval = setInterval(() => {
-      setRiskScore((v) => (v < target ? v + 2 : target));
-      i++;
-      if (i > target / 2) clearInterval(interval);
-    }, 25);
-    return () => clearInterval(interval);
-  }, [mounted]);
-
-  useEffect(() => {
-    setTip(getRandomTip());
-  }, []);
-
-  const handleMintNFT = async () => {
-    const tokenId = userNFTs.length + 1;
-    const uri = `https://ipfs.io/ipfs/QmDemo${tokenId}`;
-    await mintPropertyNFT(tokenId, uri);
-  };
-
-  const handleCreateLoan = async () => {
-    if (!selectedNFT || !loanAmount) return;
-
-    // First approve the NFT
-    await approveNFTForLoan(selectedNFT);
-
-    // Then create the loan
-    const amount = parseFloat(loanAmount) * 1e6; // Convert to USDC decimals
-    await createLoan(selectedNFT, amount, assetType);
-  };
-
-  const handleFundLoan = async () => {
-    if (!nextLoanId) return;
-    await fundLoanCrossChain(nextLoanId - 1); // Use the last created loan
-  };
-
-  const handleRepayLoan = async () => {
-    if (!nextLoanId) return;
-    await repayLoanAmount(nextLoanId - 1); // Use the last created loan
-  };
-
-  const handleRequestAIRiskScore = async () => {
-    if (!selectedLoanForRisk) return;
-    await requestAIRiskScore(selectedLoanForRisk);
-  };
-
-  const handleRequestPropertyValuation = async () => {
-    if (!selectedNFT) return;
-    await requestPropertyValuation(selectedNFT);
-  };
-
-  const handleAddChainLiquidity = async () => {
-    if (!liquidityAmount) return;
-    const amount = parseFloat(liquidityAmount) * 1e6; // Convert to USDC decimals
-    await addChainLiquidity(Number(selectedChain), amount);
-  };
-
-  const handleWithdrawProtocolYield = async () => {
-    await withdrawProtocolYield();
-  };
-
-  const handleSetPropertyValue = async () => {
-    if (!selectedNFT || !propertyValue) return;
-    const value = parseFloat(propertyValue) * 1e6; // Convert to USDC decimals
-    await setPropertyValue(selectedNFT, value);
-  };
-
-  // Show loading state during hydration
-  if (!mounted) {
-    return (
-      <div className="flex flex-col items-center justify-center h-[60vh]">
-        <div className="text-3xl font-bold text-cyan-400 mb-4">
-          Loading ORACLEND...
-        </div>
-        <div className="text-cyan-200">
-          Please wait while we connect to your wallet.
-        </div>
-      </div>
-    );
-  }
+  if (!mounted) return null;
 
   if (!isConnected) {
     return (
-      <div className="flex flex-col items-center justify-center h-[60vh]">
-        <div className="text-3xl font-bold text-cyan-400 mb-4">
-          Welcome to ORACLEND
-        </div>
-        <div className="text-cyan-200 mb-6">
-          Connect your wallet to view your dashboard.
-        </div>
-        <div className="bg-cyan-900/30 p-6 rounded-lg border border-cyan-700 text-cyan-300">
-          🔑 Please connect your wallet using the button in the top right.
+      <div className="min-h-screen bg-[#000000] text-white">
+        <div className="absolute inset-0 bg-gradient-to-b from-[#000000] via-[#0c1620] to-[#000000] opacity-80"></div>
+        <div className="absolute inset-0 bg-[url('data:image/svg+xml;base64,PHN2ZyB3aWR0aD0iNjAiIGhlaWdodD0iNjAiIHZpZXdCb3g9IjAgMCA2MCA2MCIgeG1sbnM9Imh0dHA6Ly93d3cudzMub3JnLzIwMDAvc3ZnIj48ZyBmaWxsPSJub25lIiBmaWxsLXJ1bGU9ImV2ZW5vZGQiPjxnIGZpbGw9IiMwZjY2ZmYiIGZpbGwtb3BhY2l0eT0iMC4xIj48Y2lyY2xlIGN4PSIzMCIgY3k9IjMwIiByPSIyIi8+PC9nPjwvZz48L3N2Zz4=')] opacity-20"></div>
+
+        <div className="relative z-10 flex items-center justify-center min-h-screen p-8">
+          <div className="text-center max-w-2xl">
+            <div className="mb-8">
+              <div className="inline-flex items-center justify-center w-20 h-20 bg-gradient-to-r from-[#0ff] to-[#2d6dff] rounded-full mb-6 shadow-[0_0_30px_rgba(45,109,255,0.5)]">
+                <Building2 className="w-10 h-10 text-white" />
+              </div>
+              <h1 className="text-6xl font-bold mb-4 bg-gradient-to-r from-[#0ff] via-[#2d6dff] to-[#0ff] text-transparent bg-clip-text">
+                Private Credit Vault
+              </h1>
+              <p className="text-xl text-[#88ccff] mb-8 leading-relaxed">
+                Connect your wallet to access the next-generation decentralized
+                lending platform
+              </p>
+            </div>
+
+            <div className="grid grid-cols-1 md:grid-cols-3 gap-6 mb-12">
+              <div className="p-6 bg-[#0f1c2e]/30 backdrop-blur-sm rounded-xl border border-[#2d6dff]/30 shadow-[0_0_15px_rgba(45,109,255,0.1)]">
+                <Shield className="w-8 h-8 text-[#0ff] mb-3" />
+                <h3 className="text-lg font-semibold mb-2">Secure Lending</h3>
+                <p className="text-[#88ccff] text-sm">
+                  AI-powered risk assessment with real-time collateral
+                  monitoring
+                </p>
+              </div>
+              <div className="p-6 bg-[#0f1c2e]/30 backdrop-blur-sm rounded-xl border border-[#2d6dff]/30 shadow-[0_0_15px_rgba(45,109,255,0.1)]">
+                <Zap className="w-8 h-8 text-[#0ff] mb-3" />
+                <h3 className="text-lg font-semibold mb-2">Cross-Chain</h3>
+                <p className="text-[#88ccff] text-sm">
+                  Seamless liquidity across multiple blockchain networks
+                </p>
+              </div>
+              <div className="p-6 bg-[#0f1c2e]/30 backdrop-blur-sm rounded-xl border border-[#2d6dff]/30 shadow-[0_0_15px_rgba(45,109,255,0.1)]">
+                <Sparkles className="w-8 h-8 text-[#0ff] mb-3" />
+                <h3 className="text-lg font-semibold mb-2">Smart Yield</h3>
+                <p className="text-[#88ccff] text-sm">
+                  Optimized returns through intelligent protocol management
+                </p>
+              </div>
+            </div>
+          </div>
         </div>
       </div>
     );
   }
 
+  const handleAction = async (action: string) => {
+    setIsLoading(true);
+    try {
+      switch (action) {
+        case "createLoan":
+          await createLoan("1", "1000000");
+          break;
+        case "addLiquidity":
+          await addLiquidity("500000");
+          break;
+        case "withdrawYield":
+          await withdrawYield();
+          break;
+      }
+    } catch (error) {
+      console.error("Action failed:", error);
+    } finally {
+      setIsLoading(false);
+    }
+  };
+
   return (
-    <div>
-      {/* Wallet Info */}
-      <div className="flex items-center gap-6 mb-8">
-        <div className="flex items-center gap-3 bg-cyan-900/30 px-4 py-2 rounded-lg border border-cyan-700">
-          <span className="w-8 h-8 rounded-full bg-cyan-700 flex items-center justify-center text-black font-bold text-lg">
-            {address?.slice(2, 4).toUpperCase()}
-          </span>
-          <span className="font-mono text-cyan-200">
-            {address?.slice(0, 6)}...{address?.slice(-4)}
-          </span>
-          <button
-            className="ml-2 text-xs text-cyan-400 hover:text-cyan-200"
-            onClick={() => navigator.clipboard.writeText(address || "")}
-          >
-            Copy
-          </button>
-        </div>
-        <div className="flex items-center gap-2 bg-cyan-900/30 px-4 py-2 rounded-lg border border-cyan-700 animate-pulse">
-          <span className="text-cyan-400 font-bold">AI Risk Score:</span>
-          <span className="text-cyan-200 text-lg font-mono">{riskScore}</span>
-          <span className="text-xs text-cyan-400">/ 100</span>
-        </div>
-        <div className="flex items-center gap-2 bg-cyan-900/30 px-4 py-2 rounded-lg border border-cyan-700">
-          <span className="text-cyan-400 font-bold">USDC:</span>
-          <span className="text-cyan-200 text-lg font-mono">
-            ${(userUSDCBalance / 1e6).toFixed(2)}
-          </span>
-        </div>
-        <div className="flex items-center gap-2 bg-cyan-900/30 px-4 py-2 rounded-lg border border-cyan-700">
-          <span className="text-cyan-400 font-bold">Yield:</span>
-          <span className="text-cyan-200 text-lg font-mono">
-            ${(protocolYield / 1e6).toFixed(2)}
-          </span>
-        </div>
-      </div>
+    <div className="min-h-screen bg-[#000000] text-white">
+      <div className="absolute inset-0 bg-gradient-to-b from-[#000000] via-[#0c1620] to-[#000000] opacity-80"></div>
+      <div className="absolute inset-0 bg-[url('data:image/svg+xml;base64,PHN2ZyB3aWR0aD0iNjAiIGhlaWdodD0iNjAiIHZpZXdCb3g9IjAgMCA2MCA2MCIgeG1sbnM9Imh0dHA6Ly93d3cudzMub3JnLzIwMDAvc3ZnIj48ZyBmaWxsPSJub25lIiBmaWxsLXJ1bGU9ImV2ZW5vZGQiPjxnIGZpbGw9IiMwZjY2ZmYiIGZpbGwtb3BhY2l0eT0iMC4xIj48Y2lyY2xlIGN4PSIzMCIgY3k9IjMwIiByPSIyIi8+PC9nPjwvZz48L3N2Zz4=')] opacity-20"></div>
 
-      {/* Portfolio Value */}
-      <div className="mb-8">
-        <div className="text-4xl font-bold text-cyan-300 mb-2 flex items-center gap-3">
-          <span className="animate-glow">${animValue.toLocaleString()}</span>
-          <span className="text-lg text-cyan-500">Total Portfolio Value</span>
-        </div>
-        <div className="w-full h-2 bg-cyan-900/30 rounded-full overflow-hidden">
-          <div
-            className="h-full bg-cyan-400 animate-pulse"
-            style={{ width: `${riskScore}%` }}
-          />
-        </div>
-      </div>
-
-      {/* NFT Gallery */}
-      <div className="mb-8">
-        <div className="text-xl font-bold text-cyan-400 mb-2 flex items-center justify-between">
-          <span>NFT Gallery</span>
-          <button
-            onClick={handleMintNFT}
-            disabled={minting}
-            className="bg-cyan-700 hover:bg-cyan-600 disabled:bg-cyan-800 text-black font-bold py-2 px-4 rounded transition-colors"
-          >
-            {minting ? "Minting..." : "Mint New NFT"}
-          </button>
-        </div>
-        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
-          {userNFTs.map((nft) => (
-            <div
-              key={nft.tokenId}
-              className={`card p-4 flex flex-col items-center animate-fade-in cursor-pointer transition-all ${
-                selectedNFT === nft.tokenId ? "ring-2 ring-cyan-400" : ""
-              }`}
-              onClick={() => setSelectedNFT(nft.tokenId)}
-            >
-              <img
-                src={`https://source.unsplash.com/400x300/?house,property,${nft.tokenId}`}
-                alt="Property"
-                className="rounded mb-4 w-full h-32 object-cover"
-              />
-              <div className="font-bold text-cyan-200 mb-1">
-                Waterfront Villa #{nft.tokenId}
-              </div>
-              <div className="text-xs text-cyan-400 mb-2">
-                ${nft.value?.toLocaleString() || "500,000"}
-              </div>
-              <div className="flex gap-2 text-xs">
-                <span className="bg-cyan-900/30 px-2 py-1 rounded">
-                  REAL ESTATE
-                </span>
-                <span className="bg-cyan-900/30 px-2 py-1 rounded">COMMON</span>
-              </div>
-            </div>
-          ))}
-        </div>
-      </div>
-
-      {/* AI Risk Management */}
-      <div className="mb-8">
-        <div className="text-xl font-bold text-cyan-400 mb-4">
-          AI Risk Management
-        </div>
-        <div className="card p-6">
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mb-4">
-            <div>
-              <label className="block text-cyan-200 text-sm mb-2">
-                Select Loan for Risk Assessment
-              </label>
-              <select
-                value={selectedLoanForRisk || ""}
-                onChange={(e) =>
-                  setSelectedLoanForRisk(Number(e.target.value) || null)
-                }
-                className="w-full bg-cyan-900/30 border border-cyan-700 rounded px-3 py-2 text-cyan-200"
-              >
-                <option value="">Select a loan...</option>
-                {userLoans.map((loan) => (
-                  <option key={Number(loan.loanId)} value={Number(loan.loanId)}>
-                    Loan #{Number(loan.loanId)} - $
-                    {Number(loan.principalAmount) / 1e6}
-                  </option>
-                ))}
-              </select>
-            </div>
-            <div className="flex items-end">
-              <button
-                onClick={handleRequestAIRiskScore}
-                disabled={requestingValuation || !selectedLoanForRisk}
-                className="bg-purple-700 hover:bg-purple-600 disabled:bg-purple-800 text-black font-bold py-2 px-4 rounded transition-colors"
-              >
-                {requestingValuation
-                  ? "Requesting..."
-                  : "Request AI Risk Score"}
-              </button>
-            </div>
-          </div>
-
-          {/* AI Risk Scores Display */}
-          {aiRiskScores.length > 0 && (
-            <div className="mt-4">
-              <h4 className="text-cyan-300 font-bold mb-2">
-                Current Risk Scores
-              </h4>
-              <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-                {aiRiskScores.map((score) => (
-                  <div
-                    key={score.loanId}
-                    className="bg-cyan-900/20 p-3 rounded border border-cyan-700"
-                  >
-                    <div className="text-cyan-200 font-bold">
-                      Loan #{score.loanId}
-                    </div>
-                    <div className="text-cyan-400 text-sm">
-                      Risk: {score.riskScore}/100
-                    </div>
-                    <div className="text-cyan-400 text-sm">
-                      Rate: {score.interestRate / 100}%
-                    </div>
-                    <div className="text-cyan-400 text-sm">
-                      Volatility: {score.volatilityScore}/100
-                    </div>
-                  </div>
-                ))}
-              </div>
-            </div>
-          )}
-        </div>
-      </div>
-
-      {/* Property Valuation */}
-      <div className="mb-8">
-        <div className="text-xl font-bold text-cyan-400 mb-4">
-          Property Valuation
-        </div>
-        <div className="card p-6">
-          <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mb-4">
-            <div>
-              <label className="block text-cyan-200 text-sm mb-2">
-                Selected NFT
-              </label>
-              <div className="text-cyan-400 font-mono">
-                #{selectedNFT || "None"}
-              </div>
-            </div>
-            <div>
-              <label className="block text-cyan-200 text-sm mb-2">
-                Property Value (USD)
-              </label>
-              <input
-                type="number"
-                value={propertyValue}
-                onChange={(e) => setPropertyValueInput(e.target.value)}
-                placeholder="500000"
-                className="w-full bg-cyan-900/30 border border-cyan-700 rounded px-3 py-2 text-cyan-200"
-              />
-            </div>
-            <div className="flex items-end gap-2">
-              <button
-                onClick={handleRequestPropertyValuation}
-                disabled={requestingValuation || !selectedNFT}
-                className="bg-blue-700 hover:bg-blue-600 disabled:bg-blue-800 text-black font-bold py-2 px-4 rounded transition-colors"
-              >
-                {requestingValuation ? "Requesting..." : "Request Valuation"}
-              </button>
-              <button
-                onClick={handleSetPropertyValue}
-                disabled={!selectedNFT || !propertyValue}
-                className="bg-green-700 hover:bg-green-600 disabled:bg-green-800 text-black font-bold py-2 px-4 rounded transition-colors"
-              >
-                Set Value
-              </button>
-            </div>
-          </div>
-        </div>
-      </div>
-
-      {/* Cross-Chain Liquidity */}
-      <div className="mb-8">
-        <div className="text-xl font-bold text-cyan-400 mb-4">
-          Cross-Chain Liquidity
-        </div>
-        <div className="card p-6">
-          <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mb-4">
-            <div>
-              <label className="block text-cyan-200 text-sm mb-2">
-                Target Chain
-              </label>
-              <select
-                value={selectedChain.toString()}
-                onChange={(e) => setSelectedChain(BigInt(e.target.value))}
-                className="w-full bg-cyan-900/30 border border-cyan-700 rounded px-3 py-2 text-cyan-200"
-              >
-                <option value="12532609583862916517">Avalanche Fuji</option>
-                <option value="16015286601757825753">Polygon Mumbai</option>
-                <option value="12532609583862916518">Arbitrum Sepolia</option>
-              </select>
-            </div>
-            <div>
-              <label className="block text-cyan-200 text-sm mb-2">
-                Liquidity Amount (USDC)
-              </label>
-              <input
-                type="number"
-                value={liquidityAmount}
-                onChange={(e) => setLiquidityAmount(e.target.value)}
-                placeholder="10000"
-                className="w-full bg-cyan-900/30 border border-cyan-700 rounded px-3 py-2 text-cyan-200"
-              />
-            </div>
-            <div className="flex items-end">
-              <button
-                onClick={handleAddChainLiquidity}
-                disabled={addingLiquidity || !liquidityAmount}
-                className="bg-orange-700 hover:bg-orange-600 disabled:bg-orange-800 text-black font-bold py-2 px-4 rounded transition-colors"
-              >
-                {addingLiquidity ? "Adding..." : "Add Liquidity"}
-              </button>
-            </div>
-          </div>
-
-          {/* Chain Liquidity Display */}
-          {chainLiquidity.length > 0 && (
-            <div className="mt-4">
-              <h4 className="text-cyan-300 font-bold mb-2">
-                Current Liquidity Positions
-              </h4>
-              <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-                {chainLiquidity.map((liquidity, index) => (
-                  <div
-                    key={index}
-                    className="bg-cyan-900/20 p-3 rounded border border-cyan-700"
-                  >
-                    <div className="text-cyan-200 font-bold">
-                      Chain {liquidity.chainSelector.toString()}
-                    </div>
-                    <div className="text-cyan-400 text-sm">
-                      Total: ${Number(liquidity.totalLiquidity) / 1e6}
-                    </div>
-                    <div className="text-cyan-400 text-sm">
-                      Available: ${Number(liquidity.availableLiquidity) / 1e6}
-                    </div>
-                    <div className="text-cyan-400 text-sm">
-                      Utilization: {Number(liquidity.utilizationRate) / 100}%
-                    </div>
-                  </div>
-                ))}
-              </div>
-            </div>
-          )}
-        </div>
-      </div>
-
-      {/* Loan Creation */}
-      {selectedNFT && (
-        <div className="mb-8">
-          <div className="text-xl font-bold text-cyan-400 mb-4">
-            Create Loan
-          </div>
-          <div className="card p-6">
-            <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mb-4">
+      <div className="relative z-10 p-4 md:p-6 lg:p-8">
+        <div className="max-w-[1400px] mx-auto">
+          {/* Header */}
+          <div className="mb-6">
+            <div className="flex items-center justify-between mb-4">
               <div>
-                <label className="block text-cyan-200 text-sm mb-2">
-                  Selected NFT
-                </label>
-                <div className="text-cyan-400 font-mono">#{selectedNFT}</div>
+                <h1 className="text-3xl md:text-4xl font-bold bg-gradient-to-r from-[#0ff] to-[#2d6dff] text-transparent bg-clip-text">
+                  Dashboard
+                </h1>
+                <p className="text-[#88ccff] mt-1">
+                  Welcome back, {address?.slice(0, 6)}...{address?.slice(-4)}
+                </p>
               </div>
-              <div>
-                <label className="block text-cyan-200 text-sm mb-2">
-                  Loan Amount (USDC)
-                </label>
-                <input
-                  type="number"
-                  value={loanAmount}
-                  onChange={(e) => setLoanAmount(e.target.value)}
-                  placeholder="100000"
-                  className="w-full bg-cyan-900/30 border border-cyan-700 rounded px-3 py-2 text-cyan-200"
-                />
+              <div className="flex items-center gap-4">
+                <div className="flex items-center gap-2 px-3 py-1.5 bg-[#0ff]/10 border border-[#0ff]/30 rounded-full">
+                  <div className="w-2 h-2 bg-[#0ff] rounded-full animate-pulse"></div>
+                  <span className="text-[#0ff] text-sm">Connected</span>
+                </div>
               </div>
-              <div>
-                <label className="block text-cyan-200 text-sm mb-2">
-                  Asset Type
-                </label>
-                <select
-                  value={assetType}
-                  onChange={(e) => setAssetType(Number(e.target.value))}
-                  className="w-full bg-cyan-900/30 border border-cyan-700 rounded px-3 py-2 text-cyan-200"
+            </div>
+
+            {/* Tab Navigation */}
+            <div className="flex space-x-1 bg-[#0f1c2e]/30 backdrop-blur-sm rounded-lg p-1 border border-[#2d6dff]/30">
+              {["overview", "portfolio", "loans", "analytics"].map((tab) => (
+                <button
+                  key={tab}
+                  onClick={() => setSelectedTab(tab)}
+                  className={`px-3 py-1.5 rounded-md text-sm font-medium transition-all duration-200 ${
+                    selectedTab === tab
+                      ? "bg-gradient-to-r from-[#0ff] to-[#2d6dff] text-white shadow-[0_0_15px_rgba(45,109,255,0.3)]"
+                      : "text-[#88ccff] hover:text-white hover:bg-white/5"
+                  }`}
                 >
-                  <option value={ASSET_TYPES.REAL_ESTATE}>Real Estate</option>
-                  <option value={ASSET_TYPES.ART}>Art</option>
-                  <option value={ASSET_TYPES.INVOICE}>Invoice</option>
-                </select>
-              </div>
-            </div>
-            <div className="flex gap-4">
-              <button
-                onClick={handleCreateLoan}
-                disabled={approving || depositing || !loanAmount}
-                className="bg-cyan-700 hover:bg-cyan-600 disabled:bg-cyan-800 text-black font-bold py-2 px-6 rounded transition-colors"
-              >
-                {approving
-                  ? "Approving..."
-                  : depositing
-                  ? "Creating Loan..."
-                  : "Create Loan"}
-              </button>
-              <button
-                onClick={handleFundLoan}
-                disabled={funding || !nextLoanId}
-                className="bg-green-700 hover:bg-green-600 disabled:bg-green-800 text-black font-bold py-2 px-6 rounded transition-colors"
-              >
-                {funding ? "Funding..." : "Fund Loan"}
-              </button>
-              <button
-                onClick={handleRepayLoan}
-                disabled={repaying || !nextLoanId}
-                className="bg-blue-700 hover:bg-blue-600 disabled:bg-blue-800 text-black font-bold py-2 px-6 rounded transition-colors"
-              >
-                {repaying ? "Repaying..." : "Repay Loan"}
-              </button>
+                  {tab.charAt(0).toUpperCase() + tab.slice(1)}
+                </button>
+              ))}
             </div>
           </div>
-        </div>
-      )}
 
-      {/* Active Loans */}
-      <div className="mb-8">
-        <div className="text-xl font-bold text-cyan-400 mb-2">Active Loans</div>
-        <div className="card p-4">
-          {userLoans.length > 0 ? (
-            userLoans.map((loan) => (
-              <div
-                key={Number(loan.loanId)}
-                className="flex items-center gap-8 mb-4"
-              >
-                <div className="text-cyan-200 font-bold">
-                  Loan #{Number(loan.loanId)}
+          {/* Stats Grid */}
+          <div className="grid grid-cols-2 lg:grid-cols-4 gap-4 mb-6">
+            <Card className="group bg-[#0f1c2e]/30 border-[#2d6dff]/30 backdrop-blur-sm hover:border-[#0ff]/50 transition-all duration-300 hover:scale-105 shadow-[0_0_15px_rgba(45,109,255,0.1)]">
+              <CardHeader className="flex flex-row items-center justify-between pb-2">
+                <CardTitle className="text-sm font-medium text-[#0ff]">
+                  Portfolio Value
+                </CardTitle>
+                <Wallet className="h-4 w-4 text-[#0ff] group-hover:scale-110 transition-transform" />
+              </CardHeader>
+              <CardContent>
+                <div className="text-2xl font-bold text-white">
+                  $
+                  {userUSDCBalance
+                    ? (Number(userUSDCBalance) / 1e6).toLocaleString()
+                    : "0.00"}
                 </div>
-                <div className="text-cyan-400">
-                  ${Number(loan.principalAmount) / 1e6} borrowed
+                <div className="flex items-center gap-1 mt-2">
+                  <ArrowUpRight className="w-4 h-4 text-[#0ff]" />
+                  <span className="text-[#0ff] text-sm">+12.5%</span>
                 </div>
-                <div className="text-cyan-400">
-                  {Number(loan.interestRate) / 100}% APR
-                </div>
-                <div className="text-green-400">
-                  Health: <span className="font-mono">1.23</span>
-                </div>
-                <div className="text-cyan-400">
-                  Asset:{" "}
-                  {Number(loan.assetType) === ASSET_TYPES.REAL_ESTATE
-                    ? "Real Estate"
-                    : Number(loan.assetType) === ASSET_TYPES.ART
-                    ? "Art"
-                    : "Invoice"}
-                </div>
-              </div>
-            ))
-          ) : (
-            <div className="text-cyan-200">No active loans</div>
-          )}
-        </div>
-      </div>
+              </CardContent>
+            </Card>
 
-      {/* Lender Positions */}
-      <div className="mb-8">
-        <div className="text-xl font-bold text-cyan-400 mb-2">
-          Lender Positions
-        </div>
-        <div className="card p-4">
-          {lenderPositions.length > 0 ? (
-            lenderPositions.map((position) => (
-              <div
-                key={position.tokenId}
-                className="flex items-center gap-8 mb-4"
-              >
-                <div className="text-cyan-200 font-bold">
-                  Position #{position.tokenId}
+            <Card className="group bg-[#0f1c2e]/30 border-[#2d6dff]/30 backdrop-blur-sm hover:border-[#0ff]/50 transition-all duration-300 hover:scale-105 shadow-[0_0_15px_rgba(45,109,255,0.1)]">
+              <CardHeader className="flex flex-row items-center justify-between pb-2">
+                <CardTitle className="text-sm font-medium text-[#0ff]">
+                  Active Loans
+                </CardTitle>
+                <TrendingUp className="h-4 w-4 text-[#0ff] group-hover:scale-110 transition-transform" />
+              </CardHeader>
+              <CardContent>
+                <div className="text-2xl font-bold text-white">
+                  {userLoans?.length || 0}
                 </div>
-                <div className="text-cyan-400">Loan #{position.loanId}</div>
-                <div className="text-cyan-400">
-                  ${Number(position.amount) / 1e6} lent
+                <div className="flex items-center gap-1 mt-2">
+                  <ArrowUpRight className="w-4 h-4 text-[#0ff]" />
+                  <span className="text-[#0ff] text-sm">+2 this month</span>
                 </div>
-                <div className="text-cyan-400">
-                  Lender: {position.lender.slice(0, 6)}...
-                  {position.lender.slice(-4)}
-                </div>
-              </div>
-            ))
-          ) : (
-            <div className="text-cyan-200">No lender positions</div>
-          )}
-        </div>
-      </div>
+              </CardContent>
+            </Card>
 
-      {/* Quick Actions */}
-      <div className="mb-8">
-        <div className="text-xl font-bold text-cyan-400 mb-2">
-          Quick Actions
-        </div>
-        <div className="flex gap-4 flex-wrap">
-          <button
-            onClick={handleMintNFT}
-            disabled={minting}
-            className="bg-cyan-700 hover:bg-cyan-600 disabled:bg-cyan-800 text-black font-bold py-2 px-6 rounded transition-colors"
-          >
-            {minting ? "Minting..." : "Mint Property NFT"}
-          </button>
-          <button
-            onClick={handleWithdrawProtocolYield}
-            disabled={withdrawingYield || protocolYield === 0}
-            className="bg-yellow-700 hover:bg-yellow-600 disabled:bg-yellow-800 text-black font-bold py-2 px-6 rounded transition-colors"
-          >
-            {withdrawingYield ? "Withdrawing..." : "Withdraw Yield"}
-          </button>
-          <button
-            onClick={handleSetPropertyValue}
-            disabled={!selectedNFT || !propertyValue}
-            className="bg-green-700 hover:bg-green-600 disabled:bg-green-800 text-black font-bold py-2 px-6 rounded transition-colors"
-          >
-            Set Property Value
-          </button>
-          <button
-            onClick={handleRequestPropertyValuation}
-            disabled={requestingValuation || !selectedNFT}
-            className="bg-blue-700 hover:bg-blue-600 disabled:bg-blue-800 text-black font-bold py-2 px-6 rounded transition-colors"
-          >
-            {requestingValuation ? "Requesting..." : "Request Valuation"}
-          </button>
-        </div>
-      </div>
+            <Card className="group bg-[#0f1c2e]/30 border-[#2d6dff]/30 backdrop-blur-sm hover:border-[#0ff]/50 transition-all duration-300 hover:scale-105 shadow-[0_0_15px_rgba(45,109,255,0.1)]">
+              <CardHeader className="flex flex-row items-center justify-between pb-2">
+                <CardTitle className="text-sm font-medium text-[#0ff]">
+                  Protocol Yield
+                </CardTitle>
+                <Activity className="h-4 w-4 text-[#0ff] group-hover:scale-110 transition-transform" />
+              </CardHeader>
+              <CardContent>
+                <div className="text-2xl font-bold text-white">
+                  $
+                  {protocolYield
+                    ? (Number(protocolYield) / 1e6).toLocaleString()
+                    : "0.00"}
+                </div>
+                <div className="flex items-center gap-1 mt-2">
+                  <ArrowUpRight className="w-4 h-4 text-[#0ff]" />
+                  <span className="text-[#0ff] text-sm">+8.3% APY</span>
+                </div>
+              </CardContent>
+            </Card>
 
-      {/* Recent Activity */}
-      <div className="mb-8">
-        <div className="text-xl font-bold text-cyan-400 mb-2">
-          Recent Activity
-        </div>
-        <div className="card p-4">
-          <div className="flex flex-col gap-2 text-cyan-200">
-            {mintSuccess && <div>🟢 NFT minted successfully!</div>}
-            {approveSuccess && <div>🟢 NFT approved for loan!</div>}
-            {depositSuccess && <div>🟢 Loan created successfully!</div>}
-            {fundSuccess && <div>🟢 Loan funded successfully!</div>}
-            {repaySuccess && <div>🟢 Loan repaid successfully!</div>}
-            {valuationSuccess && <div>🟢 Property valuation requested!</div>}
-            {liquiditySuccess && <div>🟢 Cross-chain liquidity added!</div>}
-            {withdrawSuccess && <div>🟢 Protocol yield withdrawn!</div>}
-            {!mintSuccess &&
-              !approveSuccess &&
-              !depositSuccess &&
-              !fundSuccess &&
-              !repaySuccess &&
-              !valuationSuccess &&
-              !liquiditySuccess &&
-              !withdrawSuccess && (
-                <>
-                  <div>🟢 Loan repaid: $350,000 (Today)</div>
-                  <div>🔵 NFT minted: Waterfront Villa #4 (Yesterday)</div>
-                  <div>🟡 Property value updated: $500,000 (2 days ago)</div>
-                  <div>🟣 AI risk score updated: 72/100 (3 days ago)</div>
-                  <div>
-                    🟠 Cross-chain liquidity added: $10,000 to Avalanche (4 days
-                    ago)
+            <Card className="group bg-[#0f1c2e]/30 border-[#2d6dff]/30 backdrop-blur-sm hover:border-[#0ff]/50 transition-all duration-300 hover:scale-105 shadow-[0_0_15px_rgba(45,109,255,0.1)]">
+              <CardHeader className="flex flex-row items-center justify-between pb-2">
+                <CardTitle className="text-sm font-medium text-[#0ff]">
+                  Risk Score
+                </CardTitle>
+                <Brain className="h-4 w-4 text-[#0ff] group-hover:scale-110 transition-transform" />
+              </CardHeader>
+              <CardContent>
+                <div className="text-2xl font-bold text-white">
+                  {Object.values(aiRiskScores)[0] || "N/A"}
+                </div>
+                <div className="flex items-center gap-1 mt-2">
+                  <ArrowDownRight className="w-4 h-4 text-[#0ff]" />
+                  <span className="text-[#0ff] text-sm">-5 points</span>
+                </div>
+              </CardContent>
+            </Card>
+          </div>
+
+          {/* Main Content */}
+          <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
+            {/* Property Marketplace */}
+            <div className="lg:col-span-2">
+              <Card className="bg-[#0f1c2e]/30 border-[#2d6dff]/30 backdrop-blur-sm shadow-[0_0_15px_rgba(45,109,255,0.1)]">
+                <CardHeader>
+                  <CardTitle className="text-[#0ff] flex items-center gap-2">
+                    <Building2 className="w-5 h-5" />
+                    Property Marketplace
+                  </CardTitle>
+                </CardHeader>
+                <CardContent>
+                  <Marketplace
+                    properties={properties}
+                    isLoading={propertiesLoading}
+                    onLoadMore={loadMore}
+                  />
+                </CardContent>
+              </Card>
+            </div>
+
+            {/* Quick Actions & Activity */}
+            <div className="space-y-6">
+              <Card className="bg-[#0f1c2e]/30 border-[#2d6dff]/30 backdrop-blur-sm shadow-[0_0_15px_rgba(45,109,255,0.1)]">
+                <CardHeader>
+                  <CardTitle className="text-[#0ff] flex items-center gap-2">
+                    <Zap className="w-5 h-5" />
+                    Quick Actions
+                  </CardTitle>
+                </CardHeader>
+                <CardContent className="space-y-4">
+                  <Button
+                    className="w-full bg-gradient-to-r from-[#0ff] to-[#2d6dff] hover:from-[#0ff]/80 hover:to-[#2d6dff]/80 transition-all duration-200 shadow-[0_0_15px_rgba(45,109,255,0.3)]"
+                    onClick={() => handleAction("createLoan")}
+                    disabled={isLoading}
+                  >
+                    {isLoading ? "Processing..." : "Create New Loan"}
+                  </Button>
+                  <Button
+                    className="w-full bg-gradient-to-r from-[#0ff] to-[#2d6dff] hover:from-[#0ff]/80 hover:to-[#2d6dff]/80 transition-all duration-200 shadow-[0_0_15px_rgba(45,109,255,0.3)]"
+                    onClick={() => handleAction("addLiquidity")}
+                    disabled={isLoading}
+                  >
+                    {isLoading ? "Processing..." : "Add Liquidity"}
+                  </Button>
+                  <Button
+                    className="w-full bg-gradient-to-r from-[#0ff] to-[#2d6dff] hover:from-[#0ff]/80 hover:to-[#2d6dff]/80 transition-all duration-200 shadow-[0_0_15px_rgba(45,109,255,0.3)]"
+                    onClick={() => handleAction("withdrawYield")}
+                    disabled={isLoading}
+                  >
+                    {isLoading ? "Processing..." : "Withdraw Yield"}
+                  </Button>
+                </CardContent>
+              </Card>
+
+              <Card className="bg-[#0f1c2e]/30 border-[#2d6dff]/30 backdrop-blur-sm shadow-[0_0_15px_rgba(45,109,255,0.1)]">
+                <CardHeader>
+                  <CardTitle className="text-[#0ff] flex items-center gap-2">
+                    <Activity className="w-5 h-5" />
+                    Recent Activity
+                  </CardTitle>
+                </CardHeader>
+                <CardContent>
+                  <div className="space-y-4">
+                    <div className="flex items-center gap-3 p-3 rounded-lg bg-[#0ff]/5 border border-[#0ff]/20">
+                      <div className="w-2 h-2 rounded-full bg-[#0ff] animate-pulse"></div>
+                      <div className="flex-1">
+                        <div className="text-sm font-medium text-white">
+                          Loan #123 funded
+                        </div>
+                        <div className="text-xs text-[#88ccff]">
+                          $50,000 • 2m ago
+                        </div>
+                      </div>
+                    </div>
+                    <div className="flex items-center gap-3 p-3 rounded-lg bg-[#2d6dff]/5 border border-[#2d6dff]/20">
+                      <div className="w-2 h-2 rounded-full bg-[#2d6dff]"></div>
+                      <div className="flex-1">
+                        <div className="text-sm font-medium text-white">
+                          Risk score updated
+                        </div>
+                        <div className="text-xs text-[#88ccff]">
+                          Score: 72 • 1h ago
+                        </div>
+                      </div>
+                    </div>
+                    <div className="flex items-center gap-3 p-3 rounded-lg bg-[#0ff]/5 border border-[#0ff]/20">
+                      <div className="w-2 h-2 rounded-full bg-[#0ff]"></div>
+                      <div className="flex-1">
+                        <div className="text-sm font-medium text-white">
+                          Property value updated
+                        </div>
+                        <div className="text-xs text-[#88ccff]">
+                          +$25,000 • 3h ago
+                        </div>
+                      </div>
+                    </div>
                   </div>
-                </>
-              )}
+                </CardContent>
+              </Card>
+            </div>
           </div>
         </div>
-      </div>
-
-      {/* AI Assistant Tip */}
-      <div className="mt-8 flex items-center gap-3 bg-cyan-900/30 px-4 py-3 rounded-lg border border-cyan-700 animate-fade-in">
-        <span className="text-cyan-400 text-2xl">🤖</span>
-        <span className="text-cyan-200 font-mono">{tip}</span>
       </div>
     </div>
   );
 }
-
-// Animations
-// Add to globals.css:
-// .animate-glow { animation: glow 1.5s infinite alternate; }
-// @keyframes glow { from { text-shadow: 0 0 8px #22d3ee; } to { text-shadow: 0 0 24px #67e8f9; } }
-// .animate-fade-in { animation: fadeIn 1s ease; }
-// @keyframes fadeIn { from { opacity: 0; transform: translateY(20px); } to { opacity: 1; transform: none; } }
