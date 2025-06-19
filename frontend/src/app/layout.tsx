@@ -3,6 +3,7 @@ import type { Metadata } from "next";
 import { type ReactNode } from "react";
 import Link from "next/link";
 import { Providers } from "./providers";
+import { ConnectButton } from "@rainbow-me/rainbowkit";
 
 export const metadata: Metadata = {
   title: "ORACLEND - AI Lending Dashboard",
@@ -70,9 +71,7 @@ export default function RootLayout({ children }: { children: ReactNode }) {
               <span className="text-cyan-400 text-xs bg-cyan-900/30 px-2 py-1 rounded">
                 0.045 ETH
               </span>
-              <span className="text-cyan-400 text-xs bg-cyan-900/30 px-2 py-1 rounded">
-                0x88...cF9F
-              </span>
+              <ConnectButton />
               <span className="text-cyan-400 text-xs bg-cyan-900/30 px-2 py-1 rounded">
                 🔔
               </span>
