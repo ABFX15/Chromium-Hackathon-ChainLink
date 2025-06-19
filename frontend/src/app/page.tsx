@@ -6,6 +6,7 @@ import { useProperties } from "../hooks/use-properties";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Property } from "../types/property";
+import { useRouter } from "next/navigation";
 import {
   Building2,
   Wallet,
@@ -37,6 +38,7 @@ import {
 import { Marketplace } from "../components/Marketplace";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Progress } from "@/components/ui/progress";
+import Link from "next/link";
 
 // Chart colors
 const CHART_COLORS = {
@@ -71,6 +73,12 @@ const collateralValueData = [
 const COLORS = ["#ff4444", "#ffd700", "#00ff9d"];
 
 export default function HomePage() {
+  const router = useRouter();
+
+  const handleNavigation = (path: string) => {
+    router.push(path);
+  };
+
   return (
     <div
       style={{
@@ -162,70 +170,113 @@ export default function HomePage() {
             gap: "10px",
           }}
         >
-          <div
-            style={{
-              border: "1px solid rgba(0, 255, 255, 0.2)",
-              padding: "15px",
-              cursor: "pointer",
-            }}
-          >
+          <Link href="/marketplace" style={{ textDecoration: "none" }}>
             <div
-              style={{ fontSize: "18px", color: "#0ff", marginBottom: "5px" }}
+              style={{
+                border: "1px solid rgba(0, 255, 255, 0.2)",
+                padding: "15px",
+                cursor: "pointer",
+                transition: "all 0.2s ease",
+              }}
+              onMouseEnter={(e) => {
+                e.currentTarget.style.backgroundColor =
+                  "rgba(0, 255, 255, 0.1)";
+              }}
+              onMouseLeave={(e) => {
+                e.currentTarget.style.backgroundColor = "transparent";
+              }}
             >
-              🏠 Browse Properties
+              <div
+                style={{ fontSize: "18px", color: "#0ff", marginBottom: "5px" }}
+              >
+                🏠 Browse Properties
+              </div>
+              <div style={{ color: "rgba(255, 255, 255, 0.6)" }}>
+                View available real estate NFTs
+              </div>
             </div>
-            <div style={{ color: "rgba(255, 255, 255, 0.6)" }}>
-              View available real estate NFTs
-            </div>
-          </div>
-          <div
-            style={{
-              border: "1px solid rgba(0, 255, 255, 0.2)",
-              padding: "15px",
-              cursor: "pointer",
-            }}
-          >
+          </Link>
+
+          <Link href="/loans" style={{ textDecoration: "none" }}>
             <div
-              style={{ fontSize: "18px", color: "#0ff", marginBottom: "5px" }}
+              style={{
+                border: "1px solid rgba(0, 255, 255, 0.2)",
+                padding: "15px",
+                cursor: "pointer",
+                transition: "all 0.2s ease",
+              }}
+              onMouseEnter={(e) => {
+                e.currentTarget.style.backgroundColor =
+                  "rgba(0, 255, 255, 0.1)";
+              }}
+              onMouseLeave={(e) => {
+                e.currentTarget.style.backgroundColor = "transparent";
+              }}
             >
-              💰 Get a Loan
+              <div
+                style={{ fontSize: "18px", color: "#0ff", marginBottom: "5px" }}
+              >
+                💰 Get a Loan
+              </div>
+              <div style={{ color: "rgba(255, 255, 255, 0.6)" }}>
+                Borrow against your property
+              </div>
             </div>
-            <div style={{ color: "rgba(255, 255, 255, 0.6)" }}>
-              Borrow against your property
-            </div>
-          </div>
-          <div
-            style={{
-              border: "1px solid rgba(0, 255, 255, 0.2)",
-              padding: "15px",
-              cursor: "pointer",
-            }}
-          >
+          </Link>
+
+          <Link href="/analytics" style={{ textDecoration: "none" }}>
             <div
-              style={{ fontSize: "18px", color: "#0ff", marginBottom: "5px" }}
+              style={{
+                border: "1px solid rgba(0, 255, 255, 0.2)",
+                padding: "15px",
+                cursor: "pointer",
+                transition: "all 0.2s ease",
+              }}
+              onMouseEnter={(e) => {
+                e.currentTarget.style.backgroundColor =
+                  "rgba(0, 255, 255, 0.1)";
+              }}
+              onMouseLeave={(e) => {
+                e.currentTarget.style.backgroundColor = "transparent";
+              }}
             >
-              📊 View Analytics
+              <div
+                style={{ fontSize: "18px", color: "#0ff", marginBottom: "5px" }}
+              >
+                📊 View Analytics
+              </div>
+              <div style={{ color: "rgba(255, 255, 255, 0.6)" }}>
+                Check market statistics
+              </div>
             </div>
-            <div style={{ color: "rgba(255, 255, 255, 0.6)" }}>
-              Check market statistics
-            </div>
-          </div>
-          <div
-            style={{
-              border: "1px solid rgba(0, 255, 255, 0.2)",
-              padding: "15px",
-              cursor: "pointer",
-            }}
-          >
+          </Link>
+
+          <Link href="/risk-analysis" style={{ textDecoration: "none" }}>
             <div
-              style={{ fontSize: "18px", color: "#0ff", marginBottom: "5px" }}
+              style={{
+                border: "1px solid rgba(0, 255, 255, 0.2)",
+                padding: "15px",
+                cursor: "pointer",
+                transition: "all 0.2s ease",
+              }}
+              onMouseEnter={(e) => {
+                e.currentTarget.style.backgroundColor =
+                  "rgba(0, 255, 255, 0.1)";
+              }}
+              onMouseLeave={(e) => {
+                e.currentTarget.style.backgroundColor = "transparent";
+              }}
             >
-              🤖 AI Risk Analysis
+              <div
+                style={{ fontSize: "18px", color: "#0ff", marginBottom: "5px" }}
+              >
+                🤖 AI Risk Analysis
+              </div>
+              <div style={{ color: "rgba(255, 255, 255, 0.6)" }}>
+                Get property valuation
+              </div>
             </div>
-            <div style={{ color: "rgba(255, 255, 255, 0.6)" }}>
-              Get property valuation
-            </div>
-          </div>
+          </Link>
         </div>
       </div>
 

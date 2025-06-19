@@ -146,7 +146,7 @@ export function AIRiskAssessment({
                   </span>
                   <div className="flex items-center gap-2">
                     <span className="text-2xl font-mono text-cyan-300">
-                      {riskAssessment.riskScore}
+                      {riskAssessment?.riskScore || 0}
                     </span>
                     <span className="text-cyan-500/70 font-mono">/100</span>
                   </div>
@@ -157,11 +157,11 @@ export function AIRiskAssessment({
                   </span>
                   <Badge
                     className={`${getRiskColor(
-                      riskAssessment.riskCategory
+                      riskAssessment?.riskCategory || "default"
                     )} font-mono`}
                   >
-                    {getRiskIcon(riskAssessment.riskCategory)}
-                    {riskAssessment.riskCategory.toUpperCase()}
+                    {getRiskIcon(riskAssessment?.riskCategory || "default")}
+                    {riskAssessment?.riskCategory?.toUpperCase() || "ANALYZING"}
                   </Badge>
                 </div>
               </div>
@@ -173,7 +173,9 @@ export function AIRiskAssessment({
                     suggested_apr
                   </span>
                   <span className="text-xl font-mono text-cyan-300">
-                    {riskAssessment.suggestedInterestRate.toFixed(2)}%
+                    {riskAssessment?.suggestedInterestRate?.toFixed(2) ||
+                      "0.00"}
+                    %
                   </span>
                 </div>
                 <div className="space-y-2">
@@ -181,7 +183,7 @@ export function AIRiskAssessment({
                     max_ltv
                   </span>
                   <span className="text-xl font-mono text-cyan-300">
-                    {riskAssessment.maxLTV}%
+                    {riskAssessment?.maxLTV || 0}%
                   </span>
                 </div>
               </div>
@@ -195,11 +197,11 @@ export function AIRiskAssessment({
                   <div className="flex-1 bg-gray-800 rounded-full h-2">
                     <div
                       className="bg-cyan-500 h-2 rounded-full transition-all duration-1000"
-                      style={{ width: `${riskAssessment.confidence}%` }}
+                      style={{ width: `${riskAssessment?.confidence || 0}%` }}
                     />
                   </div>
                   <span className="text-cyan-300 font-mono text-sm">
-                    {riskAssessment.confidence}%
+                    {riskAssessment?.confidence || 0}%
                   </span>
                 </div>
               </div>

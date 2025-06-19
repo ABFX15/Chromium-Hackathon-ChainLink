@@ -1,15 +1,19 @@
 "use client";
 
 import { useContracts } from "../../hooks/use-contracts";
-import { usePropertyNfts } from "../../hooks/use-property-nfts";
+import { usePropertyNFTs } from "../../hooks/use-property-nfts";
 import { PropertyNFTCard } from "../components/PropertyNFTCard";
 import { StatsCard } from "../../components/ui/stats-card";
 import { Building2, Wallet, TrendingUp } from "lucide-react";
 import { Property } from "../../types/property";
+import { propertyService } from "../../services/propertyService";
 
 export default function PortfolioPage() {
   const { userNFTs, userUSDCBalance } = useContracts();
-  const { propertyNfts, isLoading } = usePropertyNfts();
+  const { nfts, isLoading } = usePropertyNFTs();
+
+  // Get mock properties for display
+  const propertyNfts = propertyService.getMockProperties();
 
   const totalValue =
     propertyNfts?.reduce((sum: number, nft: Property) => sum + nft.value, 0) ||

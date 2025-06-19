@@ -1,27 +1,50 @@
 import { useState } from 'react';
 import { useWriteContract } from 'wagmi';
 import { type Abi } from 'viem';
+import { useQuery } from '@tanstack/react-query';
 import AIRiskManagerJSON from '../abis/AIRiskManager.json';
+import { PropertyRiskData, RiskAssessment } from '../types/bedrock-ai';
 
 const AIRiskManagerABI = AIRiskManagerJSON.abi as Abi;
 const AI_RISK_MANAGER_ADDRESS = '0x1234...'; // Replace with actual address
 
-export type RiskAssessment = {
-    score: number;
-    recommendation: string;
-    confidence: number;
-    factors: {
-        name: string;
-        impact: number;
-        description: string;
-    }[];
-};
+export function usePropertyRiskQuery(data: PropertyRiskData | null) {
+    return useQuery({
+        queryKey: ['propertyRisk', data],
+        queryFn: async () => {
+            if (!data) return null;
+            const response = await fetch('/api/risk-score', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify(data),
+            });
+            if (!response.ok) throw new Error('Failed to get risk assessment');
+            return response.json();
+        },
+        enabled: !!data,
+    });
+}
+
+export function useMarketInsightsQuery(location: string, propertyType: string) {
+    return useQuery({
+        queryKey: ['marketInsights', location, propertyType],
+        queryFn: async () => {
+            if (!location || !propertyType) return null;
+            const response = await fetch('/api/market-insights', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ location, propertyType }),
+            });
+            if (!response.ok) throw new Error('Failed to get market insights');
+            return response.json();
+        },
+        enabled: !!(location && propertyType),
+    });
+}
 
 export function useRiskAssessment() {
     const [loading, setLoading] = useState(false);
     const [error, setError] = useState<string | null>(null);
-
-    // Contract interaction for updating risk score
     const { writeContract } = useWriteContract();
 
     const assessPropertyRisk = async (
@@ -34,7 +57,6 @@ export function useRiskAssessment() {
         setError(null);
 
         try {
-            // Call AWS Bedrock API for risk assessment
             const response = await fetch('/api/risk-score', {
                 method: 'POST',
                 headers: {
@@ -54,7 +76,6 @@ export function useRiskAssessment() {
 
             const data = await response.json();
 
-            // Update risk score on-chain
             await writeContract({
                 address: AI_RISK_MANAGER_ADDRESS,
                 abi: AIRiskManagerABI,
@@ -63,10 +84,13 @@ export function useRiskAssessment() {
             });
 
             return {
-                score: data.score,
-                recommendation: data.recommendation,
+                riskScore: data.score * 100,
+                riskCategory: 'medium',
+                suggestedInterestRate: data.score * 10,
+                maxLTV: 80,
                 confidence: data.confidence,
                 factors: data.factors,
+                recommendations: [data.recommendation]
             };
         } catch (err) {
             setError(err instanceof Error ? err.message : 'Unknown error');

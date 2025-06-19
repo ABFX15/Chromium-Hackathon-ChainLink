@@ -38,31 +38,20 @@ export interface ButtonProps
   size?: "default" | "sm" | "lg" | "icon";
 }
 
-const Button = React.forwardRef<HTMLButtonElement, ButtonProps>(
-  (
-    { className, variant, size = "default", asChild = false, ...props },
-    ref
-  ) => {
-    const sizeClasses = {
-      default: "h-10 px-4 py-2",
-      sm: "h-9 rounded-md px-3",
-      lg: "h-11 rounded-md px-8",
-      icon: "h-10 w-10",
-    };
-
+export const Button = React.forwardRef<HTMLButtonElement, ButtonProps>(
+  ({ className, children, ...props }, ref) => {
     return (
       <button
-        className={cn(
-          buttonVariants({ variant, size }),
-          sizeClasses[size],
-          className
-        )}
+        className={`px-4 py-2 rounded bg-cyan-500/10 text-cyan-400 hover:bg-cyan-500/20 ${className}`}
         ref={ref}
         {...props}
-      />
+      >
+        {children}
+      </button>
     );
   }
 );
+
 Button.displayName = "Button";
 
-export { Button, buttonVariants };
+export { buttonVariants };
