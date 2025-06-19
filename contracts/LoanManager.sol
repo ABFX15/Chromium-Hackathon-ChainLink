@@ -1,6 +1,6 @@
 // SPDX-License-Identifier: MIT
 
-pragma solidity 0.8.20;
+pragma solidity 0.8.30;
 
 import {AutomationCompatibleInterface} from "@chainlink/contracts/src/v0.8/automation/interfaces/AutomationCompatibleInterface.sol";
 import {IERC721} from "@openzeppelin/contracts/token/ERC721/IERC721.sol";
@@ -33,6 +33,8 @@ contract LoanManager is AutomationCompatibleInterface, Ownable {
     error LoanManager__LiquidationNotNeeded();
     error LoanManager__InvalidVaultAddress();
     error LoanManager__InvalidOracleAddress();
+    error LoanManager__InvalidPriceFeed();
+    error LoanManager__InvalidAssetType();
 
     // Immutable contracts
     IRouterClient public immutable i_ccipRouter;
@@ -55,6 +57,13 @@ contract LoanManager is AutomationCompatibleInterface, Ownable {
     uint256 public constant LIQUIDATION_PENALTY_BPS = 1000; // 10%
     uint256 public constant SECONDS_PER_YEAR = 365 days;
     uint256 public constant BASE_RATE = 500; // 5% base rate in basis points
+    uint256 public constant LENDER_SHARE_BPS = 8000; // 80%
+    uint256 public constant PROTOCOL_SHARE_BPS = 2000; // 20%
+    uint256 public constant GAS_LIMIT_CROSS_CHAIN = 200000;
+    uint256 public constant GAS_LIMIT_LIQUIDATION = 5_000_000;
+    uint256 public constant WARNING_THRESHOLD = 8500; // 85%
+    uint256 public constant SOFT_LIQUIDATION_THRESHOLD = 8000; // 80%
+    uint256 public constant HARD_LIQUIDATION_THRESHOLD = 7500; // 75%
 
     // Loan structure matching your workflow
     struct Loan {
@@ -67,6 +76,7 @@ contract LoanManager is AutomationCompatibleInterface, Ownable {
         address lender;
         bool isActive;
         bool isFunded;
+        uint256 assetType; // Type of asset (0=real estate, 1=art, 2=invoice, etc.)
     }
 
     // Mappings
@@ -75,6 +85,17 @@ contract LoanManager is AutomationCompatibleInterface, Ownable {
     mapping(address => uint256) public protocolYield;
     mapping(address => uint256) public lenderYield;
     mapping(uint256 => uint256) public aiRiskScores; // loanId => risk score (0-100)
+
+    // Cross-chain liquidity pool tracking
+    struct ChainLiquidity {
+        uint256 totalLiquidity;
+        uint256 availableLiquidity;
+        uint256 utilizationRate;
+        uint64 chainSelector;
+    }
+
+    mapping(uint64 => ChainLiquidity) public chainLiquidity;
+    mapping(address => mapping(uint64 => uint256)) public lenderPositions;
 
     // Events matching your sequence diagrams
     event LoanCreated(
@@ -105,6 +126,17 @@ contract LoanManager is AutomationCompatibleInterface, Ownable {
         uint256 indexed loanId,
         uint64 destinationChain
     );
+    event LiquidityAdded(
+        address indexed lender,
+        uint64 indexed chainSelector,
+        uint256 amount,
+        bytes32 messageId
+    );
+    event LiquidityWithdrawn(
+        address indexed lender,
+        uint64 indexed chainSelector,
+        uint256 amount
+    );
 
     constructor(
         address nft,
@@ -124,18 +156,33 @@ contract LoanManager is AutomationCompatibleInterface, Ownable {
         i_destinationChainSelector = _destinationChainSelector;
     }
 
+    // Enhanced price feed mapping for multiple asset types
+    mapping(uint256 => AggregatorV3Interface) public assetPriceFeeds;
+
+    function addPriceFeed(
+        uint256 assetType,
+        address priceFeed
+    ) external onlyOwner {
+        if (priceFeed == address(0)) revert LoanManager__InvalidPriceFeed();
+        assetPriceFeeds[assetType] = AggregatorV3Interface(priceFeed);
+    }
+
     /**
      * @notice Step 1: Borrower deposits NFT as collateral
      * @param tokenId NFT token ID to deposit
      * @param requestedAmount Loan amount requested
+     * @param assetType Type of asset (0=real estate, 1=art, 2=invoice, etc.)
      */
     function depositNFTCollateral(
         uint256 tokenId,
-        uint256 requestedAmount
+        uint256 requestedAmount,
+        uint256 assetType
     ) external {
         if (nftIsCollateral[tokenId])
             revert LoanManager__NFTAlreadyCollateral();
         if (requestedAmount == 0) revert LoanManager__InvalidAmount();
+        if (assetPriceFeeds[assetType] == AggregatorV3Interface(address(0)))
+            revert LoanManager__InvalidAssetType();
 
         // Create loan with initial base interest rate (AI will adjust later)
         uint256 loanId = nextLoanId++;
@@ -148,14 +195,16 @@ contract LoanManager is AutomationCompatibleInterface, Ownable {
             borrower: msg.sender,
             lender: address(0), // Set when funded
             isActive: true,
-            isFunded: false
+            isFunded: false,
+            assetType: assetType
         });
         nftIsCollateral[tokenId] = true;
         // Verify NFT ownership and get property value from Chainlink data feed
         if (i_nft.ownerOf(tokenId) != msg.sender)
             revert LoanManager__NotAuthorized();
 
-        (, int256 propertyValue, , , ) = i_priceFeed.latestRoundData();
+        AggregatorV3Interface priceFeed = assetPriceFeeds[assetType];
+        (, int256 propertyValue, , , ) = priceFeed.latestRoundData();
         uint256 maxLoanAmount = (uint256(propertyValue) *
             LIQUIDATION_THRESHOLD) / PRECISION;
 
@@ -203,7 +252,7 @@ contract LoanManager is AutomationCompatibleInterface, Ownable {
             tokenAmounts: new Client.EVMTokenAmount[](1),
             feeToken: address(0), // Pay fees in native token
             extraArgs: Client._argsToBytes(
-                Client.EVMExtraArgsV1({gasLimit: 5e6})
+                Client.EVMExtraArgsV1({gasLimit: GAS_LIMIT_LIQUIDATION})
             )
         });
 
@@ -267,19 +316,32 @@ contract LoanManager is AutomationCompatibleInterface, Ownable {
             return (false, checkData);
         }
 
-        // Get current collateral value from Chainlink price feed
-        (, int256 currentValue, , , ) = i_priceFeed.latestRoundData();
+        // Get current collateral value from appropriate price feed
+        AggregatorV3Interface priceFeed = assetPriceFeeds[loan.assetType];
+        if (address(priceFeed) == address(0))
+            revert LoanManager__InvalidAssetType();
+
+        (, int256 currentValue, , , ) = priceFeed.latestRoundData();
         uint256 collateralValue = uint256(currentValue);
 
-        // Calculate current debt (principal + accrued interest)
+        // Calculate current debt
         uint256 currentDebt = calculateCurrentDebt(loanId);
 
-        // Check if liquidation threshold breached (collateral < 80% of debt)
-        uint256 requiredCollateral = (currentDebt * LIQUIDATION_THRESHOLD) /
-            PRECISION;
-        upkeepNeeded = collateralValue < requiredCollateral;
+        // Check multiple thresholds
+        uint256 ltv = (currentDebt * PRECISION) / collateralValue;
 
-        return (upkeepNeeded, checkData);
+        if (ltv >= HARD_LIQUIDATION_THRESHOLD) {
+            // Encode full liquidation
+            return (true, abi.encode(loanId, uint8(2))); // Hard liquidation
+        } else if (ltv >= SOFT_LIQUIDATION_THRESHOLD) {
+            // Encode partial liquidation
+            return (true, abi.encode(loanId, uint8(1))); // Soft liquidation
+        } else if (ltv >= WARNING_THRESHOLD) {
+            // Encode warning
+            return (true, abi.encode(loanId, uint8(0))); // Warning
+        }
+
+        return (false, checkData);
     }
 
     /**
@@ -370,7 +432,7 @@ contract LoanManager is AutomationCompatibleInterface, Ownable {
         uint256 totalDebt = calculateCurrentDebt(loanId);
         // Calculate yield distribution (80% lender, 20% protocol)
         uint256 interest = totalDebt - loan.principalAmount;
-        uint256 lenderShare = (interest * 8000) / PRECISION; // 80%
+        uint256 lenderShare = (interest * LENDER_SHARE_BPS) / PRECISION; // 80%
         uint256 protocolShare = interest - lenderShare; // 20%
         // Burn lender NFT
         protocolYield[owner()] += protocolShare;
@@ -421,5 +483,70 @@ contract LoanManager is AutomationCompatibleInterface, Ownable {
 
     function getAIRiskScore(uint256 loanId) external view returns (uint256) {
         return aiRiskScores[loanId];
+    }
+
+    function addChainLiquidity(uint64 chainSelector) external payable {
+        require(msg.value > 0, "Must provide CCIP fees");
+
+        // Transfer USDC from lender
+        uint256 amount = msg.value;
+        i_usdc.safeTransferFrom(msg.sender, address(this), amount);
+
+        // Update chain liquidity
+        chainLiquidity[chainSelector].totalLiquidity += amount;
+        chainLiquidity[chainSelector].availableLiquidity += amount;
+
+        // Update lender position
+        lenderPositions[msg.sender][chainSelector] += amount;
+
+        // Send liquidity to destination chain via CCIP
+        Client.EVM2AnyMessage memory message = Client.EVM2AnyMessage({
+            receiver: abi.encode(avalancheVaultAddress),
+            data: abi.encode(amount),
+            tokenAmounts: new Client.EVMTokenAmount[](1),
+            feeToken: address(0),
+            extraArgs: Client._argsToBytes(
+                Client.EVMExtraArgsV1({gasLimit: GAS_LIMIT_CROSS_CHAIN})
+            )
+        });
+
+        message.tokenAmounts[0] = Client.EVMTokenAmount({
+            token: address(i_usdc),
+            amount: amount
+        });
+
+        i_usdc.approve(address(i_ccipRouter), amount);
+        bytes32 messageId = i_ccipRouter.ccipSend{value: msg.value}(
+            chainSelector,
+            message
+        );
+
+        emit LiquidityAdded(msg.sender, chainSelector, amount, messageId);
+    }
+
+    function withdrawChainLiquidity(
+        uint64 chainSelector,
+        uint256 amount
+    ) external {
+        require(
+            lenderPositions[msg.sender][chainSelector] >= amount,
+            "Insufficient balance"
+        );
+        require(
+            chainLiquidity[chainSelector].availableLiquidity >= amount,
+            "Insufficient liquidity"
+        );
+
+        // Update chain liquidity
+        chainLiquidity[chainSelector].totalLiquidity -= amount;
+        chainLiquidity[chainSelector].availableLiquidity -= amount;
+
+        // Update lender position
+        lenderPositions[msg.sender][chainSelector] -= amount;
+
+        // Transfer USDC back to lender
+        i_usdc.safeTransfer(msg.sender, amount);
+
+        emit LiquidityWithdrawn(msg.sender, chainSelector, amount);
     }
 }

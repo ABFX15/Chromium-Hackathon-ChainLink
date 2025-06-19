@@ -1,6 +1,6 @@
 // SPDX-License-Identifier: MIT
 
-pragma solidity 0.8.20;
+pragma solidity 0.8.30;
 
 import {IERC721} from "@openzeppelin/contracts/token/ERC721/IERC721.sol";
 import {Ownable} from "@openzeppelin/contracts/access/Ownable.sol";
@@ -22,6 +22,9 @@ contract CollateralVault is Ownable {
     error CollateralVault__LoanStillActive();
     error CollateralVault__NotNFTOwner();
     error CollateralVault__PropertyValueNotSet();
+    error CollateralVault__InvalidNFT();
+    error CollateralVault__InvalidOracleAddress();
+    error CollateralVault__InvalidLoanManagerAddress();
 
     // Immutables
     IERC721 public immutable i_nft;
@@ -49,6 +52,9 @@ contract CollateralVault is Ownable {
     event LoanManagerSet(address indexed manager);
     event NFTReturned(uint256 indexed tokenId, address indexed recipient);
 
+    // Constants
+    uint256 public constant MIN_PROPERTY_VALUE = 1;
+
     // Modifiers
     modifier onlyOracle() {
         if (msg.sender != oracle) revert CollateralVault__NotAuthorized();
@@ -61,7 +67,7 @@ contract CollateralVault is Ownable {
     }
 
     constructor(address nft) Ownable(msg.sender) {
-        if (nft == address(0)) revert CollateralVault__InvalidOracle();
+        if (nft == address(0)) revert CollateralVault__InvalidNFT();
         i_nft = IERC721(nft);
     }
 
@@ -70,7 +76,8 @@ contract CollateralVault is Ownable {
      * @param _oracle The new oracle address.
      */
     function setOracle(address _oracle) external onlyOwner {
-        if (_oracle == address(0)) revert CollateralVault__InvalidOracle();
+        if (_oracle == address(0))
+            revert CollateralVault__InvalidOracleAddress();
         oracle = _oracle;
         emit OracleSet(_oracle);
     }
@@ -80,7 +87,8 @@ contract CollateralVault is Ownable {
      * @param _loanManager The new loan manager address.
      */
     function setLoanManager(address _loanManager) external onlyOwner {
-        if (_loanManager == address(0)) revert CollateralVault__InvalidOracle();
+        if (_loanManager == address(0))
+            revert CollateralVault__InvalidLoanManagerAddress();
         loanManager = _loanManager;
         emit LoanManagerSet(_loanManager);
     }
@@ -95,7 +103,8 @@ contract CollateralVault is Ownable {
         uint256 newValue
     ) external onlyOracle {
         if (!activeLoans[tokenId]) revert CollateralVault__NFTNotDeposited();
-        if (newValue == 0) revert CollateralVault__PropertyValueNotSet();
+        if (newValue < MIN_PROPERTY_VALUE)
+            revert CollateralVault__PropertyValueNotSet();
         propertyValues[tokenId] = newValue;
         emit PropertyValueUpdated(tokenId, newValue);
     }

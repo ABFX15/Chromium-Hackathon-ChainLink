@@ -1,6 +1,6 @@
 // SPDX-License-Identifier: MIT
 
-pragma solidity 0.8.20;
+pragma solidity 0.8.30;
 
 import {ConfirmedOwner} from "@chainlink/contracts/src/v0.8/shared/access/ConfirmedOwner.sol";
 import {FunctionsClient} from "@chainlink/contracts/src/v0.8/functions/dev/v1_0_0/FunctionsClient.sol";
@@ -22,10 +22,18 @@ contract PropertyOracle is FunctionsClient, ConfirmedOwner {
     error PropertyOracle__InvalidCollateralVault();
     error PropertyOracle__InvalidRequest();
     error PropertyOracle__InvalidTokenId();
+    error PropertyOracle__InvalidRouter();
+    error PropertyOracle__InvalidLinkToken();
+    error PropertyOracle__InvalidCollateralVaultAddress();
+    error PropertyOracle__InvalidSubscriptionId();
 
     // Chainlink Configuration
     address public immutable LINK_TOKEN;
     uint64 public subscriptionId;
+
+    // Constants
+    uint64 public constant MIN_SUBSCRIPTION_ID = 1;
+    uint256 public constant DEFAULT_GAS_LIMIT = 200_000;
 
     // State Variables
     CollateralVault public collateralVault;
@@ -49,8 +57,10 @@ contract PropertyOracle is FunctionsClient, ConfirmedOwner {
         address linkToken,
         address _collateralVault
     ) FunctionsClient(router) ConfirmedOwner(msg.sender) {
+        if (router == address(0)) revert PropertyOracle__InvalidRouter();
+        if (linkToken == address(0)) revert PropertyOracle__InvalidLinkToken();
         if (_collateralVault == address(0))
-            revert PropertyOracle__InvalidCollateralVault();
+            revert PropertyOracle__InvalidCollateralVaultAddress();
         LINK_TOKEN = linkToken;
         collateralVault = CollateralVault(_collateralVault);
     }
@@ -60,6 +70,8 @@ contract PropertyOracle is FunctionsClient, ConfirmedOwner {
      * @param _subscriptionId The subscription ID.
      */
     function setSubscriptionId(uint64 _subscriptionId) external onlyOwner {
+        if (_subscriptionId < MIN_SUBSCRIPTION_ID)
+            revert PropertyOracle__InvalidSubscriptionId();
         subscriptionId = _subscriptionId;
         emit SubscriptionIdSet(_subscriptionId);
     }
@@ -97,7 +109,7 @@ contract PropertyOracle is FunctionsClient, ConfirmedOwner {
         bytes32 currentRequestId = _sendRequest(
             req.encodeCBOR(),
             subscriptionId,
-            gasLimit,
+            gasLimit == 0 ? uint32(DEFAULT_GAS_LIMIT) : gasLimit,
             donId
         );
 
@@ -138,7 +150,7 @@ contract PropertyOracle is FunctionsClient, ConfirmedOwner {
      */
     function updateCollateralVault(address newVault) external onlyOwner {
         if (newVault == address(0))
-            revert PropertyOracle__InvalidCollateralVault();
+            revert PropertyOracle__InvalidCollateralVaultAddress();
         collateralVault = CollateralVault(newVault);
     }
 

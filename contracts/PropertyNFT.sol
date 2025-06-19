@@ -1,6 +1,6 @@
 // SPDX-License-Identifier: MIT
 
-pragma solidity 0.8.20;
+pragma solidity 0.8.30;
 
 import {ERC721} from "@openzeppelin/contracts/token/ERC721/ERC721.sol";
 import {ERC721Enumerable} from "@openzeppelin/contracts/token/ERC721/extensions/ERC721Enumerable.sol";
@@ -20,6 +20,8 @@ contract PropertyNFT is ERC721, ERC721Enumerable, ERC721Burnable, Ownable {
     error NotOwnerOrApproved();
     error InvalidTokenURI();
     error NonexistentToken();
+    error InvalidBaseURI();
+    error InvalidRecipient();
 
     string private _baseTokenURI;
     mapping(uint256 => string) private _tokenURIs;
@@ -29,6 +31,7 @@ contract PropertyNFT is ERC721, ERC721Enumerable, ERC721Burnable, Ownable {
         string memory symbol,
         string memory baseURI
     ) ERC721(name, symbol) Ownable(msg.sender) {
+        if (bytes(baseURI).length == 0) revert InvalidBaseURI();
         _baseTokenURI = baseURI;
     }
 
@@ -44,6 +47,9 @@ contract PropertyNFT is ERC721, ERC721Enumerable, ERC721Burnable, Ownable {
         uint256 tokenId,
         string memory uri
     ) external onlyOwner {
+        if (to == address(0)) revert InvalidRecipient();
+        if (bytes(uri).length == 0) revert InvalidTokenURI();
+
         _safeMint(to, tokenId);
         _setTokenURI(tokenId, uri);
     }
@@ -53,6 +59,7 @@ contract PropertyNFT is ERC721, ERC721Enumerable, ERC721Burnable, Ownable {
      * @param baseURI The new base URI.
      */
     function setBaseURI(string memory baseURI) external onlyOwner {
+        if (bytes(baseURI).length == 0) revert InvalidBaseURI();
         _baseTokenURI = baseURI;
     }
 

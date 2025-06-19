@@ -1,6 +1,6 @@
 // SPDX-License-Identifier: MIT
 
-pragma solidity 0.8.20;
+pragma solidity 0.8.30;
 
 /**
  * @title DepositNftTypes
@@ -26,20 +26,23 @@ library DepositNftTypes {
         address borrower;
         bool isActive;
     }
-    
+
     /**
      * @notice Validates that a deposit structure has required fields
      * @param deposit The deposit to validate
      * @return isValid True if deposit is valid
      */
-    function isValidDeposit(DepositNft memory deposit) internal pure returns (bool isValid) {
-        return deposit.tokenId > 0 && 
-               deposit.loanId > 0 && 
-               deposit.collateralValue > 0 && 
-               deposit.borrower != address(0) &&
-               deposit.isActive;
+    function isValidDeposit(
+        DepositNft memory deposit
+    ) internal pure returns (bool isValid) {
+        return
+            deposit.tokenId > 0 &&
+            deposit.loanId > 0 &&
+            deposit.collateralValue > 0 &&
+            deposit.borrower != address(0) &&
+            deposit.isActive;
     }
-    
+
     /**
      * @notice Creates a new deposit structure
      * @param tokenId NFT token ID
@@ -54,13 +57,14 @@ library DepositNftTypes {
         uint256 collateralValue,
         address borrower
     ) internal view returns (DepositNft memory deposit) {
-        return DepositNft({
-            tokenId: tokenId,
-            loanId: loanId,
-            collateralValue: collateralValue,
-            timestamp: block.timestamp,
-            borrower: borrower,
-            isActive: true
-        });
+        return
+            DepositNft({
+                tokenId: tokenId,
+                loanId: loanId,
+                collateralValue: collateralValue,
+                timestamp: block.timestamp,
+                borrower: borrower,
+                isActive: true
+            });
     }
 }
