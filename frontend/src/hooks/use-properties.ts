@@ -1,4 +1,3 @@
-
 import { useState, useEffect } from 'react';
 
 interface Property {
@@ -40,7 +39,7 @@ export function useProperties() {
 
         for (let i = 0; i < addresses.length; i++) {
           const address = addresses[i];
-          
+
           try {
             const response = await fetch('/api/rentcast', {
               method: 'POST',
@@ -53,7 +52,7 @@ export function useProperties() {
             if (response.ok) {
               const result = await response.json();
               const propData = result.property;
-              
+
               const property: Property = {
                 id: `${i + 1}`,
                 name: propData.description || `${propData.propertyType} Property`,
@@ -71,12 +70,12 @@ export function useProperties() {
                 state: propData.state,
                 yearBuilt: propData.yearBuilt
               };
-              
+
               propertiesData.push(property);
             }
           } catch (error) {
             console.error(`Failed to fetch data for ${address}:`, error);
-            
+
             // Add fallback property with better images
             const fallbackImages = [
               "https://images.unsplash.com/photo-1564013799919-ab600027ffc6?auto=format&fit=crop&w=600&q=80",
@@ -86,7 +85,7 @@ export function useProperties() {
               "https://images.unsplash.com/photo-1506744038136-46273834b3fb?auto=format&fit=crop&w=600&q=80",
               "https://images.unsplash.com/photo-1600596542815-ffad4c1539a9?auto=format&fit=crop&w=600&q=80"
             ];
-            
+
             const property: Property = {
               id: `${i + 1}`,
               name: `Property in ${address.split(',')[1]?.trim() || 'Unknown City'}`,
@@ -103,7 +102,7 @@ export function useProperties() {
               city: address.split(',')[1]?.trim() || 'Unknown City',
               state: address.split(',')[2]?.trim().split(' ')[0] || 'Unknown State'
             };
-            
+
             propertiesData.push(property);
           }
         }
@@ -111,7 +110,7 @@ export function useProperties() {
         setProperties(propertiesData);
       } catch (error) {
         console.error('Failed to fetch properties:', error);
-        
+
         // Complete fallback with curated property images
         const fallbackProperties: Property[] = [
           {
@@ -119,7 +118,7 @@ export function useProperties() {
             name: 'Luxury Downtown Apartment',
             location: 'Manhattan, NY',
             price: 850000,
-            image: 'https://images.unsplash.com/photo-1545324418-cc1a3fa10c00?auto=format&fit=crop&w=600&q=80',
+            image: 'https://images.unsplash.com/photo-1545324418-cc1a3fa10c00?w=500&h=300&fit=crop',
             description: 'Modern luxury apartment in the heart of Manhattan',
             bedrooms: 2,
             bathrooms: 2,
@@ -135,7 +134,7 @@ export function useProperties() {
             name: 'Beachfront Villa',
             location: 'Miami, FL',
             price: 1200000,
-            image: 'https://images.unsplash.com/photo-1506744038136-46273834b3fb?auto=format&fit=crop&w=600&q=80',
+            image: 'https://images.unsplash.com/photo-1564013799919-ab600027ffc6?w=500&h=300&fit=crop',
             description: 'Stunning beachfront villa with ocean views',
             bedrooms: 4,
             bathrooms: 3,
@@ -148,22 +147,70 @@ export function useProperties() {
           },
           {
             id: '3',
-            name: 'Modern Condo',
+            name: 'Commercial Office Space',
             location: 'Chicago, IL',
             price: 650000,
-            image: 'https://images.unsplash.com/photo-1600596542815-ffad4c1539a9?auto=format&fit=crop&w=600&q=80',
-            description: 'Contemporary condo in downtown Chicago',
-            bedrooms: 2,
-            bathrooms: 2,
-            sqft: 1400,
-            type: 'condo',
+            image: 'https://images.unsplash.com/photo-1486406146926-c627a92ad1ab?w=500&h=300&fit=crop',
+            description: 'Prime commercial real estate in downtown Chicago',
+            bedrooms: 0,
+            bathrooms: 4,
+            sqft: 3500,
+            type: 'commercial',
             address: '789 Pine St, Chicago, IL 60601',
             propertyType: 'Condo',
             city: 'Chicago',
             state: 'IL'
+          },
+          {
+            id: '4',
+            name: 'Modern Penthouse',
+            location: 'Los Angeles, CA',
+            price: 2500000,
+            image: 'https://images.unsplash.com/photo-1600596542815-ffad4c1539a9?w=500&h=300&fit=crop',
+            description: 'Ultra-modern penthouse with city skyline views',
+            bedrooms: 3,
+            bathrooms: 3,
+            sqft: 2200,
+            type: 'penthouse',
+            address: '910 Hillcrest Ave, Los Angeles, CA 90001',
+            propertyType: 'Condo',
+            city: 'Los Angeles',
+            state: 'CA'
+          },
+          {
+            id: '5',
+            name: 'Historic Brownstone',
+            location: 'Boston, MA',
+            price: 975000,
+            image: 'https://images.unsplash.com/photo-1570129477492-45c003edd2be?w=500&h=300&fit=crop',
+            description: 'Beautifully restored Victorian brownstone',
+            bedrooms: 4,
+            bathrooms: 2,
+            sqft: 1800,
+            type: 'townhouse',
+            address: '345 Beacon St, Boston, MA 02116',
+            propertyType: 'Townhouse',
+            city: 'Boston',
+            state: 'MA'
+          },
+          {
+            id: '6',
+            name: 'Waterfront Condo',
+            location: 'Seattle, WA',
+            price: 1350000,
+            image: 'https://images.unsplash.com/photo-1512917774080-9991f1c4c750?w=500&h=300&fit=crop',
+            description: 'Luxury waterfront condominium with marina access',
+            bedrooms: 2,
+            bathrooms: 2,
+            sqft: 1400,
+            type: 'condo',
+            address: '678 Waterfront Dr, Seattle, WA 98101',
+            propertyType: 'Condo',
+            city: 'Seattle',
+            state: 'WA'
           }
         ];
-        
+
         setProperties(fallbackProperties);
       } finally {
         setIsLoading(false);
