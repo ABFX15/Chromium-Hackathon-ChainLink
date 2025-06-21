@@ -17,35 +17,45 @@ export function DemoSetup() {
   const handleFetchRentCastData = async () => {
     setIsLoading(true)
     try {
-      // Simulate RentCast API response with realistic data
-      const mockData = [
-        {
-          address: "123 Main St, New York, NY 10001",
-          valueEstimate: 850000,
-          propertyType: "Apartment",
-          city: "New York",
-          state: "NY"
+      const response = await fetch('/api/rentcast', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
         },
-        {
-          address: "456 Oak Ave, Los Angeles, CA 90210",
-          valueEstimate: 1200000,
-          propertyType: "Single Family",
-          city: "Los Angeles", 
-          state: "CA"
-        },
-        {
-          address: "789 Pine St, Chicago, IL 60601",
-          valueEstimate: 420000,
-          propertyType: "Condo",
-          city: "Chicago",
-          state: "IL"
-        }
+        body: JSON.stringify({ address: '' }) // Empty address for demo data
+      })
+      
+      if (!response.ok) {
+        throw new Error('Failed to fetch RentCast data')
+      }
+      
+      const result = await response.json()
+      
+      // Fetch multiple demo properties
+      const addresses = [
+        "123 Main St, New York, NY 10001",
+        "456 Oak Ave, Los Angeles, CA 90210",
+        "789 Pine St, Chicago, IL 60601"
       ]
       
-      setTimeout(() => {
-        setPropertyData(mockData)
-        setIsLoading(false)
-      }, 2000)
+      const propertiesData = []
+      for (const address of addresses) {
+        const propResponse = await fetch('/api/rentcast', {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+          },
+          body: JSON.stringify({ address })
+        })
+        
+        if (propResponse.ok) {
+          const propResult = await propResponse.json()
+          propertiesData.push(propResult.property)
+        }
+      }
+      
+      setPropertyData(propertiesData)
+      setIsLoading(false)
     } catch (error) {
       console.error('Failed to fetch RentCast data:', error)
       setIsLoading(false)

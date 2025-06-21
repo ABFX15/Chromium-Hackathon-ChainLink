@@ -50,6 +50,8 @@ export function AIAnalytics() {
       })
 
       if (!response.ok) {
+        const errorText = await response.text()
+        console.error('Risk assessment API error:', errorText)
         throw new Error('Risk assessment failed')
       }
 
