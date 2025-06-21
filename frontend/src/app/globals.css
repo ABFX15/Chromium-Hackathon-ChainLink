@@ -37,7 +37,7 @@ body {
     rgb(var(--background-mid)) 35%,
     rgb(var(--background-end)) 100%
   );
-  min-height: 100vh;
+  background-attachment: fixed;
   font-feature-settings: 'cv02', 'cv03', 'cv04', 'cv11';
   font-variant-numeric: slashed-zero;
   -webkit-font-smoothing: antialiased;
@@ -620,8 +620,8 @@ input::placeholder {
   z-index: 9999 !important;
 }
 
-/* Only prevent body scroll when modal is specifically open, not all the time */
-body.modal-open {
+/* Only prevent body scroll when RainbowKit modal is actually open */
+body:has([data-rk][data-state="open"]) {
   overflow: hidden !important;
 }
 
@@ -649,15 +649,17 @@ body.modal-open {
 }
 
 /* Ensure pages can scroll properly */
-html, body {
+html {
+  overflow-x: hidden;
+  scroll-behavior: smooth;
+}
+
+body {
   overflow-x: hidden;
   overflow-y: auto;
-  height: auto;
-  min-height: 100vh;
 }
 
 main {
-  overflow-y: auto;
-  height: auto;
-  min-height: calc(100vh - 80px);
+  position: relative;
+  z-index: 1;
 }
