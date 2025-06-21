@@ -15,8 +15,9 @@ interface NavbarProps {
 
 export function Navbar({ activeTab, onTabChange }: NavbarProps) {
   return (
-    <nav className="border-b border-cyan-500/30 bg-gradient-to-r from-black/95 to-cyan-950/10 backdrop-blur-md">
-      <div className="max-w-7xl mx-auto px-4">
+    <nav className="border-b border-cyan-500/30 glass-effect-dark relative">
+      <div className="absolute inset-0 bg-gradient-to-r from-cyan-500/5 via-blue-500/5 to-purple-500/5"></div>
+      <div className="max-w-7xl mx-auto px-4 relative z-10">
         <div className="flex justify-between items-center h-14">
           {/* NEXUS VAULT Logo */}
           <Logo className="w-8 h-8" showText={true} />

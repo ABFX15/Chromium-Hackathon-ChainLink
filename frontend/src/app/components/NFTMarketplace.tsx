@@ -5,6 +5,7 @@ import { QuickStats } from './QuickStats'
 import { usePropertyNFTs } from '@/hooks/use-property-nfts'
 import { Search, Filter, MapPin, TrendingUp, Building2, Star } from 'lucide-react'
 import { PropertyNFT } from '@/types/contracts'
+import { LoadingSpinner } from './LoadingSpinner'
 
 type SortOption = 'price_low' | 'price_high' | 'newest' | 'rarity'
 type FilterOption = 'all' | 'available' | 'collateralized' | 'legendary' | 'epic' | 'rare' | 'common'
@@ -84,11 +85,11 @@ export function NFTMarketplace() {
 
   if (isLoading) {
     return (
-      <div className="min-h-screen bg-gradient-to-br from-gray-900 via-gray-800 to-black p-6">
-        <div className="max-w-7xl mx-auto">
+      <div className="min-h-screen bg-gradient-to-br from-gray-900 via-gray-800 to-black p-6 relative">
+        <div className="particle-bg"></div>
+        <div className="max-w-7xl mx-auto relative z-10">
           <div className="text-center py-20">
-            <div className="animate-spin w-16 h-16 border-4 border-cyan-500 border-t-transparent rounded-full mx-auto mb-4"></div>
-            <div className="text-white text-xl">Loading NFT Marketplace...</div>
+            <LoadingSpinner size="lg" text="Loading NFT Marketplace..." />
           </div>
         </div>
       </div>
@@ -96,8 +97,11 @@ export function NFTMarketplace() {
   }
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-gray-900 via-gray-800 to-black p-6">
-      <div className="max-w-7xl mx-auto">
+    <div className="min-h-screen bg-gradient-to-br from-gray-900 via-gray-800 to-black p-6 relative">
+      {/* Particle Background */}
+      <div className="particle-bg"></div>
+      
+      <div className="max-w-7xl mx-auto relative z-10">
         {/* Quick Stats */}
         <QuickStats />
         
@@ -114,7 +118,9 @@ export function NFTMarketplace() {
         </div>
 
         {/* Search and Filters */}
-        <div className="bg-gray-800/50 backdrop-blur-sm rounded-2xl border border-cyan-500/20 p-6 mb-8">
+        <div className="glass-effect-dark rounded-2xl p-6 mb-8 relative">
+          <div className="absolute inset-0 bg-gradient-to-r from-cyan-500/5 to-blue-500/5 rounded-2xl"></div>
+          <div className="relative z-10">
           <div className="flex flex-col lg:flex-row gap-4 items-center">
             {/* Search Bar */}
             <div className="relative flex-1 max-w-md">
@@ -160,6 +166,7 @@ export function NFTMarketplace() {
                 <option value="common">Common Properties</option>
               </select>
             </div>
+          </div>
           </div>
         </div>
 
