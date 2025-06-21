@@ -1,7 +1,7 @@
 "use client";
 
 import { useState } from "react";
-import { useContracts } from "../../hooks/use-contracts";
+import { useLoans } from "../hooks/use-loans";
 import { useLoanHealth, type LoanHealth } from "../../hooks/use-loan-health";
 
 const WARNING_THRESHOLD = 8500; // 85%
@@ -9,7 +9,7 @@ const SOFT_LIQUIDATION_THRESHOLD = 8000; // 80%
 const HARD_LIQUIDATION_THRESHOLD = 7500; // 75%
 
 export default function LiquidationPage() {
-  const { userLoans } = useContracts();
+  const { loans: userLoans } = useLoans();
   const [selectedLoanId, setSelectedLoanId] = useState<number | null>(null);
   const { health } = useLoanHealth(selectedLoanId || 0);
 
