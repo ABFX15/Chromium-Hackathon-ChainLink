@@ -1,5 +1,5 @@
 import { Metadata } from "next";
-import { Providers } from "./providers";
+import Providers from "./providers";
 import { ClientNav } from "./components/client-nav";
 import "./globals.css";
 
