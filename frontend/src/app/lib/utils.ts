@@ -61,3 +61,9 @@ export function getHealthFactorWidth(healthFactor: number): string {
     if (healthFactor >= 100) return 'w-1/2'
     return 'w-1/4'
 } 
+import { type ClassValue, clsx } from "clsx"
+import { twMerge } from "tailwind-merge"
+
+export function cn(...inputs: ClassValue[]) {
+  return twMerge(clsx(inputs))
+}
