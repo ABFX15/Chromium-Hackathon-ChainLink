@@ -1,4 +1,3 @@
-
 "use client";
 
 import { useEffect, useState } from "react";
@@ -18,9 +17,9 @@ import {
   BarChart,
   Bar,
 } from "recharts";
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
-import { Badge } from "@/components/ui/badge";
-import { Button } from "@/components/ui/button";
+import { Card, CardContent, CardHeader, CardTitle } from "../components/ui/card";
+import { Badge } from "../components/ui/badge";
+import { Button } from "../components/ui/button";
 import { 
   TrendingUp, 
   DollarSign, 
@@ -94,14 +93,14 @@ export default function AnalyticsPage() {
             <div className="w-2 h-2 bg-blue-400 rounded-full animate-pulse"></div>
             <span className="text-sm font-semibold text-blue-400">Real-time Analytics</span>
           </div>
-          
+
           <div className="flex items-center justify-center gap-3">
             <BarChart3 className="w-8 h-8 text-blue-400" />
             <h1 className="text-4xl lg:text-5xl font-bold bg-gradient-to-r from-white via-blue-200 to-purple-300 bg-clip-text text-transparent">
               Market Analytics
             </h1>
           </div>
-          
+
           <div className="flex items-center justify-center gap-4">
             <p className="text-xl text-gray-300">
               Real-time market insights and performance metrics

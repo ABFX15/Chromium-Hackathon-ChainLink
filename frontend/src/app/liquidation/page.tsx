@@ -1,12 +1,11 @@
-
 "use client";
 
 import { useState } from "react";
 import { useLoans } from "../hooks/use-loans";
 import { useLoanHealth, type LoanHealth } from "../../hooks/use-loan-health";
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
-import { Badge } from "@/components/ui/badge";
-import { Button } from "@/components/ui/button";
+import { Card, CardContent, CardHeader, CardTitle } from "../components/ui/card";
+import { Badge } from "../components/ui/badge";
+import { Button } from "../components/ui/button";
 import { 
   Shield, 
   Zap, 
@@ -66,14 +65,14 @@ export default function LiquidationPage() {
             <div className="w-2 h-2 bg-green-400 rounded-full animate-pulse"></div>
             <span className="text-sm font-semibold text-cyan-400">Real-time Monitoring Active</span>
           </div>
-          
+
           <div className="flex items-center justify-center gap-3">
             <Shield className="w-8 h-8 text-cyan-400" />
             <h1 className="text-4xl lg:text-5xl font-bold bg-gradient-to-r from-white via-cyan-200 to-blue-300 bg-clip-text text-transparent">
               Liquidation Dashboard
             </h1>
           </div>
-          
+
           <p className="text-xl text-gray-300 max-w-2xl mx-auto">
             Automated monitoring and protection powered by Chainlink Automation
           </p>
