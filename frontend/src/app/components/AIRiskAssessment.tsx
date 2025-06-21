@@ -2,10 +2,10 @@ import { useState, useEffect } from "react";
 import {
   usePropertyRiskQuery,
   useMarketInsightsQuery,
-} from "@/hooks/use-risk-assessment";
-import { PropertyRiskData, RiskAssessment } from "@/lib/bedrock-ai";
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
-import { Badge } from "@/components/ui/badge";
+} from "@/app/hooks/use-risk-assessment";
+import { PropertyRiskData, RiskAssessment } from "@/app/lib/bedrock-ai";
+import { Card, CardContent, CardHeader, CardTitle } from "@/app/components/ui/card";
+import { Badge } from "@/app/components/ui/badge";
 import {
   Loader2,
   Brain,

@@ -1,9 +1,9 @@
 "use client";
 
-import { useProperties } from "../../../src/hooks/use-properties";
+import { usePropertyNFTs } from "../hooks/use-property-nfts";
 
 export default function MarketplacePage() {
-  const { properties, isLoading } = useProperties();
+  const { nfts: properties, isLoading } = usePropertyNFTs();
 
   return (
     <div
@@ -33,7 +33,7 @@ export default function MarketplacePage() {
         >
           {properties?.map((property) => (
             <div
-              key={property.id}
+              key={property.tokenId}
               style={{
                 border: "1px solid rgba(0, 255, 255, 0.2)",
                 padding: "20px",
@@ -47,7 +47,7 @@ export default function MarketplacePage() {
                 {property.location}
               </p>
               <p style={{ color: "#0ff", fontSize: "20px", marginTop: "10px" }}>
-                ${property.value.toLocaleString()}
+                ${property.propertyValue.toLocaleString()}
               </p>
             </div>
           ))}
