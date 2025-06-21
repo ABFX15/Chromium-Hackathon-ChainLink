@@ -99,7 +99,7 @@ export function CreateLoanModal({
   // Run AI risk assessment
   const runRiskAssessment = async (property: Property, loanAmount: number) => {
     if (!property || loanAmount <= 0) return;
-    
+
     setIsAssessing(true);
     try {
       const response = await fetch('/api/assess-risk', {
@@ -122,7 +122,7 @@ export function CreateLoanModal({
       if (response.ok) {
         const assessment = await response.json();
         setRiskAssessment(assessment);
-        
+
         toast({
           title: "AI Assessment Complete",
           description: `Risk Score: ${assessment.riskScore}, Suggested Rate: ${assessment.suggestedInterestRate}%`,
@@ -145,7 +145,7 @@ export function CreateLoanModal({
     try {
       // Create loan with AI-adjusted interest rate if available
       let adjustedAmount = BigInt(data.amount);
-      
+
       // If we have risk assessment, we could adjust terms here
       // For now, we'll log the assessment for the smart contract to use
       if (riskAssessment) {
@@ -240,7 +240,7 @@ export function CreateLoanModal({
           {(isAssessing || riskAssessment) && (
             <div className="space-y-3 p-4 bg-purple-900/20 border border-purple-500/30 rounded-lg">
               <Label className="text-purple-400">🤖 AI Risk Assessment</Label>
-              
+
               {isAssessing ? (
                 <div className="flex items-center gap-2 text-purple-300">
                   <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-purple-400"></div>
@@ -280,7 +280,7 @@ export function CreateLoanModal({
                       </span>
                     </div>
                   </div>
-                  
+
                   {riskAssessment.recommendations && riskAssessment.recommendations.length > 0 && (
                     <div className="text-xs text-purple-300">
                       <strong>AI Recommendations:</strong>

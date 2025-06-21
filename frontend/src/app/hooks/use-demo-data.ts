@@ -13,17 +13,17 @@ export function useDemoData() {
     if (!address) return
 
     setLoading(true)
-    
+
     try {
       // Generate demo NFTs with real RentCast data
       const nfts: PropertyNFT[] = []
-      
+
       for (let i = 0; i < 4; i++) {
         const propertyAddress = DEMO_PROPERTIES[i % DEMO_PROPERTIES.length]
-        
+
         // Fetch real property data from RentCast
         const rentCastData = await getPropertyData(propertyAddress)
-        
+
         const baseValue = rentCastData?.valueEstimate || (200000 + i * 75000)
         const nft: PropertyNFT = {
           tokenId: i + 1,
@@ -36,12 +36,12 @@ export function useDemoData() {
           maxLoan: Math.floor(baseValue * 0.7), // 70% LTV
           isCollateral: i === 1, // One property is being used as collateral
         }
-        
+
         nfts.push(nft)
       }
-      
+
       setDemoNFTs(nfts)
-      
+
       // Generate demo loans
       const loans: Loan[] = [
         {
@@ -55,11 +55,44 @@ export function useDemoData() {
           totalDue: 147000,
           healthFactor: 1.85, // Good health factor
           propertyName: nfts[1]?.name || 'Property #2',
+          riskScore: 32,
+          riskCategory: 'low',
+          aiAssessed: true
+        },
+        {
+          loanId: 2,
+          tokenId: 3, // Third NFT is collateral
+          debt: 180000, // 70% of $250k property
+          startTimestamp: Date.now() - 45 * 24 * 60 * 60 * 1000, // 45 days ago
+          borrower: address,
+          isActive: true,
+          interest: 9000, // $9k interest accrued
+          totalDue: 189000,
+          healthFactor: 1.50, // Medium health factor
+          propertyName: nfts[2]?.name || 'Property #3',
+          riskScore: 58,
+          riskCategory: 'medium',
+          aiAssessed: true
+        },
+        {
+          loanId: 3,
+          tokenId: 4, // Fourth NFT is collateral
+          debt: 350000, // 70% of $500k property
+          startTimestamp: Date.now() - 15 * 24 * 60 * 60 * 1000, // 15 days ago
+          borrower: address,
+          isActive: true,
+          interest: 2500, // $2.5k interest accrued
+          totalDue: 352500,
+          healthFactor: 2.10, // High health factor
+          propertyName: nfts[3]?.name || 'Property #4',
+          riskScore: 28,
+          riskCategory: 'low',
+          aiAssessed: true
         }
       ]
-      
+
       setDemoLoans(loans)
-      
+
     } catch (error) {
       console.error('Error generating demo data:', error)
     } finally {
