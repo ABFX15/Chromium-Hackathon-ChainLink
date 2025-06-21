@@ -1,42 +1,54 @@
 
 import { useState, useEffect } from 'react';
+import { useAccount } from 'wagmi';
 
-interface PropertyNFT {
-  id: string;
+export interface PropertyNFT {
+  tokenId: number;
   name: string;
   image: string;
-  tokenId: number;
-  owner: string;
+  location: string;
+  price: number;
+  description: string;
 }
 
 export function usePropertyNFTs() {
-  const [propertyNFTs, setPropertyNFTs] = useState<PropertyNFT[]>([]);
-  const [loading, setLoading] = useState(true);
+  const { address, isConnected } = useAccount();
+  const [nfts, setNfts] = useState<PropertyNFT[]>([]);
+  const [isLoading, setIsLoading] = useState(false);
 
   useEffect(() => {
-    // Mock data for now
-    const mockNFTs: PropertyNFT[] = [
-      {
-        id: '1',
-        name: 'Luxury Downtown Apartment',
-        image: '/properties/apartment-2.jpg',
-        tokenId: 1,
-        owner: '0x1234567890123456789012345678901234567890'
-      },
-      {
-        id: '2',
-        name: 'Beachfront Villa',
-        image: '/properties/villa-4.jpg',
-        tokenId: 2,
-        owner: '0x1234567890123456789012345678901234567890'
-      }
-    ];
+    if (isConnected && address) {
+      setIsLoading(true);
+      
+      // Mock data for demo purposes
+      setTimeout(() => {
+        setNfts([
+          {
+            tokenId: 1,
+            name: "Downtown Apartment",
+            image: "https://images.unsplash.com/photo-1545324418-cc1a3fa10c00?auto=format&fit=crop&w=400&q=80",
+            location: "Manhattan, NY",
+            price: 450000,
+            description: "Modern luxury apartment in the heart of Manhattan"
+          },
+          {
+            tokenId: 2,
+            name: "Suburban Villa",
+            image: "https://images.unsplash.com/photo-1506744038136-46273834b3fb?auto=format&fit=crop&w=400&q=80",
+            location: "Beverly Hills, CA",
+            price: 750000,
+            description: "Stunning villa with pool and garden"
+          }
+        ]);
+        setIsLoading(false);
+      }, 1000);
+    } else {
+      setNfts([]);
+    }
+  }, [isConnected, address]);
 
-    setTimeout(() => {
-      setPropertyNFTs(mockNFTs);
-      setLoading(false);
-    }, 1000);
-  }, []);
-
-  return { propertyNFTs, loading };
+  return {
+    nfts,
+    isLoading
+  };
 }
