@@ -610,33 +610,52 @@ input::placeholder {
   border: 1px solid rgba(6, 182, 212, 0.3);
 }
 
-/* Fix RainbowKit modal positioning */
+/* Fix RainbowKit modal positioning and prevent page jumping */
 [data-rk] {
   z-index: 9999 !important;
 }
 
+/* Prevent modal from appearing at bottom of page */
+[data-rk] div[role="dialog"] {
+  position: fixed !important;
+  top: 50% !important;
+  left: 50% !important;
+  transform: translate(-50%, -50%) !important;
+  max-height: 90vh !important;
+  overflow-y: auto !important;
+}
+
 /* Ensure pages can scroll properly */
 html {
-  overflow-x: hidden;
   scroll-behavior: smooth;
 }
 
 body {
   overflow-x: hidden;
-  overflow-y: scroll !important;
-  height: auto !important;
+  overflow-y: auto !important;
+  position: relative;
+}
+
+/* Prevent body scroll when modal is open */
+body:has([data-rk] [role="dialog"]) {
+  overflow: hidden !important;
 }
 
 main {
   position: relative;
   z-index: 1;
-  overflow: visible;
+  min-height: 100vh;
 }
 
 /* Remove any height constraints that might prevent scrolling */
 #__next {
-  height: auto !important;
   min-height: 100vh;
+}
+
+/* Fix Connect button positioning */
+.connect-button-container {
+  position: relative;
+  z-index: 10;
 }
 
 /* Ensure button styles are working */

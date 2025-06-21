@@ -448,7 +448,7 @@ export const useContracts = () => {
         }
     };
 
-    const estimateCCIPFee = async (destinationChainSelector: bigint) => {
+    const estimateCCIPFee = async (sourceChain: string, destinationChain: string) => {
         if (!crossChainLiquidityContract) return BigInt(0);
 
         try {

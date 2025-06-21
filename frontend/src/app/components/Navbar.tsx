@@ -1,4 +1,3 @@
-
 'use client'
 
 import { ConnectButton } from '@rainbow-me/rainbowkit'
@@ -7,7 +6,7 @@ import { Button } from '@/components/ui/button'
 import { NotificationCenter } from './NotificationCenter'
 import { Logo } from './Logo'
 
-type NavigationTab = 'marketplace' | 'portfolio' | 'loans' | 'liquidation'
+type NavigationTab = 'marketplace' | 'portfolio' | 'loans' | 'liquidation' | 'cross-chain'
 
 interface NavbarProps {
   activeTab: NavigationTab
@@ -20,6 +19,7 @@ export function Navbar({ activeTab, onTabChange }: NavbarProps) {
     { id: 'portfolio', label: 'Portfolio', icon: Wallet, description: 'Your Assets' },
     { id: 'loans', label: 'Loans', icon: Activity, description: 'Active Loans' },
     { id: 'liquidation', label: 'Analytics', icon: TrendingUp, description: 'Market Insights' },
+    { id: 'cross-chain', label: 'Cross-Chain', icon: Shield, description: 'Cross Chain Lending' },
   ]
 
   return (
@@ -55,10 +55,10 @@ export function Navbar({ activeTab, onTabChange }: NavbarProps) {
                       {item.label}
                     </span>
                   </div>
-                  
+
                   {/* Active indicator */}
                   <div className={`absolute bottom-0 left-1/2 transform -translate-x-1/2 h-0.5 bg-gradient-to-r from-cyan-400 to-blue-400 transition-all duration-300 ${isActive ? 'w-full' : 'w-0 group-hover:w-full'}`} />
-                  
+
                   {/* Hover glow effect */}
                   <div className={`absolute inset-0 bg-gradient-to-r from-cyan-400/5 to-blue-400/5 rounded-xl transition-all duration-300 ${isActive ? 'opacity-100' : 'opacity-0 group-hover:opacity-100'}`} />
                 </button>
