@@ -140,6 +140,7 @@ export function PropertyNFTCard({ nft, showBuyButton = false, onBuy }: PropertyN
             <button
               onClick={(e) => {
                 e.stopPropagation()
+                console.log('Purchase button clicked for:', nft.name)
                 onBuy?.(nft)
               }}
               className="w-full btn-primary mt-6"

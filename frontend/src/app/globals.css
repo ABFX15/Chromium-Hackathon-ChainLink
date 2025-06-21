@@ -638,3 +638,16 @@ main {
   height: auto !important;
   min-height: 100vh;
 }
+
+/* Ensure button styles are working */
+.btn-primary {
+  @apply bg-gradient-to-r from-cyan-600 to-blue-600 hover:from-cyan-500 hover:to-blue-500 text-white font-bold py-3 px-4 rounded-lg transition-all duration-300 flex items-center justify-center;
+}
+
+.btn-primary:hover {
+  @apply shadow-lg transform scale-105;
+}
+
+.btn-primary:disabled {
+  @apply from-gray-600 to-gray-700 cursor-not-allowed transform-none;
+}

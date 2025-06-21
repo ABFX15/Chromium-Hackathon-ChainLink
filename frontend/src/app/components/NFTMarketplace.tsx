@@ -92,6 +92,7 @@ export function NFTMarketplace() {
   const { properties, loading, error } = usePropertyNFTs()
   const [selectedNFT, setSelectedNFT] = useState<PropertyNFT | null>(null)
   const [showPurchaseModal, setShowPurchaseModal] = useState(false)
+  const [purchaseType, setPurchaseType] = useState<'buy' | 'loan'>('buy')
   const [searchTerm, setSearchTerm] = useState('')
   const [sortBy, setSortBy] = useState('price')
   const [filterBy, setFilterBy] = useState('all')
@@ -130,7 +131,16 @@ export function NFTMarketplace() {
   })
 
   const handleBuyNFT = (nft: PropertyNFT) => {
+    console.log('Buy NFT clicked:', nft.name)
     setSelectedNFT(nft)
+    setPurchaseType('buy')
+    setShowPurchaseModal(true)
+  }
+
+  const handleLoanNFT = (nft: PropertyNFT) => {
+    console.log('Loan NFT clicked:', nft.name)
+    setSelectedNFT(nft)
+    setPurchaseType('loan')
     setShowPurchaseModal(true)
   }
 
@@ -286,6 +296,7 @@ export function NFTMarketplace() {
           <RWAPurchaseModal
             nft={selectedNFT}
             isOpen={showPurchaseModal}
+            purchaseType={purchaseType}
             onClose={() => {
               setShowPurchaseModal(false)
               setSelectedNFT(null)
