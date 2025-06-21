@@ -7,7 +7,7 @@ import { config } from './lib/wagmi'
 import '@rainbow-me/rainbowkit/styles.css'
 import { useState } from 'react'
 
-export function Providers({ children }: { children: React.ReactNode }) {
+export default function Providers({ children }: { children: React.ReactNode }) {
   const [queryClient] = useState(() => new QueryClient({
     defaultOptions: {
       queries: {
