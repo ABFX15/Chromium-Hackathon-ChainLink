@@ -43,6 +43,22 @@ export function useDemoData() {
       setDemoNFTs(nfts)
 
       // Generate demo loans
+      interface Loan {
+        loanId: number;
+        tokenId: number;
+        debt: number;
+        startTimestamp: number;
+        borrower: string;
+        isActive: boolean;
+        interest: number;
+        totalDue: number;
+        healthFactor: number;
+        propertyName: string;
+        propertyValue: number; // Add property value field
+        riskScore: number;
+        riskCategory: 'low' | 'medium' | 'high';
+        aiAssessed: boolean;
+      }
       const loans: Loan[] = [
         {
           loanId: 1,
@@ -55,6 +71,7 @@ export function useDemoData() {
           totalDue: 147000,
           healthFactor: 1.85, // Good health factor
           propertyName: nfts[1]?.name || 'Property #2',
+          propertyValue: nfts[1]?.propertyValue || 200000,
           riskScore: 32,
           riskCategory: 'low',
           aiAssessed: true
@@ -70,6 +87,7 @@ export function useDemoData() {
           totalDue: 189000,
           healthFactor: 1.50, // Medium health factor
           propertyName: nfts[2]?.name || 'Property #3',
+          propertyValue: nfts[2]?.propertyValue || 250000,
           riskScore: 58,
           riskCategory: 'medium',
           aiAssessed: true
@@ -83,10 +101,11 @@ export function useDemoData() {
           isActive: true,
           interest: 2500, // $2.5k interest accrued
           totalDue: 352500,
-          healthFactor: 2.10, // High health factor
+          healthFactor: 1.25, // Lower health factor
           propertyName: nfts[3]?.name || 'Property #4',
-          riskScore: 28,
-          riskCategory: 'low',
+          propertyValue: nfts[3]?.propertyValue || 500000, // Add explicit property value
+          riskScore: 78,
+          riskCategory: 'high',
           aiAssessed: true
         }
       ]
