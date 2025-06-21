@@ -2,7 +2,7 @@
 "use client";
 import { useState, useEffect } from "react";
 import { useAccount } from "wagmi";
-import { Button } from "@/components/ui/button";
+import { Button } from "@/app/components/ui/button";
 import { useRouter } from "next/navigation";
 import {
   Building2,
