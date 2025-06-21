@@ -1,12 +1,10 @@
-import { getDefaultConfig } from '@rainbow-me/rainbowkit';
-import { sepolia } from 'wagmi/chains';
 
-const config = getDefaultConfig({
-  appName: 'ORACLEND',
-  projectId: process.env.NEXT_PUBLIC_WALLETCONNECT_PROJECT_ID || 'default-project-id',
-  chains: [sepolia],
+import { getDefaultConfig } from '@rainbow-me/rainbowkit';
+import { mainnet, sepolia, polygon } from 'wagmi/chains';
+
+export const config = getDefaultConfig({
+  appName: 'PropertyFi',
+  projectId: process.env.NEXT_PUBLIC_WALLETCONNECT_PROJECT_ID || 'demo-project-id',
+  chains: [mainnet, sepolia, polygon],
   ssr: true,
 });
-
-export default config;
-export { config };
