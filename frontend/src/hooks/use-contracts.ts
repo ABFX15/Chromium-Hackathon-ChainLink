@@ -1,25 +1,53 @@
 
 import { useState, useEffect } from 'react';
-import { useAccount, useReadContract } from 'wagmi';
+import { useAccount } from 'wagmi';
+
+export interface UserNFT {
+  tokenId: number;
+  name: string;
+  image: string;
+  value: number;
+}
 
 export function useContracts() {
-  const { address } = useAccount();
-  const [userNFTs, setUserNFTs] = useState(0);
-  const [userUSDCBalance, setUserUSDCBalance] = useState(0);
+  const { address, isConnected } = useAccount();
+  const [userNFTs, setUserNFTs] = useState<UserNFT[]>([]);
+  const [userUSDCBalance, setUserUSDCBalance] = useState<number>(0);
+  const [isLoading, setIsLoading] = useState(false);
 
-  // Mock data for demo purposes
   useEffect(() => {
-    if (address) {
-      setUserNFTs(3); // Mock NFT count
-      setUserUSDCBalance(25000); // Mock USDC balance
+    if (isConnected && address) {
+      setIsLoading(true);
+      
+      // Mock data for demo purposes
+      setTimeout(() => {
+        setUserNFTs([
+          {
+            tokenId: 1,
+            name: "Downtown Apartment NFT",
+            image: "https://images.unsplash.com/photo-1545324418-cc1a3fa10c00?auto=format&fit=crop&w=400&q=80",
+            value: 450000
+          },
+          {
+            tokenId: 2,
+            name: "Suburban Villa NFT", 
+            image: "https://images.unsplash.com/photo-1506744038136-46273834b3fb?auto=format&fit=crop&w=400&q=80",
+            value: 750000
+          }
+        ]);
+        
+        setUserUSDCBalance(25000);
+        setIsLoading(false);
+      }, 1000);
     } else {
-      setUserNFTs(0);
+      setUserNFTs([]);
       setUserUSDCBalance(0);
     }
-  }, [address]);
+  }, [isConnected, address]);
 
   return {
     userNFTs,
-    userUSDCBalance
+    userUSDCBalance,
+    isLoading
   };
 }
