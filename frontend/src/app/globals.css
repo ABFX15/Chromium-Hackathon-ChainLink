@@ -558,3 +558,43 @@ input::placeholder {
   --secondary-s: 91%;
   --secondary-l: 65%;
 }
+
+/* Dashboard Stats Animations */
+@keyframes countUp {
+  from { opacity: 0; transform: translateY(20px); }
+  to { opacity: 1; transform: translateY(0); }
+}
+
+@keyframes glow-pulse {
+  0%, 100% { box-shadow: 0 0 20px rgba(6, 182, 212, 0.3); }
+  50% { box-shadow: 0 0 40px rgba(6, 182, 212, 0.6); }
+}
+
+.stats-card {
+  animation: countUp 0.8s ease-out;
+  position: relative;
+}
+
+.stats-card:hover {
+  animation: glow-pulse 2s ease-in-out infinite;
+}
+
+.stats-card::before {
+  content: '';
+  position: absolute;
+  top: 0;
+  left: -100%;
+  width: 100%;
+  height: 100%;
+  background: linear-gradient(
+    90deg,
+    transparent,
+    rgba(255, 255, 255, 0.1),
+    transparent
+  );
+  transition: left 0.8s;
+}
+
+.stats-card:hover::before {
+  left: 100%;
+}

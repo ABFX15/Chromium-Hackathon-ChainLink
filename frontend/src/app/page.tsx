@@ -1,3 +1,4 @@
+
 "use client";
 import { useState, useEffect } from "react";
 import { useAccount } from "wagmi";
@@ -14,6 +15,8 @@ import {
   TrendingUp,
   Users,
   DollarSign,
+  Activity,
+  Target,
 } from "lucide-react";
 import Link from "next/link";
 
@@ -53,6 +56,38 @@ export default function HomePage() {
     { label: "Properties Listed", value: "1,284", icon: Building2 },
     { label: "Active Users", value: "12.8K", icon: Users },
     { label: "Success Rate", value: "99.2%", icon: TrendingUp },
+  ];
+
+  // Dashboard stats cards like MultiversX
+  const dashboardStats = [
+    {
+      title: "Average Cost",
+      subtitle: "per Transaction", 
+      value: "~$0.002",
+      color: "from-cyan-500 to-blue-500",
+      icon: Target
+    },
+    {
+      title: "Total Transactions",
+      subtitle: "",
+      value: "529,598,905", 
+      color: "from-green-500 to-emerald-500",
+      icon: Activity
+    },
+    {
+      title: "Validator Nodes",
+      subtitle: "",
+      value: "3,619",
+      color: "from-purple-500 to-pink-500", 
+      icon: Shield
+    },
+    {
+      title: "AI Risk Score",
+      subtitle: "Average",
+      value: "94.2%",
+      color: "from-orange-500 to-red-500",
+      icon: Brain
+    }
   ];
 
   return (
@@ -120,6 +155,54 @@ export default function HomePage() {
                   </div>
                   <div className="text-3xl lg:text-4xl font-bold text-white mb-2">{stat.value}</div>
                   <div className="text-sm lg:text-base text-gray-400">{stat.label}</div>
+                </div>
+              );
+            })}
+          </div>
+        </div>
+      </div>
+
+      {/* Dashboard Stats Section - Like MultiversX */}
+      <div className="relative py-20 px-6">
+        <div className="max-w-7xl mx-auto">
+          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
+            {dashboardStats.map((stat, index) => {
+              const Icon = stat.icon;
+              return (
+                <div 
+                  key={index}
+                  className="group relative overflow-hidden"
+                >
+                  {/* Background card */}
+                  <div className="h-full bg-gradient-to-br from-white/5 to-white/10 backdrop-blur-xl border border-white/20 rounded-2xl p-6 hover:border-cyan-400/50 transition-all duration-500 hover:scale-105">
+                    
+                    {/* Animated background gradient */}
+                    <div className={`absolute inset-0 bg-gradient-to-r ${stat.color} opacity-0 group-hover:opacity-10 transition-opacity duration-500 rounded-2xl`}></div>
+                    
+                    {/* Content */}
+                    <div className="relative z-10">
+                      {/* Icon */}
+                      <div className={`w-12 h-12 bg-gradient-to-r ${stat.color} rounded-xl flex items-center justify-center mb-4 group-hover:scale-110 transition-transform duration-300`}>
+                        <Icon className="w-6 h-6 text-white" />
+                      </div>
+
+                      {/* Title and subtitle */}
+                      <div className="mb-3">
+                        <h3 className="text-gray-400 text-sm font-medium">{stat.title}</h3>
+                        {stat.subtitle && (
+                          <p className="text-gray-500 text-xs">{stat.subtitle}</p>
+                        )}
+                      </div>
+
+                      {/* Value */}
+                      <div className={`text-3xl font-bold bg-gradient-to-r ${stat.color} bg-clip-text text-transparent group-hover:scale-105 transition-transform duration-300`}>
+                        {stat.value}
+                      </div>
+                    </div>
+
+                    {/* Hover effect overlay */}
+                    <div className="absolute inset-0 bg-gradient-to-r from-transparent via-white/5 to-transparent -skew-x-12 -translate-x-full group-hover:translate-x-full transition-transform duration-1000 ease-out"></div>
+                  </div>
                 </div>
               );
             })}
