@@ -107,6 +107,7 @@ export function useProperties() {
           }
         }
 
+        console.log('Setting properties:', propertiesData.length, 'items');
         setProperties(propertiesData);
       } catch (error) {
         console.error('Failed to fetch properties:', error);

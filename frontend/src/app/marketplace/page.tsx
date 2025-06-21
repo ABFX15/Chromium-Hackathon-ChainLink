@@ -74,7 +74,7 @@ export default function MarketplacePage() {
             borderRadius: "50%",
             animation: "pulse 2s infinite"
           }} />
-          Live property data • {properties.length} properties available
+          Live property data • {Array.isArray(properties) ? properties.length : 0} properties available
           <style jsx>{`
             @keyframes pulse {
               0%, 100% { opacity: 1; }

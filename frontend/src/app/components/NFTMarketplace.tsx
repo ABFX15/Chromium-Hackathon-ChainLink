@@ -37,7 +37,7 @@ function QuickStats({ totalValue, totalProperties, avgReturn, activeLoans }: Qui
     },
     {
       label: 'Available Properties',
-      value: totalProperties.toString(),
+      value: typeof totalProperties === 'number' ? totalProperties.toString() : '0',
       icon: Building2,
       change: '+3',
       positive: true
