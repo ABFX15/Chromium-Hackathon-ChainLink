@@ -400,11 +400,89 @@ export const useContracts = () => {
         return null;
     };
 
-    // Get AI risk score
-    const getAIRiskScore = async (loanId: number) => {
-        // This would need to be implemented with proper contract reading
-        // For now, return a placeholder
-        return BigInt(0);
+    // Get AI risk score for a loan
+    const getAIRiskScore = async (loanId: bigint) => {
+        if (!aiRiskManagerContract) return null;
+
+        try {
+            const result = await aiRiskManagerContract.read.getLoanRiskData([loanId]);
+            return {
+                riskScore: result[0],
+                volatilityScore: result[1],
+                interestRate: result[2],
+                lastUpdated: result[3]
+            };
+        } catch (error) {
+            console.error('Error getting AI risk score:', error);
+            return null;
+        }
+    };
+
+    // CCIP Cross-Chain Functions
+    const addCCIPLiquidity = async (chainSelector: bigint, amount: bigint) => {
+        if (!address || !crossChainLiquidityContract) return null;
+
+        try {
+            setAddingLiquidity(true);
+
+            // First approve USDC
+            if (mockUsdcContract) {
+                await mockUsdcContract.write.approve([
+                    crossChainLiquidityContract.address,
+                    amount
+                ]);
+            }
+
+            const hash = await crossChainLiquidityContract.write.addLiquidity([chainSelector], {
+                value: parseEther('0.01') // CCIP fee
+            });
+
+            console.log('CCIP liquidity transaction hash:', hash);
+            setLiquiditySuccess(true);
+            return hash;
+        } catch (error) {
+            console.error('Error adding CCIP liquidity:', error);
+            throw error;
+        } finally {
+            setAddingLiquidity(false);
+        }
+    };
+
+    const estimateCCIPFee = async (destinationChainSelector: bigint) => {
+        if (!crossChainLiquidityContract) return BigInt(0);
+
+        try {
+            // This would typically call a fee estimation function on the contract
+            // For now, return a default estimate
+            return parseEther('0.01'); // 0.01 ETH estimate
+        } catch (error) {
+            console.error('Error estimating CCIP fee:', error);
+            return BigInt(0);
+        }
+    };
+
+    const executeCCIPLoan = async (loanId: bigint, destinationChain: bigint) => {
+        if (!address || !loanManagerContract) return null;
+
+        try {
+            setFunding(true);
+
+            const hash = await loanManagerContract.write.fundLoanCrossChain([
+                loanId,
+                destinationChain
+            ], {
+                value: parseEther('0.01') // CCIP fee
+            });
+
+            console.log('CCIP loan execution hash:', hash);
+            setFundSuccess(true);
+            return hash;
+        } catch (error) {
+            console.error('Error executing CCIP loan:', error);
+            throw error;
+        } finally {
+            setFunding(false);
+        }
     };
 
     // Load user data
@@ -500,4 +578,4 @@ export const useContracts = () => {
         CHAINLINK_LINK_TOKEN,
         CHAINLINK_CCIP_ROUTER,
     };
-}; 
+};

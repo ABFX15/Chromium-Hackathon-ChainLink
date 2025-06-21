@@ -1,0 +1,152 @@
+
+[
+  {
+    "inputs": [
+      {
+        "internalType": "address",
+        "name": "ccipRouter",
+        "type": "address"
+      },
+      {
+        "internalType": "address",
+        "name": "usdc",
+        "type": "address"
+      }
+    ],
+    "stateMutability": "nonpayable",
+    "type": "constructor"
+  },
+  {
+    "inputs": [
+      {
+        "internalType": "uint64",
+        "name": "chainSelector",
+        "type": "uint64"
+      }
+    ],
+    "name": "addLiquidity",
+    "outputs": [],
+    "stateMutability": "payable",
+    "type": "function"
+  },
+  {
+    "inputs": [
+      {
+        "internalType": "uint64",
+        "name": "chainSelector",
+        "type": "uint64"
+      },
+      {
+        "internalType": "address",
+        "name": "vault",
+        "type": "address"
+      }
+    ],
+    "name": "addSupportedChain",
+    "outputs": [],
+    "stateMutability": "nonpayable",
+    "type": "function"
+  },
+  {
+    "inputs": [
+      {
+        "internalType": "uint64",
+        "name": "chainSelector",
+        "type": "uint64"
+      }
+    ],
+    "name": "getChainLiquidity",
+    "outputs": [
+      {
+        "internalType": "uint256",
+        "name": "totalLiquidity",
+        "type": "uint256"
+      },
+      {
+        "internalType": "uint256",
+        "name": "availableLiquidity",
+        "type": "uint256"
+      },
+      {
+        "internalType": "uint256",
+        "name": "utilizationRate",
+        "type": "uint256"
+      }
+    ],
+    "stateMutability": "view",
+    "type": "function"
+  },
+  {
+    "inputs": [
+      {
+        "internalType": "address",
+        "name": "lender",
+        "type": "address"
+      },
+      {
+        "internalType": "uint64",
+        "name": "chainSelector",
+        "type": "uint64"
+      }
+    ],
+    "name": "getLenderPosition",
+    "outputs": [
+      {
+        "internalType": "uint256",
+        "name": "",
+        "type": "uint256"
+      }
+    ],
+    "stateMutability": "view",
+    "type": "function"
+  },
+  {
+    "inputs": [
+      {
+        "internalType": "uint64",
+        "name": "chainSelector",
+        "type": "uint64"
+      },
+      {
+        "internalType": "uint256",
+        "name": "amount",
+        "type": "uint256"
+      }
+    ],
+    "name": "withdrawLiquidity",
+    "outputs": [],
+    "stateMutability": "nonpayable",
+    "type": "function"
+  },
+  {
+    "anonymous": false,
+    "inputs": [
+      {
+        "indexed": true,
+        "internalType": "address",
+        "name": "lender",
+        "type": "address"
+      },
+      {
+        "indexed": true,
+        "internalType": "uint64",
+        "name": "chainSelector",
+        "type": "uint64"
+      },
+      {
+        "indexed": false,
+        "internalType": "uint256",
+        "name": "amount",
+        "type": "uint256"
+      },
+      {
+        "indexed": false,
+        "internalType": "bytes32",
+        "name": "messageId",
+        "type": "bytes32"
+      }
+    ],
+    "name": "LiquidityAdded",
+    "type": "event"
+  }
+]

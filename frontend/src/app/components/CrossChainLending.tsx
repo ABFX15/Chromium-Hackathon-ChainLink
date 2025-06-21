@@ -1,5 +1,6 @@
 import { useState, useEffect } from 'react'
 import { useAccount, useChainId, useSwitchChain } from 'wagmi'
+import { useContracts } from '../hooks/useContracts'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import { Button } from '@/components/ui/button'
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select'
@@ -12,6 +13,7 @@ export function CrossChainLending() {
   const { address } = useAccount()
   const chainId = useChainId()
   const { switchChain } = useSwitchChain()
+  const { addCCIPLiquidity, estimateCCIPFee, executeCCIPLoan, addingLiquidity } = useContracts()
   
   const [selectedDestination, setSelectedDestination] = useState<string>('')
   const [loanAmount, setLoanAmount] = useState('')
@@ -249,11 +251,22 @@ export function CrossChainLending() {
 
               {/* Execute Cross-Chain Loan */}
               <Button
-                disabled={!selectedDestination || !loanAmount || !address}
+                disabled={!selectedDestination || !loanAmount || !address || addingLiquidity}
+                onClick={async () => {
+                  if (selectedDestination && loanAmount) {
+                    try {
+                      // Convert chain name to selector (simplified)
+                      const chainSelector = BigInt(selectedDestination === 'avalancheFuji' ? 14767482510784806043 : 16015286601757825753)
+                      await addCCIPLiquidity(chainSelector, BigInt(loanAmount) * BigInt(10**6)) // USDC has 6 decimals
+                    } catch (error) {
+                      console.error('CCIP loan failed:', error)
+                    }
+                  }
+                }}
                 className="w-full bg-cyan-500/20 hover:bg-cyan-500/30 border border-cyan-500/50 text-cyan-300 font-mono"
               >
                 <Zap className="w-4 h-4 mr-2" />
-                [execute_ccip_loan]
+                {addingLiquidity ? '[executing...]' : '[execute_ccip_loan]'}
               </Button>
             </>
           ) : (
