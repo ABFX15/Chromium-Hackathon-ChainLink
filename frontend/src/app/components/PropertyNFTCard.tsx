@@ -50,18 +50,10 @@ export function PropertyNFTCard({ nft, showBuyButton = false, onBuy }: PropertyN
       <div 
         className="nft-card group cursor-pointer" 
         onClick={(e) => {
-          // Only open modal if clicking on the card itself, not the button
-          const clickedElement = e.target as HTMLElement
-          const isButton = clickedElement.closest('button') || clickedElement.tagName === 'BUTTON'
-          const isButtonArea = clickedElement.closest('[data-button-area]')
-          
-          console.log('Card clicked, target:', clickedElement.tagName, 'isButton:', isButton, 'isButtonArea:', isButtonArea)
-          
-          if (!isButton && !isButtonArea) {
-            console.log('Opening modal for:', nft.name)
+          // Only open modal if not clicking on a button
+          const target = e.target as HTMLElement
+          if (target.tagName !== 'BUTTON' && !target.closest('button')) {
             setShowModal(true)
-          } else {
-            console.log('Click blocked - button area clicked')
           }
         }}
       >
@@ -154,40 +146,23 @@ export function PropertyNFTCard({ nft, showBuyButton = false, onBuy }: PropertyN
 
           {/* Action Button */}
           {showBuyButton && (
-            <div className="relative z-50 mt-6" data-button-area="true">
-              <button
-                onClick={(e) => {
-                  e.preventDefault()
-                  e.stopPropagation()
-                  console.log('BUTTON CLICK EVENT FIRED for:', nft.name)
-                  console.log('onBuy function exists:', !!onBuy)
-                  console.log('onBuy function type:', typeof onBuy)
-                  if (onBuy) {
-                    console.log('Calling onBuy function...')
-                    onBuy(nft)
-                    console.log('onBuy function called successfully')
-                  } else {
-                    console.error('onBuy function is not defined')
-                  }
-                }}
-                onMouseDown={(e) => {
-                  console.log('MOUSE DOWN on purchase button')
-                }}
-                onMouseUp={(e) => {
-                  console.log('MOUSE UP on purchase button')
-                }}
-                className="w-full bg-gradient-to-r from-cyan-600 to-blue-600 hover:from-cyan-500 hover:to-blue-500 text-white font-bold py-3 px-4 rounded-lg transition-all duration-300 flex items-center justify-center relative z-50"
-                style={{ 
-                  pointerEvents: 'auto',
-                  position: 'relative',
-                  zIndex: 9999
-                }}
-                type="button"
-              >
-                <Zap className="w-4 h-4 mr-2" />
-                Purchase NFT
-              </button>
-            </div>
+            <button
+              onClick={() => {
+                console.log('=== BUTTON CLICKED ===')
+                console.log('NFT name:', nft.name)
+                console.log('onBuy exists:', !!onBuy)
+                if (onBuy) {
+                  onBuy(nft)
+                } else {
+                  console.error('onBuy is undefined!')
+                }
+              }}
+              className="w-full bg-blue-600 hover:bg-blue-500 text-white font-bold py-3 px-4 rounded-lg mt-6"
+              type="button"
+            >
+              <Zap className="w-4 h-4 mr-2 inline" />
+              Purchase NFT
+            </button>
           )}
         </div>
 
