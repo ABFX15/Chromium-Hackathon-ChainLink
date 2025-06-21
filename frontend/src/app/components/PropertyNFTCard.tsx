@@ -25,6 +25,17 @@ export function PropertyNFTCard({ nft, showBuyButton = false, onBuy }: PropertyN
   const [showModal, setShowModal] = useState(false)
   const [imageLoaded, setImageLoaded] = useState(false)
 
+  // Guard clause to handle undefined nft
+  if (!nft) {
+    return (
+      <div className="nft-card bg-gray-800/50 border border-gray-700 rounded-20 p-6">
+        <div className="text-center text-gray-400">
+          <div className="text-sm">NFT data not available</div>
+        </div>
+      </div>
+    )
+  }
+
   const riskScore = nft.riskScore || 50 // Default risk score if undefined
   const riskColor = riskScore <= 30 
     ? 'text-green-400 bg-green-400/10 border-green-400/30' 

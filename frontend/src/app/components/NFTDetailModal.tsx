@@ -11,9 +11,11 @@ interface NFTDetailModalProps {
   nft: PropertyNFT | null
   isOpen: boolean
   onClose: () => void
+  showBuyButton?: boolean
+  onBuy?: (nft: PropertyNFT) => void
 }
 
-export function NFTDetailModal({ nft, isOpen, onClose }: NFTDetailModalProps) {
+export function NFTDetailModal({ nft, isOpen, onClose, showBuyButton, onBuy }: NFTDetailModalProps) {
   const { isConnected } = useAccount()
   const [workflowModalOpen, setWorkflowModalOpen] = useState(false)
   const [workflowMode, setWorkflowMode] = useState<'borrow' | 'lend'>('borrow')
