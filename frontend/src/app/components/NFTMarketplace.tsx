@@ -131,10 +131,12 @@ export function NFTMarketplace() {
   })
 
   const handleBuyNFT = (nft: PropertyNFT) => {
-    console.log('Buy NFT clicked:', nft.name)
+    console.log('handleBuyNFT called in marketplace for:', nft.name)
+    console.log('Setting selected NFT and opening modal')
     setSelectedNFT(nft)
     setPurchaseType('buy')
     setShowPurchaseModal(true)
+    console.log('Modal should now be open, showPurchaseModal:', true)
   }
 
   const handleLoanNFT = (nft: PropertyNFT) => {

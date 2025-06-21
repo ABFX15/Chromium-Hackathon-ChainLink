@@ -47,7 +47,12 @@ export function PropertyNFTCard({ nft, showBuyButton = false, onBuy }: PropertyN
 
   return (
     <>
-      <div className="nft-card group cursor-pointer" onClick={() => setShowModal(true)}>
+      <div className="nft-card group cursor-pointer" onClick={(e) => {
+        // Only open modal if clicking on the card itself, not the button
+        if (e.target === e.currentTarget || !e.target.closest('button')) {
+          setShowModal(true)
+        }
+      }}>
         {/* Header Badges */}
         <div className="absolute top-4 left-4 right-4 flex justify-between items-start z-10">
           <Badge className={`${riskColor} border font-semibold text-xs px-3 py-1`}>
@@ -139,11 +144,18 @@ export function PropertyNFTCard({ nft, showBuyButton = false, onBuy }: PropertyN
           {showBuyButton && (
             <button
               onClick={(e) => {
+                e.preventDefault()
                 e.stopPropagation()
                 console.log('Purchase button clicked for:', nft.name)
-                onBuy?.(nft)
+                console.log('onBuy function:', typeof onBuy)
+                if (onBuy) {
+                  onBuy(nft)
+                } else {
+                  console.error('onBuy function is not defined')
+                }
               }}
-              className="w-full btn-primary mt-6"
+              className="w-full btn-primary mt-6 relative z-10 pointer-events-auto"
+              style={{ pointerEvents: 'auto' }}
             >
               <Zap className="w-4 h-4 mr-2" />
               Purchase NFT
