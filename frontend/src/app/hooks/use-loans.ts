@@ -8,7 +8,7 @@ export function useLoans() {
   const [loans, setLoans] = useState<Loan[]>([])
   const [loading, setLoading] = useState(false)
 
-  useEffect(() => {
+  const loadLoans = () => {
     if (!address || !isConnected) {
       setLoans([])
       setLoading(false)
@@ -21,24 +21,30 @@ export function useLoans() {
     const storedLoans = localStorage.getItem(`createdLoans_${address}`)
     const loanCount = storedLoans ? parseInt(storedLoans) : 0
 
+    console.log('Loading loans for address:', address, 'loan count:', loanCount)
+
     const userLoans: Loan[] = []
 
     for (let i = 0; i < loanCount; i++) {
       const loanId = i + 1
       const tokenId = 1000 + i // Match with minted NFT token IDs
       const debt = 350000 // $350K borrowed
-      const interest = debt * 0.05 * (1/365) // Daily interest at 5% APR
-      const totalDue = debt + interest
-      const healthFactor = calculateHealthFactor(500000, totalDue) // $500K property value
+      const daysElapsed = i + 1 // Each loan is 1 day older
+      const annualRate = 0.05 // 5% APR
+      const dailyRate = annualRate / 365
+      const accruedInterest = debt * dailyRate * daysElapsed
+      const totalDue = debt + accruedInterest
+      const propertyValue = getMockPropertyValue(tokenId)
+      const healthFactor = calculateHealthFactor(propertyValue, totalDue)
 
       const loan: Loan = {
         loanId,
         tokenId,
         debt,
-        startTimestamp: Date.now() / 1000 - (i * 86400), // Each loan 1 day apart
+        startTimestamp: Date.now() / 1000 - (daysElapsed * 86400), // Each loan 1 day apart
         borrower: address,
         isActive: true,
-        interest,
+        interest: accruedInterest,
         totalDue,
         healthFactor,
         propertyName: getMockPropertyName(tokenId),
@@ -49,41 +55,14 @@ export function useLoans() {
 
     setLoans(userLoans)
     setLoading(false)
+  }
+
+  useEffect(() => {
+    loadLoans()
   }, [address, isConnected])
 
   const refetch = () => {
-    if (!address) return
-    
-    const storedLoans = localStorage.getItem(`createdLoans_${address}`)
-    const loanCount = storedLoans ? parseInt(storedLoans) : 0
-
-    const userLoans: Loan[] = []
-
-    for (let i = 0; i < loanCount; i++) {
-      const loanId = i + 1
-      const tokenId = 1000 + i
-      const debt = 350000
-      const interest = debt * 0.05 * (1/365)
-      const totalDue = debt + interest
-      const healthFactor = calculateHealthFactor(500000, totalDue)
-
-      const loan: Loan = {
-        loanId,
-        tokenId,
-        debt,
-        startTimestamp: Date.now() / 1000 - (i * 86400),
-        borrower: address,
-        isActive: true,
-        interest,
-        totalDue,
-        healthFactor,
-        propertyName: getMockPropertyName(tokenId),
-      }
-
-      userLoans.push(loan)
-    }
-
-    setLoans(userLoans)
+    loadLoans()
   }
 
   return { loans, loading, refetch }

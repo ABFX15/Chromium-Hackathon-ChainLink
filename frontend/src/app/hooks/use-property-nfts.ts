@@ -1,112 +1,99 @@
-import { useState, useEffect } from 'react'
-import { useAccount } from 'wagmi'
-import { PropertyNFT } from '@/types/contracts'
+import { useEffect, useState } from 'react';
+import { useAccount } from 'wagmi';
+import { PropertyNFT } from '../types/contracts';
+
+// Mock property data for marketplace
+const MOCK_PROPERTIES: PropertyNFT[] = [
+  {
+    tokenId: 1,
+    name: "Downtown Luxury Apartment",
+    description: "Modern apartment in the heart of downtown with stunning city views",
+    image: "/properties/apartment-2.jpg",
+    propertyValue: 850000,
+    isCollateral: false,
+    location: "New York, NY",
+    bedrooms: 2,
+    bathrooms: 2,
+    sqft: 1200,
+    propertyType: "Apartment",
+    coordinates: { lat: 40.7831, lng: -73.9712 }
+  },
+  {
+    tokenId: 2,
+    name: "Suburban Family Home",
+    description: "Spacious family home with large backyard in quiet neighborhood",
+    image: "/properties/luxury-home-1.jpg",
+    propertyValue: 650000,
+    isCollateral: false,
+    location: "Austin, TX",
+    bedrooms: 4,
+    bathrooms: 3,
+    sqft: 2500,
+    propertyType: "House",
+    coordinates: { lat: 30.2672, lng: -97.7431 }
+  },
+  {
+    tokenId: 3,
+    name: "Commercial Office Building",
+    description: "Modern office building in business district with high rental yield",
+    image: "/properties/commercial-3.jpg",
+    propertyValue: 2800000,
+    isCollateral: false,
+    location: "San Francisco, CA",
+    bedrooms: 0,
+    bathrooms: 10,
+    sqft: 15000,
+    propertyType: "Commercial",
+    coordinates: { lat: 37.7749, lng: -122.4194 }
+  },
+  {
+    tokenId: 4,
+    name: "Waterfront Villa",
+    description: "Luxury villa with private beach access and panoramic ocean views",
+    image: "/properties/villa-4.jpg",
+    propertyValue: 3500000,
+    isCollateral: false,
+    location: "Miami, FL",
+    bedrooms: 6,
+    bathrooms: 5,
+    sqft: 4500,
+    propertyType: "Villa",
+    coordinates: { lat: 25.7617, lng: -80.1918 }
+  }
+];
 
 export function usePropertyNFTs() {
-  const { address, isConnected } = useAccount()
-  const [nfts, setNfts] = useState<PropertyNFT[]>([])
-  const [loading, setLoading] = useState(false)
-  let mintCount = 0
+    const [nfts, setNfts] = useState<PropertyNFT[]>([]);
+    const [isLoading, setIsLoading] = useState(true);
+    const { address } = useAccount();
 
-  // Check localStorage for minted NFTs count
-  if (typeof window !== 'undefined' && address) {
-    const stored = localStorage.getItem(`mintedNFTs_${address}`)
-    mintCount = stored ? parseInt(stored) : 0
-  }
+    useEffect(() => {
+        // Simulate loading delay
+        const timer = setTimeout(() => {
+            // Check for user's minted NFTs and mark them as collateral if they have loans
+            const userMintedNFTs = address ? localStorage.getItem(`mintedNFTs_${address}`) : '0';
+            const userCreatedLoans = address ? localStorage.getItem(`createdLoans_${address}`) : '0';
+            const mintedCount = parseInt(userMintedNFTs || '0');
+            const loanCount = parseInt(userCreatedLoans || '0');
 
-  useEffect(() => {
-    if (!address || !isConnected) {
-      setNfts([])
-      setLoading(false)
-      return
-    }
+            const updatedNFTs = MOCK_PROPERTIES.map((nft, index) => {
+                // Mark user's minted NFTs as owned and potentially collateralized
+                if (index < mintedCount) {
+                    return {
+                        ...nft,
+                        tokenId: 1000 + index, // Use consistent token IDs
+                        isCollateral: index < loanCount, // First few are used as collateral
+                    };
+                }
+                return nft;
+            });
 
-    setLoading(true)
+            setNfts(updatedNFTs);
+            setIsLoading(false);
+        }, 500);
 
-    // Create demo NFTs for testing (minimum 4 NFTs to showcase the 3D cards)
-    const demoCount = Math.max(mintCount, 4)
-    const userNFTs: PropertyNFT[] = []
-    
-    for (let i = 0; i < demoCount; i++) {
-      const tokenId = 1000 + i
-      const metadata = getMockNFTMetadata(tokenId)
+        return () => clearTimeout(timer);
+    }, [address]);
 
-      const nft: PropertyNFT = {
-        tokenId,
-        owner: address,
-        tokenURI: `https://propertyfi.demo/metadata/${tokenId}`,
-        name: metadata.name,
-        image: metadata.image,
-        description: metadata.description,
-        propertyValue: 500000 + (i * 100000), // Varying values
-        maxLoan: 350000 + (i * 70000), // 70% LTV
-        isCollateral: i === 1, // Second NFT is collateral
-      }
-
-      userNFTs.push(nft)
-    }
-    
-    setNfts(userNFTs)
-    setLoading(false)
-  }, [address, isConnected, mintCount])
-
-  const refetch = () => {
-    if (!address) return
-    
-    const stored = localStorage.getItem(`mintedNFTs_${address}`)
-    const currentCount = stored ? parseInt(stored) : 0
-    
-    const userNFTs: PropertyNFT[] = []
-    
-    for (let i = 0; i < currentCount; i++) {
-      const tokenId = 1000 + i
-      const metadata = getMockNFTMetadata(tokenId)
-
-      const nft: PropertyNFT = {
-        tokenId,
-        owner: address,
-        tokenURI: `https://propertyfi.demo/metadata/${tokenId}`,
-        name: metadata.name,
-        image: metadata.image,
-        description: metadata.description,
-        propertyValue: 500000,
-        maxLoan: 350000,
-        isCollateral: false,
-      }
-
-      userNFTs.push(nft)
-    }
-    
-    setNfts(userNFTs)
-  }
-
-  return { nfts, loading, refetch }
-}
-
-// Mock NFT metadata for demo purposes
-function getMockNFTMetadata(tokenId: number) {
-  const properties = [
-    {
-      name: "Downtown Apartment #1",
-      image: "https://images.unsplash.com/photo-1545324418-cc1a3fa10c00?ixlib=rb-4.0.3&auto=format&fit=crop&w=400&h=300",
-      description: "Modern luxury apartment in downtown financial district"
-    },
-    {
-      name: "Family House #2", 
-      image: "https://images.unsplash.com/photo-1564013799919-ab600027ffc6?ixlib=rb-4.0.3&auto=format&fit=crop&w=400&h=300",
-      description: "Elegant suburban house with beautiful landscaping"
-    },
-    {
-      name: "Office Building #3",
-      image: "https://images.unsplash.com/photo-1486406146926-c627a92ad1ab?ixlib=rb-4.0.3&auto=format&fit=crop&w=400&h=300", 
-      description: "Contemporary office building in business district"
-    },
-    {
-      name: "Waterfront Villa #4",
-      image: "https://images.unsplash.com/photo-1613490493576-7fde63acd811?ixlib=rb-4.0.3&auto=format&fit=crop&w=400&h=300",
-      description: "Luxury waterfront villa with panoramic views"
-    }
-  ]
-
-  return properties[(tokenId - 1) % properties.length]
+    return { nfts, isLoading };
 }

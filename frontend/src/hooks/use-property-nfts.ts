@@ -1,12 +1,12 @@
 import { useEffect, useState } from 'react';
-import { useContracts } from './use-contracts';
+import { useAccount } from 'wagmi';
 import { propertyService } from '../services/propertyService';
 import { Property } from '../types/property';
 
 export function usePropertyNFTs() {
     const [nfts, setNfts] = useState<Property[]>([]);
     const [isLoading, setIsLoading] = useState(true);
-    const { userNFTs } = useContracts();
+    const { isConnected } = useAccount();
 
     useEffect(() => {
         async function loadProperties() {
@@ -15,18 +15,16 @@ export function usePropertyNFTs() {
                 setNfts(properties);
             } catch (error) {
                 console.error('Error loading properties:', error);
+                // Fallback to empty array to ensure marketplace shows
+                setNfts([]);
             } finally {
                 setIsLoading(false);
             }
         }
 
-        if (userNFTs > 0) {
-            loadProperties();
-        } else {
-            setNfts([]);
-            setIsLoading(false);
-        }
-    }, [userNFTs]);
+        // Always load properties when component mounts, regardless of wallet connection
+        loadProperties();
+    }, [isConnected]);
 
     return { nfts, isLoading };
 }

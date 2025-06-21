@@ -12,7 +12,7 @@ export function CreateLoanButton({ tokenId }: { tokenId?: number }) {
   const { nfts } = usePropertyNFTs()
 
   const { writeContract } = useWriteContract()
-  
+
   // Use first available NFT if no tokenId provided
   const availableTokenId = tokenId || (nfts.length > 0 ? nfts[0].tokenId : null)
 
@@ -46,17 +46,17 @@ export function CreateLoanButton({ tokenId }: { tokenId?: number }) {
       })
 
       console.log(`Created loan for token ${availableTokenId}: ${loanHash}`)
-      
+
       // Track created loans in localStorage
       const currentLoans = localStorage.getItem(`createdLoans_${address}`)
       const newLoanCount = currentLoans ? parseInt(currentLoans) + 1 : 1
       localStorage.setItem(`createdLoans_${address}`, newLoanCount.toString())
-      
+
       setCreatedLoans(prev => [...prev, availableTokenId])
-      
+
       // Trigger refresh of loan data
       window.dispatchEvent(new Event('loanCreated'))
-      
+
     } catch (error) {
       console.error('Error creating loan:', error)
     } finally {
