@@ -1,7 +1,7 @@
 import { useState, useEffect } from 'react'
 import { useAccount } from 'wagmi'
 import { Loan } from '@/types/contracts'
-import { calculateHealthFactor } from '@/lib/utils'
+import { calculateHealthFactor } from '../lib/utils'
 
 export function useLoans() {
   const { address, isConnected } = useAccount()

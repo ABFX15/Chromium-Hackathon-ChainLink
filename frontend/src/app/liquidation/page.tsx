@@ -2,7 +2,7 @@
 
 import { useState } from "react";
 import { useLoans } from "../hooks/use-loans";
-import { useLoanHealth, type LoanHealth } from "../../hooks/use-loan-health";
+import { useLoanHealth, type LoanHealth } from "../hooks/use-loan-health";
 import { Card, CardContent, CardHeader, CardTitle } from "../components/ui/card";
 import { Badge } from "../components/ui/badge";
 import { Button } from "../components/ui/button";
