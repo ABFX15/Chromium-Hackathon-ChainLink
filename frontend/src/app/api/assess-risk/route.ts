@@ -1,14 +1,15 @@
 
 import { NextRequest, NextResponse } from "next/server";
-import { BedrockRuntimeClient, InvokeModelCommand } from "@aws-sdk/client-bedrock-runtime";
+// AWS SDK temporarily commented out due to installation issues
+// import { BedrockRuntimeClient, InvokeModelCommand } from "@aws-sdk/client-bedrock-runtime";
 
-const bedrockClient = new BedrockRuntimeClient({
-  region: process.env.AWS_REGION || 'us-east-1',
-  credentials: {
-    accessKeyId: process.env.AWS_ACCESS_KEY_ID || '',
-    secretAccessKey: process.env.AWS_SECRET_ACCESS_KEY || ''
-  }
-});
+// const bedrockClient = new BedrockRuntimeClient({
+//   region: process.env.AWS_REGION || 'us-east-1',
+//   credentials: {
+//     accessKeyId: process.env.AWS_ACCESS_KEY_ID || '',
+//     secretAccessKey: process.env.AWS_SECRET_ACCESS_KEY || ''
+//   }
+// });
 
 interface PropertyRiskData {
   propertyValue: number;
@@ -25,11 +26,9 @@ export async function POST(req: NextRequest) {
   try {
     const data: PropertyRiskData = await req.json();
     
-    // Check if AWS credentials are configured
-    if (!process.env.AWS_ACCESS_KEY_ID || !process.env.AWS_SECRET_ACCESS_KEY) {
-      console.log("AWS credentials not found, using mock data");
-      return NextResponse.json(generateMockRiskAssessment(data));
-    }
+    // Temporarily using mock implementation due to AWS SDK installation issues
+    console.log("Using mock risk assessment (AWS SDK temporarily disabled)");
+    return NextResponse.json(generateMockRiskAssessment(data));
 
     // Build AI prompt
     const prompt = `
@@ -60,43 +59,44 @@ Please provide a JSON response with the following structure:
 Consider factors like property age, location risk, market conditions, LTV ratio, and borrower profile.
 `;
 
-    try {
-      const input = {
-        modelId: 'anthropic.claude-3-sonnet-20240229-v1:0',
-        contentType: 'application/json',
-        accept: 'application/json',
-        body: JSON.stringify({
-          anthropic_version: 'bedrock-2023-05-31',
-          max_tokens: 1000,
-          messages: [{
-            role: 'user',
-            content: prompt
-          }]
-        })
-      };
+    // AWS Bedrock code temporarily commented out
+    // try {
+    //   const input = {
+    //     modelId: 'anthropic.claude-3-sonnet-20240229-v1:0',
+    //     contentType: 'application/json',
+    //     accept: 'application/json',
+    //     body: JSON.stringify({
+    //       anthropic_version: 'bedrock-2023-05-31',
+    //       max_tokens: 1000,
+    //       messages: [{
+    //         role: 'user',
+    //         content: prompt
+    //       }]
+    //     })
+    //   };
 
-      const command = new InvokeModelCommand(input);
-      const response = await bedrockClient.send(command);
+    //   const command = new InvokeModelCommand(input);
+    //   const response = await bedrockClient.send(command);
       
-      if (!response.body) {
-        throw new Error('No response body from Bedrock');
-      }
+    //   if (!response.body) {
+    //     throw new Error('No response body from Bedrock');
+    //   }
 
-      const responseBody = JSON.parse(new TextDecoder().decode(response.body));
-      const aiResponse = responseBody.content[0].text;
+    //   const responseBody = JSON.parse(new TextDecoder().decode(response.body));
+    //   const aiResponse = responseBody.content[0].text;
       
-      // Parse AI response
-      const assessment = JSON.parse(aiResponse);
+    //   // Parse AI response
+    //   const assessment = JSON.parse(aiResponse);
       
-      return NextResponse.json({
-        success: true,
-        ...assessment
-      });
+    //   return NextResponse.json({
+    //     success: true,
+    //     ...assessment
+    //   });
       
-    } catch (aiError) {
-      console.error('Bedrock AI error:', aiError);
-      return NextResponse.json(generateMockRiskAssessment(data));
-    }
+    // } catch (aiError) {
+    //   console.error('Bedrock AI error:', aiError);
+    //   return NextResponse.json(generateMockRiskAssessment(data));
+    // }
     
   } catch (error) {
     console.error('Risk assessment error:', error);
