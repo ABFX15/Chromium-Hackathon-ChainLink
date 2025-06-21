@@ -25,3 +25,8 @@ export function getHealthFactorWidth(factor: number): string {
   const percentage = Math.min(factor * 50, 100); // Scale factor to percentage
   return `${percentage}%`;
 }
+
+export function calculateHealthFactor(propertyValue: number, totalDebt: number): number {
+  if (totalDebt === 0) return Infinity;
+  return propertyValue / totalDebt;
+}
