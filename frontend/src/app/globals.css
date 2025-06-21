@@ -38,7 +38,6 @@ body {
     rgb(var(--background-end)) 100%
   );
   min-height: 100vh;
-  overflow-x: hidden;
   font-feature-settings: 'cv02', 'cv03', 'cv04', 'cv11';
   font-variant-numeric: slashed-zero;
   -webkit-font-smoothing: antialiased;
@@ -621,8 +620,8 @@ input::placeholder {
   z-index: 9999 !important;
 }
 
-/* Prevent body scroll when modal is open */
-body:has([data-rk]) {
+/* Only prevent body scroll when modal is specifically open, not all the time */
+body.modal-open {
   overflow: hidden !important;
 }
 
@@ -647,4 +646,18 @@ body:has([data-rk]) {
   background: rgba(0, 0, 0, 0.5) !important;
   backdrop-filter: blur(4px) !important;
   z-index: -1 !important;
+}
+
+/* Ensure pages can scroll properly */
+html, body {
+  overflow-x: hidden;
+  overflow-y: auto;
+  height: auto;
+  min-height: 100vh;
+}
+
+main {
+  overflow-y: auto;
+  height: auto;
+  min-height: calc(100vh - 80px);
 }
