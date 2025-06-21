@@ -20,6 +20,8 @@ export function RWAPurchaseModal({ nft, isOpen, purchaseType, onClose }: RWAPurc
   
   const { assessProperty } = useRiskAssessment()
 
+  console.log('RWAPurchaseModal render - isOpen:', isOpen, 'nft:', nft?.name)
+
   const handleAIAnalysis = async () => {
     setStep('ai_analysis')
     setIsProcessing(true)
