@@ -357,38 +357,58 @@ body::after {
 .animate-slide-left { animation: slideInLeft 0.6s ease-out; }
 .animate-scale-in { animation: scaleIn 0.4s ease-out; }
 
-/* Navigation Enhancements */
-.nav-link {
-  position: relative;
-  color: rgba(255, 255, 255, 0.7);
-  font-weight: 500;
-  font-size: 14px;
-  transition: all 0.3s ease;
-  padding: 8px 16px;
-  border-radius: 8px;
+/* Enhanced Navigation System */
+.premium-nav {
+  font-family: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
 }
 
-.nav-link::before {
+.premium-nav-link {
+  position: relative;
+  display: flex;
+  align-items: center;
+  padding: 12px 20px;
+  border-radius: 12px;
+  font-weight: 600;
+  font-size: 15px;
+  letter-spacing: 0.025em;
+  transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+  overflow: hidden;
+  text-decoration: none;
+}
+
+.premium-nav-link::before {
   content: '';
   position: absolute;
-  bottom: 0;
-  left: 50%;
-  width: 0;
-  height: 2px;
-  background: linear-gradient(90deg, rgb(99, 102, 241), rgb(168, 85, 247));
-  transition: all 0.3s ease;
-  transform: translateX(-50%);
+  inset: 0;
+  background: linear-gradient(135deg, rgba(6, 182, 212, 0.1), rgba(59, 130, 246, 0.1));
+  opacity: 0;
+  transition: opacity 0.3s ease;
+  border-radius: 12px;
 }
 
-.nav-link:hover::before,
-.nav-link.active::before {
-  width: 80%;
+.premium-nav-link:hover::before,
+.premium-nav-link.active::before {
+  opacity: 1;
 }
 
-.nav-link:hover,
-.nav-link.active {
-  color: white;
-  background: rgba(255, 255, 255, 0.05);
+.premium-nav-link:hover {
+  transform: translateY(-1px);
+  box-shadow: 0 8px 25px rgba(6, 182, 212, 0.15);
+}
+
+.premium-nav-link.active {
+  background: linear-gradient(135deg, rgba(6, 182, 212, 0.15), rgba(59, 130, 246, 0.15));
+  border: 1px solid rgba(6, 182, 212, 0.3);
+}
+
+/* Enhanced Glass Effects */
+.glass-nav {
+  background: linear-gradient(135deg, rgba(0, 0, 0, 0.8) 0%, rgba(6, 182, 212, 0.05) 100%);
+  backdrop-filter: blur(30px);
+  border-bottom: 1px solid rgba(6, 182, 212, 0.2);
+  box-shadow: 
+    0 8px 32px rgba(0, 0, 0, 0.3),
+    0 4px 16px rgba(6, 182, 212, 0.1);
 }
 
 /* Status Indicators */
