@@ -1,4 +1,3 @@
-
 'use client'
 
 import { ConnectButton } from '@rainbow-me/rainbowkit'
@@ -49,7 +48,10 @@ export const CustomConnectButton = () => {
                 if (!connected) {
                   return (
                     <button
-                      onClick={handleModalOpen(openConnectModal)}
+                      onClick={(e) => {
+                        e.preventDefault()
+                        openConnectModal?.()
+                      }}
                       type="button"
                       className="inline-flex items-center gap-2 bg-gradient-to-r from-cyan-500 to-blue-500 hover:from-cyan-400 hover:to-blue-400 text-white font-semibold px-6 py-3 rounded-xl transition-all duration-300 hover:scale-105 hover:shadow-lg hover:shadow-cyan-500/25 border border-cyan-400/20 focus:outline-none focus:ring-2 focus:ring-cyan-400/50 focus:ring-offset-2 focus:ring-offset-gray-900"
                     >

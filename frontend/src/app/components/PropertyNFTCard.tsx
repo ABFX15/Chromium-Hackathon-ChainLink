@@ -25,13 +25,14 @@ export function PropertyNFTCard({ nft, showBuyButton = false, onBuy }: PropertyN
   const [showModal, setShowModal] = useState(false)
   const [imageLoaded, setImageLoaded] = useState(false)
 
-  const riskColor = nft.riskScore <= 30 
+  const riskScore = nft.riskScore || 50 // Default risk score if undefined
+  const riskColor = riskScore <= 30 
     ? 'text-green-400 bg-green-400/10 border-green-400/30' 
-    : nft.riskScore <= 70 
+    : riskScore <= 70 
     ? 'text-yellow-400 bg-yellow-400/10 border-yellow-400/30'
     : 'text-red-400 bg-red-400/10 border-red-400/30'
 
-  const riskLabel = nft.riskScore <= 30 ? 'Low Risk' : nft.riskScore <= 70 ? 'Medium Risk' : 'High Risk'
+  const riskLabel = riskScore <= 30 ? 'Low Risk' : riskScore <= 70 ? 'Medium Risk' : 'High Risk'
 
   return (
     <>
