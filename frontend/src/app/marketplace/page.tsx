@@ -1,4 +1,3 @@
-
 "use client";
 
 import { useProperties } from "@/hooks/use-properties";
@@ -140,7 +139,7 @@ export default function MarketplacePage() {
                 {property.type}
               </div>
             </div>
-            
+
             <div style={{ padding: "20px" }}>
               <h3 style={{ 
                 color: "#0ff", 
@@ -150,7 +149,7 @@ export default function MarketplacePage() {
               }}>
                 {property.name}
               </h3>
-              
+
               <p style={{ 
                 color: "rgba(255, 255, 255, 0.7)", 
                 marginBottom: "8px",
@@ -161,7 +160,7 @@ export default function MarketplacePage() {
               }}>
                 📍 {property.location}
               </p>
-              
+
               <p style={{ 
                 color: "rgba(255, 255, 255, 0.6)", 
                 marginBottom: "15px", 
@@ -170,7 +169,7 @@ export default function MarketplacePage() {
               }}>
                 {property.description}
               </p>
-              
+
               <div style={{ 
                 display: "flex", 
                 justifyContent: "space-between", 
@@ -191,7 +190,7 @@ export default function MarketplacePage() {
                   {property.sqft.toLocaleString()} sqft
                 </span>
               </div>
-              
+
               <div style={{
                 display: "flex",
                 gap: "15px",
@@ -213,7 +212,7 @@ export default function MarketplacePage() {
                   </span>
                 )}
               </div>
-              
+
               <div style={{
                 display: "flex",
                 gap: "10px"
@@ -272,7 +271,7 @@ export default function MarketplacePage() {
           </div>
         ))}
       </div>
-      
+
       {properties.length === 0 && !isLoading && (
         <div style={{
           textAlign: "center",
@@ -285,3 +284,57 @@ export default function MarketplacePage() {
     </div>
   );
 }
+const mockProperties = [
+  {
+    id: '1',
+    name: 'Luxury Downtown Apartment',
+    location: 'New York, NY',
+    price: '500000',
+    imageUrl: 'https://images.unsplash.com/photo-1545324418-cc1a3fa10c00?w=400&h=300&fit=crop&crop=face',
+    beds: 2,
+    baths: 2,
+    sqft: 1200,
+    propertyType: 'Apartment',
+    yearBuilt: 2020,
+    description: 'Modern luxury apartment in the heart of downtown'
+  },
+  {
+    id: '2', 
+    name: 'Suburban Family Home',
+    location: 'Austin, TX',
+    price: '350000',
+    imageUrl: 'https://images.unsplash.com/photo-1570129477492-45c003edd2be?w=400&h=300&fit=crop&crop=face',
+    beds: 4,
+    baths: 3,
+    sqft: 2400,
+    propertyType: 'House',
+    yearBuilt: 2015,
+    description: 'Spacious family home in quiet neighborhood'
+  },
+  {
+    id: '3',
+    name: 'Modern Condo',
+    location: 'San Francisco, CA',
+    price: '750000',
+    imageUrl: 'https://images.unsplash.com/photo-1564013799919-ab600027ffc6?w=400&h=300&fit=crop&crop=face',
+    beds: 3,
+    baths: 2,
+    sqft: 1800,
+    propertyType: 'Condo',
+    yearBuilt: 2018,
+    description: 'Sleek modern condo with bay views'
+  },
+  {
+    id: '4',
+    name: 'Investment Property',
+    location: 'Miami, FL',
+    price: '425000',
+    imageUrl: 'https://images.unsplash.com/photo-1512917774080-9991f1c4c750?w=400&h=300&fit=crop&crop=face',
+    beds: 3,
+    baths: 2,
+    sqft: 1600,
+    propertyType: 'House',
+    yearBuilt: 2016,
+    description: 'Prime investment property in growing market'
+  }
+];

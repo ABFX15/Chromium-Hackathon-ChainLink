@@ -1,7 +1,7 @@
 
 "use client";
 
-import { ConnectButton } from "@rainbow-me/rainbowkit";
+import { CustomConnectButton } from "./CustomConnectButton";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { 
@@ -138,15 +138,7 @@ export function ClientNav() {
             </span>
           </div>
           
-          <div style={{
-            background: "linear-gradient(135deg, #06b6d4, #3b82f6)",
-            borderRadius: "12px",
-            padding: "2px"
-          }}>
-            <div style={{ background: "black", borderRadius: "10px" }}>
-              <ConnectButton />
-            </div>
-          </div>
+          <CustomConnectButton />
         </div>
       </div>
 

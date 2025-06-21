@@ -14,13 +14,14 @@ export function formatCurrency(amount: number, currency = 'USD') {
   }).format(amount);
 }
 
-export function getHealthFactorColor(healthFactor: number): string {
-  if (healthFactor >= 1.5) return "text-green-600";
-  if (healthFactor >= 1.2) return "text-yellow-600";
-  return "text-red-600";
+export function getHealthFactorColor(factor: number): string {
+  if (factor >= 1.5) return 'text-green-400'
+  if (factor >= 1.2) return 'text-yellow-400' 
+  if (factor >= 1.0) return 'text-orange-400'
+  return 'text-red-400'
 }
 
-export function getHealthFactorWidth(healthFactor: number): string {
-  const percentage = Math.min(100, (healthFactor / 2) * 100);
+export function getHealthFactorWidth(factor: number): string {
+  const percentage = Math.min(factor * 50, 100); // Scale factor to percentage
   return `${percentage}%`;
 }
