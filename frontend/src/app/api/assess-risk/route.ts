@@ -26,6 +26,9 @@ export async function POST(req: NextRequest) {
   try {
     const data: PropertyRiskData = await req.json();
     
+    // Debug logging
+    console.log("Risk assessment request data:", JSON.stringify(data, null, 2));
+    
     // Temporarily using mock implementation due to AWS SDK installation issues
     console.log("Using mock risk assessment (AWS SDK temporarily disabled)");
     return NextResponse.json(generateMockRiskAssessment(data));
@@ -108,8 +111,31 @@ Consider factors like property age, location risk, market conditions, LTV ratio,
 }
 
 function generateMockRiskAssessment(data: PropertyRiskData) {
-  const ltv = (data.loanAmount / data.propertyValue) * 100;
-  const propertyAge = new Date().getFullYear() - data.yearBuilt;
+  // Input validation with defaults
+  const propertyValue = data.propertyValue || 0;
+  const loanAmount = data.loanAmount || 0;
+  const yearBuilt = data.yearBuilt || new Date().getFullYear();
+  const squareFootage = data.squareFootage || 0;
+  const propertyType = data.propertyType || 'Unknown';
+  const location = data.location || 'Unknown Location';
+  
+  // Early return if critical values are missing
+  if (propertyValue <= 0 || loanAmount <= 0) {
+    return {
+      success: false,
+      error: "Missing required property value or loan amount",
+      riskScore: 0,
+      riskCategory: 'high' as const,
+      suggestedInterestRate: 10.0,
+      maxLTV: 50,
+      confidence: 0.1,
+      factors: ['Insufficient data provided'],
+      recommendations: ['Please provide complete property and loan information']
+    };
+  }
+  
+  const ltv = (loanAmount / propertyValue) * 100;
+  const propertyAge = new Date().getFullYear() - yearBuilt;
   
   // More dynamic risk calculation based on multiple factors
   let riskScore = 20; // Lower base score for more variation
@@ -130,25 +156,25 @@ function generateMockRiskAssessment(data: PropertyRiskData) {
   else riskScore += 2; // New properties get small bonus
   
   // Property value impact (higher value = lower risk)
-  if (data.propertyValue < 100000) riskScore += 15;
-  else if (data.propertyValue < 200000) riskScore += 10;
-  else if (data.propertyValue < 500000) riskScore += 5;
-  else if (data.propertyValue > 1000000) riskScore -= 5; // Luxury properties get bonus
+  if (propertyValue < 100000) riskScore += 15;
+  else if (propertyValue < 200000) riskScore += 10;
+  else if (propertyValue < 500000) riskScore += 5;
+  else if (propertyValue > 1000000) riskScore -= 5; // Luxury properties get bonus
   
   // Loan amount impact
-  if (data.loanAmount > 500000) riskScore += 8;
-  else if (data.loanAmount > 250000) riskScore += 5;
-  else if (data.loanAmount < 50000) riskScore += 3; // Very small loans can be riskier
+  if (loanAmount > 500000) riskScore += 8;
+  else if (loanAmount > 250000) riskScore += 5;
+  else if (loanAmount < 50000) riskScore += 3; // Very small loans can be riskier
   
   // Property type impact
-  if (data.propertyType.toLowerCase().includes('commercial')) riskScore += 12;
-  else if (data.propertyType.toLowerCase().includes('condo')) riskScore += 8;
-  else if (data.propertyType.toLowerCase().includes('single')) riskScore += 3;
+  if (propertyType.toLowerCase().includes('commercial')) riskScore += 12;
+  else if (propertyType.toLowerCase().includes('condo')) riskScore += 8;
+  else if (propertyType.toLowerCase().includes('single')) riskScore += 3;
   
   // Location impact (simplified based on common patterns)
-  const location = data.location.toLowerCase();
-  if (location.includes('ny') || location.includes('ca') || location.includes('sf')) riskScore -= 5;
-  else if (location.includes('detroit') || location.includes('cleveland')) riskScore += 10;
+  const locationLower = location.toLowerCase();
+  if (locationLower.includes('ny') || locationLower.includes('ca') || locationLower.includes('sf')) riskScore -= 5;
+  else if (locationLower.includes('detroit') || locationLower.includes('cleveland')) riskScore += 10;
   
   // Credit score impact
   if (data.borrowerCreditScore) {
@@ -188,16 +214,16 @@ function generateMockRiskAssessment(data: PropertyRiskData) {
   let confidence = 0.75;
   if (data.borrowerCreditScore) confidence += 0.1;
   if (data.debtToIncomeRatio) confidence += 0.05;
-  if (data.squareFootage > 0) confidence += 0.05;
+  if (squareFootage > 0) confidence += 0.05;
   confidence = Math.min(confidence, 0.95);
   
   // Dynamic factors list
   const factors = [
     `Loan-to-value ratio: ${ltv.toFixed(1)}%`,
     `Property age: ${propertyAge} years`,
-    `Property type: ${data.propertyType}`,
-    `Location: ${data.location}`,
-    `Property value: $${data.propertyValue.toLocaleString()}`
+    `Property type: ${propertyType}`,
+    `Location: ${location}`,
+    `Property value: $${propertyValue.toLocaleString()}`
   ];
   
   if (data.borrowerCreditScore) {
