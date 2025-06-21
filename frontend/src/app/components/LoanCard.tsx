@@ -6,6 +6,8 @@ import { Loan } from '@/types/contracts'
 import { useWriteContract } from 'wagmi'
 import { CONTRACT_ADDRESSES, LOAN_MANAGER_ABI } from '@/lib/contracts'
 import { useToast } from '@/hooks/use-toast'
+import { AILoanDetails } from "./AILoanDetails";
+import { Brain } from "lucide-react";
 
 interface LoanCardProps {
   loan: Loan
@@ -23,7 +25,7 @@ export function LoanCard({ loan }: LoanCardProps) {
         functionName: 'repayLoan',
         args: [BigInt(loan.loanId)],
       })
-      
+
       toast({
         title: "Loan Repayment Initiated",
         description: "Your loan repayment transaction has been submitted",
@@ -63,7 +65,7 @@ export function LoanCard({ loan }: LoanCardProps) {
       <div className="space-y-3 text-xs">
         <div className="text-cyan-300 font-bold text-sm">{loan.propertyName}</div>
         <div className="text-cyan-500/70">token_id: {loan.tokenId}</div>
-        
+
         <div className="space-y-2 pt-3 border-t border-cyan-500/20 bg-gradient-to-r from-cyan-900/10 to-blue-900/10 p-3 rounded-lg">
           <div className="flex justify-between items-center">
             <span className="text-cyan-500/70">borrowed:</span>

@@ -53,9 +53,11 @@ export function CreateLoanModal({
 }: CreateLoanModalProps) {
   const { toast } = useToast();
   const [isLoading, setIsLoading] = useState(false);
+  const [isAssessing, setIsAssessing] = useState(false);
   const [riskAssessment, setRiskAssessment] = useState<RiskAssessment | null>(
     null
   );
+  const [selectedProperty, setSelectedProperty] = useState<Property | null>(null);
 
   // Map Property to PropertyNFT for internal use
   const mappedNFTs = availableNFTs.map((nft) => ({
@@ -76,19 +78,94 @@ export function CreateLoanModal({
 
   const { writeContract } = useWriteContract();
 
+  // Auto-trigger AI risk assessment when property is selected
+  const handlePropertyChange = async (tokenId: string) => {
+    form.setValue("tokenId", tokenId);
+    const property = availableNFTs.find(nft => nft.tokenId.toString() === tokenId);
+    if (property) {
+      setSelectedProperty(property);
+      await runRiskAssessment(property, parseFloat(form.watch("amount")) || 0);
+    }
+  };
+
+  // Auto-trigger AI risk assessment when loan amount changes
+  const handleAmountChange = async (amount: string) => {
+    form.setValue("amount", amount);
+    if (selectedProperty && parseFloat(amount) > 0) {
+      await runRiskAssessment(selectedProperty, parseFloat(amount));
+    }
+  };
+
+  // Run AI risk assessment
+  const runRiskAssessment = async (property: Property, loanAmount: number) => {
+    if (!property || loanAmount <= 0) return;
+    
+    setIsAssessing(true);
+    try {
+      const response = await fetch('/api/assess-risk', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          propertyValue: property.value,
+          propertyType: property.type || 'Residential',
+          location: property.location || 'Unknown',
+          yearBuilt: 2020, // Default if not available
+          squareFootage: 2000, // Default if not available
+          loanAmount: loanAmount,
+          borrowerCreditScore: 720, // Could be from user profile
+          debtToIncomeRatio: 30, // Could be from user profile
+        }),
+      });
+
+      if (response.ok) {
+        const assessment = await response.json();
+        setRiskAssessment(assessment);
+        
+        toast({
+          title: "AI Assessment Complete",
+          description: `Risk Score: ${assessment.riskScore}, Suggested Rate: ${assessment.suggestedInterestRate}%`,
+        });
+      }
+    } catch (error) {
+      console.error('Risk assessment failed:', error);
+      toast({
+        title: "AI Assessment Failed",
+        description: "Using default risk parameters",
+        variant: "destructive",
+      });
+    } finally {
+      setIsAssessing(false);
+    }
+  };
+
   const onSubmit = async (data: CreateLoanForm) => {
     setIsLoading(true);
     try {
+      // Create loan with AI-adjusted interest rate if available
+      let adjustedAmount = BigInt(data.amount);
+      
+      // If we have risk assessment, we could adjust terms here
+      // For now, we'll log the assessment for the smart contract to use
+      if (riskAssessment) {
+        console.log("Creating loan with AI assessment:", {
+          riskScore: riskAssessment.riskScore,
+          suggestedRate: riskAssessment.suggestedInterestRate,
+          maxLTV: riskAssessment.maxLTV
+        });
+      }
+
       await writeContract({
         address: CONTRACT_ADDRESSES.LOAN_MANAGER,
         abi: LOAN_MANAGER_ABI,
         functionName: "depositNFTCollateral",
-        args: [BigInt(data.tokenId), BigInt(data.amount)],
+        args: [BigInt(data.tokenId), adjustedAmount],
       });
 
       toast({
         title: "Success",
-        description: "Loan created successfully!",
+        description: `Loan created successfully! ${riskAssessment ? `AI-assessed rate: ${riskAssessment.suggestedInterestRate}%` : ''}`,
       });
       onOpenChange(false);
     } catch (error) {
@@ -117,7 +194,7 @@ export function CreateLoanModal({
             <Label htmlFor="tokenId">Property</Label>
             <Select
               value={form.watch("tokenId")}
-              onValueChange={(value) => form.setValue("tokenId", value)}
+              onValueChange={handlePropertyChange}
             >
               <SelectTrigger className="w-full bg-dark-800 border-white/20 text-white">
                 <SelectValue placeholder="Choose a property..." />
@@ -148,7 +225,8 @@ export function CreateLoanModal({
               id="amount"
               type="number"
               placeholder="Enter amount in USDC"
-              {...form.register("amount")}
+              value={form.watch("amount")}
+              onChange={(e) => handleAmountChange(e.target.value)}
               className="bg-dark-800 border-white/20 text-white"
             />
             {form.formState.errors.amount && (
@@ -158,14 +236,63 @@ export function CreateLoanModal({
             )}
           </div>
 
-          {riskAssessment && (
-            <div className="space-y-2">
-              <Label>Risk Assessment</Label>
-              <div className="text-sm text-gray-400">
-                Risk Score: {riskAssessment.riskScore}
-                <br />
-                Suggested Rate: {riskAssessment.suggestedInterestRate}%
-              </div>
+          {/* AI Risk Assessment Display */}
+          {(isAssessing || riskAssessment) && (
+            <div className="space-y-3 p-4 bg-purple-900/20 border border-purple-500/30 rounded-lg">
+              <Label className="text-purple-400">🤖 AI Risk Assessment</Label>
+              
+              {isAssessing ? (
+                <div className="flex items-center gap-2 text-purple-300">
+                  <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-purple-400"></div>
+                  <span className="text-sm">AWS Bedrock analyzing loan risk...</span>
+                </div>
+              ) : riskAssessment && (
+                <div className="space-y-2">
+                  <div className="grid grid-cols-2 gap-3 text-sm">
+                    <div>
+                      <span className="text-gray-400">Risk Score:</span>
+                      <span className={`ml-2 font-medium ${
+                        riskAssessment.riskScore < 40 ? 'text-green-400' : 
+                        riskAssessment.riskScore < 70 ? 'text-yellow-400' : 'text-red-400'
+                      }`}>
+                        {riskAssessment.riskScore}/100
+                      </span>
+                    </div>
+                    <div>
+                      <span className="text-gray-400">Category:</span>
+                      <span className={`ml-2 font-medium capitalize ${
+                        riskAssessment.riskCategory === 'low' ? 'text-green-400' : 
+                        riskAssessment.riskCategory === 'medium' ? 'text-yellow-400' : 'text-red-400'
+                      }`}>
+                        {riskAssessment.riskCategory}
+                      </span>
+                    </div>
+                    <div>
+                      <span className="text-gray-400">AI Suggested Rate:</span>
+                      <span className="text-purple-400 ml-2 font-medium">
+                        {riskAssessment.suggestedInterestRate}%
+                      </span>
+                    </div>
+                    <div>
+                      <span className="text-gray-400">Max LTV:</span>
+                      <span className="text-purple-400 ml-2 font-medium">
+                        {riskAssessment.maxLTV}%
+                      </span>
+                    </div>
+                  </div>
+                  
+                  {riskAssessment.recommendations && riskAssessment.recommendations.length > 0 && (
+                    <div className="text-xs text-purple-300">
+                      <strong>AI Recommendations:</strong>
+                      <ul className="list-disc list-inside mt-1 space-y-1">
+                        {riskAssessment.recommendations.slice(0, 2).map((rec, idx) => (
+                          <li key={idx}>{rec}</li>
+                        ))}
+                      </ul>
+                    </div>
+                  )}
+                </div>
+              )}
             </div>
           )}
 
