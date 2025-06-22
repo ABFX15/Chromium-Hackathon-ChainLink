@@ -1,4 +1,3 @@
-
 "use client";
 
 import { Card, CardContent, CardHeader, CardTitle } from "./ui/card";
@@ -8,7 +7,7 @@ import { Brain, TrendingUp, Shield, AlertTriangle } from "lucide-react";
 interface AILoanDetailsProps {
   loanId: string;
   riskScore?: number;
-  riskCategory?: 'low' | 'medium' | 'high';
+  riskCategory?: "low" | "medium" | "high";
   aiInterestRate?: number;
   confidence?: number;
   lastAssessment?: string;
@@ -20,23 +19,31 @@ export function AILoanDetails({
   riskCategory,
   aiInterestRate,
   confidence,
-  lastAssessment
+  lastAssessment,
 }: AILoanDetailsProps) {
   const getRiskColor = (category?: string) => {
     switch (category) {
-      case 'low': return 'text-green-400 bg-green-400/10';
-      case 'medium': return 'text-yellow-400 bg-yellow-400/10';
-      case 'high': return 'text-red-400 bg-red-400/10';
-      default: return 'text-gray-400 bg-gray-400/10';
+      case "low":
+        return "text-green-400 bg-green-400/10";
+      case "medium":
+        return "text-yellow-400 bg-yellow-400/10";
+      case "high":
+        return "text-red-400 bg-red-400/10";
+      default:
+        return "text-gray-400 bg-gray-400/10";
     }
   };
 
   const getRiskIcon = (category?: string) => {
     switch (category) {
-      case 'low': return <Shield className="w-4 h-4" />;
-      case 'medium': return <TrendingUp className="w-4 h-4" />;
-      case 'high': return <AlertTriangle className="w-4 h-4" />;
-      default: return <Brain className="w-4 h-4" />;
+      case "low":
+        return <Shield className="w-4 h-4" />;
+      case "medium":
+        return <TrendingUp className="w-4 h-4" />;
+      case "high":
+        return <AlertTriangle className="w-4 h-4" />;
+      default:
+        return <Brain className="w-4 h-4" />;
     }
   };
 
@@ -57,7 +64,9 @@ export function AILoanDetails({
                 <span className="text-white font-medium">{riskScore}/100</span>
                 <Badge className={getRiskColor(riskCategory)}>
                   {getRiskIcon(riskCategory)}
-                  <span className="ml-1 capitalize">{riskCategory || 'unknown'}</span>
+                  <span className="ml-1 capitalize">
+                    {riskCategory || "unknown"}
+                  </span>
                 </Badge>
               </div>
             </div>
@@ -65,14 +74,18 @@ export function AILoanDetails({
             {aiInterestRate !== undefined && (
               <div className="flex items-center justify-between">
                 <span className="text-xs text-gray-400">AI Suggested Rate</span>
-                <span className="text-purple-400 font-medium">{aiInterestRate}%</span>
+                <span className="text-purple-400 font-medium">
+                  {aiInterestRate}%
+                </span>
               </div>
             )}
 
             {confidence !== undefined && (
               <div className="flex items-center justify-between">
                 <span className="text-xs text-gray-400">Confidence</span>
-                <span className="text-white font-medium">{Math.round(confidence * 100)}%</span>
+                <span className="text-white font-medium">
+                  {Math.round(confidence * 100)}%
+                </span>
               </div>
             )}
 
@@ -87,7 +100,9 @@ export function AILoanDetails({
           <div className="text-center py-4">
             <Brain className="w-8 h-8 text-gray-500 mx-auto mb-2" />
             <p className="text-xs text-gray-400">No AI assessment available</p>
-            <p className="text-xs text-gray-500">Assessment runs automatically on loan creation</p>
+            <p className="text-xs text-gray-500">
+              Assessment runs automatically on loan creation
+            </p>
           </div>
         )}
       </CardContent>

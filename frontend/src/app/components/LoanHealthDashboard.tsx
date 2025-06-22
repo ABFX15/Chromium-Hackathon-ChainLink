@@ -1,12 +1,9 @@
 "use client";
 
-import { useState, useEffect } from "react";
-import { useLoans } from "@/hooks/use-loans";
-import {
-  formatCurrency,
-  calculateHealthFactor,
-  getHealthFactorColor,
-} from "@/lib/utils";
+import { useState, useEffect, useMemo } from "react";
+import { useContracts } from "@/app/hooks/useContracts";
+import { Loan, PropertyNFT } from "@/types/contracts";
+import { formatCurrency } from "@/lib/utils";
 import {
   AlertTriangle,
   TrendingUp,
@@ -17,32 +14,45 @@ import {
 } from "lucide-react";
 
 export function LoanHealthDashboard() {
-  const { loans } = useLoans();
-  const [isClient, setIsClient] = useState(false);
-  const activeLoans = loans.filter((loan) => loan.isActive);
+  const { userLoans, userNFTs, loading } = useContracts();
 
-  // Fix hydration by ensuring we're on the client
-  useEffect(() => {
-    setIsClient(true);
-  }, []);
+  const enrichedLoans = useMemo(() => {
+    if (loading || !userLoans || !userNFTs) return [];
 
-  // Show loading state during hydration
-  if (!isClient) {
+    return userLoans
+      .filter((loan) => loan.isActive)
+      .map((loan) => {
+        const nft = userNFTs.find((n) => n.tokenId === Number(loan.tokenId));
+        const propertyValue = nft ? nft.propertyValue : 0;
+        const principal = Number(loan.principalAmount) / 1e6;
+        const interest = Number(loan.interestRate) / 100;
+        const debt = principal * (1 + interest / 100); // Simplified debt calculation
+
+        // Simplified health factor: (Collateral Value * LTV) / Debt
+        // Lower is worse. 1.0 is the liquidation threshold.
+        const healthFactor =
+          propertyValue > 0 ? (propertyValue * 0.7) / debt : 0;
+
+        return {
+          ...loan,
+          debt,
+          healthFactor,
+          interest,
+          propertyName: nft?.name || "Unknown Property",
+        };
+      });
+  }, [userLoans, userNFTs, loading]);
+
+  if (loading) {
     return (
-      <div className="bg-gray-800/50 rounded-xl p-6 border border-gray-700">
-        <h3 className="text-white font-semibold mb-4 flex items-center gap-2">
-          <div className="w-5 h-5 bg-gray-600 rounded animate-pulse" />
-          Loan Health Monitor
-        </h3>
-        <div className="text-center py-8">
-          <div className="w-12 h-12 bg-gray-600 rounded mx-auto mb-3 animate-pulse" />
-          <p className="text-gray-400">Loading...</p>
-        </div>
+      <div className="bg-gray-800/50 rounded-xl p-6 border border-gray-700 animate-pulse">
+        <div className="h-6 bg-gray-600 rounded w-1/3 mb-4"></div>
+        <div className="h-24 bg-gray-600 rounded"></div>
       </div>
     );
   }
 
-  if (activeLoans.length === 0) {
+  if (enrichedLoans.length === 0) {
     return (
       <div className="bg-gray-800/50 rounded-xl p-6 border border-gray-700">
         <h3 className="text-white font-semibold mb-4 flex items-center gap-2">
@@ -57,14 +67,14 @@ export function LoanHealthDashboard() {
     );
   }
 
-  const totalDebt = activeLoans.reduce((sum, loan) => sum + loan.debt, 0);
+  const totalDebt = enrichedLoans.reduce((sum, loan) => sum + loan.debt, 0);
   const avgHealthFactor =
-    activeLoans.reduce((sum, loan) => sum + loan.healthFactor, 0) /
-    activeLoans.length;
-  const criticalLoans = activeLoans.filter(
+    enrichedLoans.reduce((sum, loan) => sum + loan.healthFactor, 0) /
+    enrichedLoans.length;
+  const criticalLoans = enrichedLoans.filter(
     (loan) => loan.healthFactor < 1.2
   ).length;
-  const healthyLoans = activeLoans.filter(
+  const healthyLoans = enrichedLoans.filter(
     (loan) => loan.healthFactor >= 1.5
   ).length;
 
@@ -160,17 +170,19 @@ export function LoanHealthDashboard() {
 
         <div className="p-6">
           <div className="space-y-4">
-            {activeLoans.map((loan) => {
+            {enrichedLoans.map((loan) => {
               const health = getHealthStatus(loan.healthFactor);
               const HealthIcon = health.icon;
               const daysRemaining = Math.floor(
-                (loan.startTimestamp + 30 * 24 * 60 * 60 * 1000 - Date.now()) /
+                (Number(loan.startTimestamp) * 1000 +
+                  30 * 24 * 60 * 60 * 1000 -
+                  Date.now()) /
                   (24 * 60 * 60 * 1000)
               );
 
               return (
                 <div
-                  key={loan.loanId}
+                  key={loan.loanId.toString()}
                   className="flex items-center justify-between p-4 bg-gray-900/30 rounded-lg border border-gray-700 hover:border-gray-600 transition-colors"
                 >
                   <div className="flex items-center gap-4">
@@ -183,8 +195,8 @@ export function LoanHealthDashboard() {
                         {loan.propertyName}
                       </h4>
                       <div className="flex items-center gap-4 text-sm text-gray-400">
-                        <span>ID: #{loan.loanId}</span>
-                        <span>Token: #{loan.tokenId}</span>
+                        <span>ID: #{loan.loanId.toString()}</span>
+                        <span>Token: #{loan.tokenId.toString()}</span>
                         <div className="flex items-center gap-1">
                           <Clock className="w-3 h-3" />
                           <span>

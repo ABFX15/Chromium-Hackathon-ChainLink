@@ -3,7 +3,8 @@ import { Providers } from "./providers";
 import "./globals.css";
 import { Inter } from "next/font/google";
 import { ClientNav } from "./components/client-nav";
-import ParticlesBackground from "./components/ParticlesBackground";
+import ParticlesBackground from "@/app/components/ParticlesBackground";
+import MainLayout from "./components/MainLayout";
 
 const inter = Inter({ subsets: ["latin"] });
 
@@ -20,11 +21,10 @@ export default function RootLayout({
 }) {
   return (
     <html lang="en">
-      <body className={inter.className}>
+      <body className={`${inter.className} text-foreground`}>
+        <ParticlesBackground />
         <Providers>
-          <ParticlesBackground />
-          <ClientNav />
-          <main className="pl-60">{children}</main>
+          <MainLayout>{children}</MainLayout>
         </Providers>
       </body>
     </html>

@@ -1,95 +1,103 @@
-import { useState } from 'react'
-import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
-import { Button } from '@/components/ui/button'
-import { Input } from '@/components/ui/input'
-import { Brain, TrendingUp, AlertTriangle, CheckCircle, Loader2 } from 'lucide-react'
-import { formatCurrency } from '@/lib/utils'
+import { useState } from "react";
+import { Card, CardContent, CardHeader, CardTitle } from "@/app/components/ui/card";
+import { Button } from "@/app/components/ui/button";
+import { Input } from "@/app/components/ui/input";
+import {
+  Brain,
+  TrendingUp,
+  AlertTriangle,
+  CheckCircle,
+  Loader2,
+} from "lucide-react";
+import { formatCurrency } from "@/lib/utils";
 
 interface RiskMetrics {
-  riskScore: number
-  riskCategory: 'low' | 'medium' | 'high'
-  suggestedInterestRate: number
-  maxLTV: number
-  confidence: number
-  factors: string[]
-  recommendations: string[]
+  riskScore: number;
+  riskCategory: "low" | "medium" | "high";
+  suggestedInterestRate: number;
+  maxLTV: number;
+  confidence: number;
+  factors: string[];
+  recommendations: string[];
 }
 
 export function AIAnalytics() {
-  const [propertyValue, setPropertyValue] = useState('')
-  const [loanAmount, setLoanAmount] = useState('')
-  const [isAnalyzing, setIsAnalyzing] = useState(false)
-  const [riskMetrics, setRiskMetrics] = useState<RiskMetrics | null>(null)
-  const [error, setError] = useState<string | null>(null)
+  const [propertyValue, setPropertyValue] = useState("");
+  const [loanAmount, setLoanAmount] = useState("");
+  const [isAnalyzing, setIsAnalyzing] = useState(false);
+  const [riskMetrics, setRiskMetrics] = useState<RiskMetrics | null>(null);
+  const [error, setError] = useState<string | null>(null);
 
   const analyzeRisk = async () => {
     if (!propertyValue || !loanAmount) {
-      setError('Please enter both property value and loan amount')
-      return
+      setError("Please enter both property value and loan amount");
+      return;
     }
 
-    setIsAnalyzing(true)
-    setError(null)
+    setIsAnalyzing(true);
+    setError(null);
 
     try {
-      const response = await fetch('/api/assess-risk', {
-        method: 'POST',
+      const response = await fetch("/api/assess-risk", {
+        method: "POST",
         headers: {
-          'Content-Type': 'application/json',
+          "Content-Type": "application/json",
         },
         body: JSON.stringify({
           propertyValue: parseFloat(propertyValue),
           loanAmount: parseFloat(loanAmount),
-          propertyType: 'Residential',
-          location: 'New York, NY',
+          propertyType: "Residential",
+          location: "New York, NY",
           yearBuilt: 2010,
           squareFootage: 2000,
           borrowerCreditScore: 750,
-          debtToIncomeRatio: 30
-        })
-      })
+          debtToIncomeRatio: 30,
+        }),
+      });
 
       if (!response.ok) {
-        const errorText = await response.text()
-        console.error('Risk assessment API error:', errorText)
-        throw new Error('Risk assessment failed')
+        const errorText = await response.text();
+        console.error("Risk assessment API error:", errorText);
+        throw new Error("Risk assessment failed");
       }
 
-      const assessment = await response.json()
-      setRiskMetrics(assessment)
+      const assessment = await response.json();
+      setRiskMetrics(assessment);
     } catch (err) {
-      setError('Failed to analyze risk. Please check your AWS Bedrock configuration.')
-      console.error('Risk analysis error:', err)
+      setError(
+        "Failed to analyze risk. Please check your AWS Bedrock configuration."
+      );
+      console.error("Risk analysis error:", err);
     } finally {
-      setIsAnalyzing(false)
+      setIsAnalyzing(false);
     }
-  }
+  };
 
   const getRiskColor = (category: string) => {
     switch (category) {
-      case 'low':
-        return 'text-green-400'
-      case 'medium':
-        return 'text-yellow-400'
-      case 'high':
-        return 'text-red-400'
+      case "low":
+        return "text-green-400";
+      case "medium":
+        return "text-yellow-400";
+      case "high":
+        return "text-red-400";
       default:
-        return 'text-cyan-400'
+        return "text-cyan-400";
     }
-  }
+  };
 
   const getRiskIcon = (category: string) => {
     switch (category) {
-      case 'low':
-        return <CheckCircle className="w-4 h-4" />
-      case 'medium':
-        return <TrendingUp className="w-4 h-4" />
-      case 'high':
-        return <AlertTriangle className="w-4 h-4" />
+      case "low":
+        return <CheckCircle className="w-4 h-4" />;
+      case "medium":
+        return <TrendingUp className="w-4 h-4" />;
+      case "high":
+        return <AlertTriangle className="w-4 h-4" />;
       default:
-        return <Brain className="w-4 h-4" />
+        return <Brain className="w-4 h-4" />;
     }
-  }
+  };
 
   return (
     <div className="space-y-6">
@@ -104,7 +112,9 @@ export function AIAnalytics() {
         <CardContent className="space-y-4">
           <div className="grid grid-cols-2 gap-4">
             <div className="space-y-2">
-              <label className="text-cyan-500 font-mono text-sm">property_value</label>
+              <label className="text-cyan-500 font-mono text-sm">
+                property_value
+              </label>
               <Input
                 type="number"
                 placeholder="250000"
@@ -114,7 +124,9 @@ export function AIAnalytics() {
               />
             </div>
             <div className="space-y-2">
-              <label className="text-cyan-500 font-mono text-sm">loan_amount</label>
+              <label className="text-cyan-500 font-mono text-sm">
+                loan_amount
+              </label>
               <Input
                 type="number"
                 placeholder="175000"
@@ -164,7 +176,9 @@ export function AIAnalytics() {
             {/* Risk Score & Category */}
             <div className="grid grid-cols-2 gap-4">
               <div className="space-y-2">
-                <span className="text-cyan-500 font-mono text-sm">risk_score</span>
+                <span className="text-cyan-500 font-mono text-sm">
+                  risk_score
+                </span>
                 <div className="flex items-center gap-2">
                   <span className="text-2xl font-mono text-cyan-300">
                     {riskMetrics.riskScore}
@@ -173,8 +187,14 @@ export function AIAnalytics() {
                 </div>
               </div>
               <div className="space-y-2">
-                <span className="text-cyan-500 font-mono text-sm">category</span>
-                <div className={`flex items-center gap-2 ${getRiskColor(riskMetrics.riskCategory)} font-mono`}>
+                <span className="text-cyan-500 font-mono text-sm">
+                  category
+                </span>
+                <div
+                  className={`flex items-center gap-2 ${getRiskColor(
+                    riskMetrics.riskCategory
+                  )} font-mono`}
+                >
                   {getRiskIcon(riskMetrics.riskCategory)}
                   <span>{riskMetrics.riskCategory.toUpperCase()}</span>
                 </div>
@@ -184,7 +204,9 @@ export function AIAnalytics() {
             {/* Interest Rate & LTV */}
             <div className="grid grid-cols-2 gap-4">
               <div className="space-y-2">
-                <span className="text-cyan-500 font-mono text-sm">suggested_apr</span>
+                <span className="text-cyan-500 font-mono text-sm">
+                  suggested_apr
+                </span>
                 <span className="text-xl font-mono text-cyan-300">
                   {riskMetrics.suggestedInterestRate.toFixed(2)}%
                 </span>
@@ -199,10 +221,12 @@ export function AIAnalytics() {
 
             {/* Confidence */}
             <div className="space-y-2">
-              <span className="text-cyan-500 font-mono text-sm">ai_confidence</span>
+              <span className="text-cyan-500 font-mono text-sm">
+                ai_confidence
+              </span>
               <div className="flex items-center gap-3">
                 <div className="flex-1 bg-gray-800 rounded-full h-2">
-                  <div 
+                  <div
                     className="bg-cyan-500 h-2 rounded-full transition-all duration-1000"
                     style={{ width: `${riskMetrics.confidence}%` }}
                   />
@@ -215,10 +239,15 @@ export function AIAnalytics() {
 
             {/* Risk Factors */}
             <div className="space-y-2">
-              <span className="text-cyan-500 font-mono text-sm">key_factors</span>
+              <span className="text-cyan-500 font-mono text-sm">
+                key_factors
+              </span>
               <div className="space-y-1">
                 {riskMetrics.factors.map((factor, index) => (
-                  <div key={index} className="text-cyan-300/80 font-mono text-sm flex items-start gap-2">
+                  <div
+                    key={index}
+                    className="text-cyan-300/80 font-mono text-sm flex items-start gap-2"
+                  >
                     <span className="text-cyan-500">•</span>
                     <span>{factor}</span>
                   </div>
@@ -228,10 +257,15 @@ export function AIAnalytics() {
 
             {/* Recommendations */}
             <div className="space-y-2">
-              <span className="text-cyan-500 font-mono text-sm">ai_recommendations</span>
+              <span className="text-cyan-500 font-mono text-sm">
+                ai_recommendations
+              </span>
               <div className="space-y-1">
                 {riskMetrics.recommendations.map((rec, index) => (
-                  <div key={index} className="text-cyan-300/80 font-mono text-sm flex items-start gap-2">
+                  <div
+                    key={index}
+                    className="text-cyan-300/80 font-mono text-sm flex items-start gap-2"
+                  >
                     <span className="text-cyan-500">→</span>
                     <span>{rec}</span>
                   </div>
@@ -268,5 +302,5 @@ export function AIAnalytics() {
         </CardContent>
       </Card>
     </div>
-  )
+  );
 }

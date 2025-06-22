@@ -1,4 +1,3 @@
-
 "use client";
 import { useState, useEffect } from "react";
 import { useAccount } from "wagmi";
@@ -32,23 +31,26 @@ export default function HomePage() {
     {
       icon: Brain,
       title: "AI Risk Assessment",
-      description: "Advanced machine learning models analyze property risks in real-time"
+      description:
+        "Advanced machine learning models analyze property risks in real-time",
     },
     {
       icon: Globe,
-      title: "Cross-Chain Functionality", 
-      description: "Seamlessly operate across multiple blockchain networks"
+      title: "Cross-Chain Functionality",
+      description: "Seamlessly operate across multiple blockchain networks",
     },
     {
       icon: Shield,
       title: "Automated Liquidation",
-      description: "Smart contract monitoring with automated protection mechanisms"
+      description:
+        "Smart contract monitoring with automated protection mechanisms",
     },
     {
       icon: Zap,
       title: "Chainlink Oracles",
-      description: "Reliable, decentralized price feeds for accurate valuations"
-    }
+      description:
+        "Reliable, decentralized price feeds for accurate valuations",
+    },
   ];
 
   const stats = [
@@ -62,38 +64,38 @@ export default function HomePage() {
   const dashboardStats = [
     {
       title: "Average Cost",
-      subtitle: "per Transaction", 
+      subtitle: "per Transaction",
       value: "~$0.002",
       color: "from-cyan-500 to-blue-500",
-      icon: Target
+      icon: Target,
     },
     {
       title: "Total Transactions",
       subtitle: "",
-      value: "529,598,905", 
+      value: "529,598,905",
       color: "from-green-500 to-emerald-500",
-      icon: Activity
+      icon: Activity,
     },
     {
       title: "Validator Nodes",
       subtitle: "",
       value: "3,619",
-      color: "from-purple-500 to-pink-500", 
-      icon: Shield
+      color: "from-purple-500 to-pink-500",
+      icon: Shield,
     },
     {
       title: "AI Risk Score",
       subtitle: "Average",
       value: "94.2%",
       color: "from-orange-500 to-red-500",
-      icon: Brain
-    }
+      icon: Brain,
+    },
   ];
 
   return (
-    <div className="min-h-screen bg-black text-white overflow-hidden">
+    <div className="min-h-screen text-white overflow-hidden">
       {/* Background gradient effects */}
-      <div className="absolute inset-0 bg-gradient-to-br from-black via-gray-900 to-black">
+      <div className="absolute inset-0">
         <div className="absolute top-20 left-20 w-96 h-96 bg-cyan-500/10 rounded-full blur-3xl"></div>
         <div className="absolute bottom-20 right-20 w-96 h-96 bg-blue-500/10 rounded-full blur-3xl"></div>
         <div className="absolute top-1/2 left-1/2 transform -translate-x-1/2 -translate-y-1/2 w-[600px] h-[600px] bg-purple-500/5 rounded-full blur-3xl"></div>
@@ -105,7 +107,9 @@ export default function HomePage() {
           {/* Announcement Banner */}
           <div className="inline-flex items-center space-x-2 bg-gradient-to-r from-cyan-500/10 to-blue-500/10 border border-cyan-400/20 px-6 py-3 rounded-full mb-8">
             <div className="w-2 h-2 bg-green-400 rounded-full animate-pulse"></div>
-            <span className="text-sm font-semibold text-cyan-400">Protocol Live on Sepolia Testnet</span>
+            <span className="text-sm font-semibold text-cyan-400">
+              Protocol Live on Sepolia Testnet
+            </span>
           </div>
 
           {/* Main Headline */}
@@ -121,8 +125,10 @@ export default function HomePage() {
 
           {/* Subtitle */}
           <p className="text-xl lg:text-2xl text-gray-300 leading-relaxed max-w-4xl mx-auto mb-12">
-            ORACLEND is an NFT-collateralized lending platform for real-world assets (RWAs) featuring 
-            AI risk assessment, cross-chain functionality, automated liquidation monitoring, and Chainlink-powered oracles.
+            ORACLEND is an NFT-collateralized lending platform for real-world
+            assets (RWAs) featuring AI risk assessment, cross-chain
+            functionality, automated liquidation monitoring, and
+            Chainlink-powered oracles.
           </p>
 
           {/* CTA Buttons */}
@@ -153,8 +159,12 @@ export default function HomePage() {
                   <div className="flex justify-center mb-3">
                     <Icon className="w-8 h-8 text-cyan-400" />
                   </div>
-                  <div className="text-3xl lg:text-4xl font-bold text-white mb-2">{stat.value}</div>
-                  <div className="text-sm lg:text-base text-gray-400">{stat.label}</div>
+                  <div className="text-3xl lg:text-4xl font-bold text-white mb-2">
+                    {stat.value}
+                  </div>
+                  <div className="text-sm lg:text-base text-gray-400">
+                    {stat.label}
+                  </div>
                 </div>
               );
             })}
@@ -169,33 +179,39 @@ export default function HomePage() {
             {dashboardStats.map((stat, index) => {
               const Icon = stat.icon;
               return (
-                <div 
-                  key={index}
-                  className="group relative overflow-hidden"
-                >
+                <div key={index} className="group relative overflow-hidden">
                   {/* Background card */}
                   <div className="h-full bg-gradient-to-br from-white/5 to-white/10 backdrop-blur-xl border border-white/20 rounded-2xl p-6 hover:border-cyan-400/50 transition-all duration-500 hover:scale-105">
-                    
                     {/* Animated background gradient */}
-                    <div className={`absolute inset-0 bg-gradient-to-r ${stat.color} opacity-0 group-hover:opacity-10 transition-opacity duration-500 rounded-2xl`}></div>
-                    
+                    <div
+                      className={`absolute inset-0 bg-gradient-to-r ${stat.color} opacity-0 group-hover:opacity-10 transition-opacity duration-500 rounded-2xl`}
+                    ></div>
+
                     {/* Content */}
                     <div className="relative z-10">
                       {/* Icon */}
-                      <div className={`w-12 h-12 bg-gradient-to-r ${stat.color} rounded-xl flex items-center justify-center mb-4 group-hover:scale-110 transition-transform duration-300`}>
+                      <div
+                        className={`w-12 h-12 bg-gradient-to-r ${stat.color} rounded-xl flex items-center justify-center mb-4 group-hover:scale-110 transition-transform duration-300`}
+                      >
                         <Icon className="w-6 h-6 text-white" />
                       </div>
 
                       {/* Title and subtitle */}
                       <div className="mb-3">
-                        <h3 className="text-gray-400 text-sm font-medium">{stat.title}</h3>
+                        <h3 className="text-gray-400 text-sm font-medium">
+                          {stat.title}
+                        </h3>
                         {stat.subtitle && (
-                          <p className="text-gray-500 text-xs">{stat.subtitle}</p>
+                          <p className="text-gray-500 text-xs">
+                            {stat.subtitle}
+                          </p>
                         )}
                       </div>
 
                       {/* Value */}
-                      <div className={`text-3xl font-bold bg-gradient-to-r ${stat.color} bg-clip-text text-transparent group-hover:scale-105 transition-transform duration-300`}>
+                      <div
+                        className={`text-3xl font-bold bg-gradient-to-r ${stat.color} bg-clip-text text-transparent group-hover:scale-105 transition-transform duration-300`}
+                      >
                         {stat.value}
                       </div>
                     </div>
@@ -216,10 +232,14 @@ export default function HomePage() {
           <div className="text-center mb-16">
             <h2 className="text-4xl lg:text-5xl font-bold text-white mb-6">
               Built for the
-              <span className="bg-gradient-to-r from-cyan-400 to-blue-400 bg-clip-text text-transparent"> Next Generation</span>
+              <span className="bg-gradient-to-r from-cyan-400 to-blue-400 bg-clip-text text-transparent">
+                {" "}
+                Next Generation
+              </span>
             </h2>
             <p className="text-xl text-gray-300 max-w-3xl mx-auto">
-              Advanced technology stack powering secure, efficient, and transparent real estate lending
+              Advanced technology stack powering secure, efficient, and
+              transparent real estate lending
             </p>
           </div>
 
@@ -233,8 +253,12 @@ export default function HomePage() {
                       <Icon className="w-8 h-8 text-white" />
                     </div>
 
-                    <h3 className="text-xl font-bold text-white mb-4">{feature.title}</h3>
-                    <p className="text-gray-300 leading-relaxed">{feature.description}</p>
+                    <h3 className="text-xl font-bold text-white mb-4">
+                      {feature.title}
+                    </h3>
+                    <p className="text-gray-300 leading-relaxed">
+                      {feature.description}
+                    </p>
                   </div>
                 </div>
               );
@@ -249,10 +273,14 @@ export default function HomePage() {
           <div className="bg-gradient-to-br from-white/5 to-white/10 backdrop-blur-xl border border-white/20 rounded-3xl p-12">
             <h3 className="text-3xl lg:text-4xl font-bold text-white mb-6">
               Ready to revolutionize your
-              <span className="bg-gradient-to-r from-cyan-400 to-blue-400 bg-clip-text text-transparent"> real estate investments?</span>
+              <span className="bg-gradient-to-r from-cyan-400 to-blue-400 bg-clip-text text-transparent">
+                {" "}
+                real estate investments?
+              </span>
             </h3>
             <p className="text-xl text-gray-300 mb-8 max-w-2xl mx-auto">
-              Join thousands of users already leveraging AI-powered lending for their property portfolios
+              Join thousands of users already leveraging AI-powered lending for
+              their property portfolios
             </p>
             <Button
               onClick={() => handleNavigation("/marketplace")}

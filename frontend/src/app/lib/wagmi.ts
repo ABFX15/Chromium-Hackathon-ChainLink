@@ -1,16 +1,14 @@
-
-import { http, createConfig } from "wagmi";
+import { getDefaultConfig } from "@rainbow-me/rainbowkit";
+import { http } from "wagmi";
 import { sepolia, avalancheFuji, polygonMumbai, arbitrumSepolia } from "wagmi/chains";
-import { supportedChains } from "./chains";
 
-const chains = Object.values(supportedChains).map(chain => ({
-  ...chain,
-  rpcUrls: {
-    default: { http: [chain.rpcUrls.default.http[0]] }
-  }
-}));
+if (!process.env.NEXT_PUBLIC_WALLETCONNECT_PROJECT_ID) {
+  throw new Error("Missing NEXT_PUBLIC_WALLETCONNECT_PROJECT_ID in .env.local");
+}
 
-export const config = createConfig({
+export const config = getDefaultConfig({
+  appName: 'Oraclend',
+  projectId: process.env.NEXT_PUBLIC_WALLETCONNECT_PROJECT_ID,
   chains: [sepolia, avalancheFuji, polygonMumbai, arbitrumSepolia],
   ssr: true,
   transports: {
