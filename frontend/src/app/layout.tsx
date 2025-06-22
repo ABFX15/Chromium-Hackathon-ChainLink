@@ -1,7 +1,11 @@
 import { Metadata } from "next";
-import Providers from "./providers";
-import { ClientNav } from "./components/client-nav";
+import { Providers } from "./providers";
 import "./globals.css";
+import { Inter } from "next/font/google";
+import { ClientNav } from "./components/client-nav";
+import ParticlesBackground from "./components/ParticlesBackground";
+
+const inter = Inter({ subsets: ["latin"] });
 
 export const metadata: Metadata = {
   title: "ORACLEND - AI Lending Dashboard",
@@ -16,10 +20,11 @@ export default function RootLayout({
 }) {
   return (
     <html lang="en">
-      <body>
+      <body className={inter.className}>
         <Providers>
+          <ParticlesBackground />
           <ClientNav />
-          <main>{children}</main>
+          <main className="pl-60">{children}</main>
         </Providers>
       </body>
     </html>

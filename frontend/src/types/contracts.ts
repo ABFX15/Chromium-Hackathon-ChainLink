@@ -1,23 +1,30 @@
+import { Address } from "viem";
 
 export interface Loan {
-  loanId: string;
-  propertyName: string;
-  tokenId: number;
-  debt: number;
-  totalDue: number;
-  interest: number;
-  healthFactor: number;
+  loanId: bigint;
+  tokenId: bigint;
+  principalAmount: bigint;
+  interestRate: bigint;
+  startTimestamp: bigint;
+  borrower: Address;
+  lender: Address;
   isActive: boolean;
+  isFunded: boolean;
+  healthFactor?: number; // Optional, as it might be calculated off-chain
 }
 
 export interface PropertyNFT {
-  id: string;
+  id: string; // Can be tokenId as a string
+  tokenId: number;
   name: string;
   location: string;
-  price: number;
+  price: number; // Represents propertyValue
   image: string;
-  tokenId: number;
-  owner: string;
+  owner: Address;
+  isCollateral?: boolean; // Optional, as we determine this in the hook
+  propertyValue: number;
+  maxLoan: number;
+  description: string;
 }
 
 export interface LoanRequest {

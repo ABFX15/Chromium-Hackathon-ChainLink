@@ -1,29 +1,32 @@
-
-import { useState } from 'react'
-import { PropertyNFT } from '@/types/contracts'
-import { formatCurrency } from '@/lib/utils'
-import { NFTDetailModal } from './NFTDetailModal'
-import { Badge } from '@/components/ui/badge'
-import { 
-  MapPin, 
-  TrendingUp, 
-  Shield, 
+import { useState } from "react";
+import { PropertyNFT } from "@/types/contracts";
+import { formatCurrency } from "@/lib/utils";
+import { NFTDetailModal } from "./NFTDetailModal";
+import { Badge } from "@/components/ui/badge";
+import {
+  MapPin,
+  TrendingUp,
+  Shield,
   Zap,
   Eye,
   ExternalLink,
   Star,
-  Activity
-} from 'lucide-react'
+  Activity,
+} from "lucide-react";
 
 interface PropertyNFTCardProps {
-  nft: PropertyNFT
-  showBuyButton?: boolean
-  onBuy?: (nft: PropertyNFT) => void
+  nft: PropertyNFT;
+  showBuyButton?: boolean;
+  onBuy?: (nft: PropertyNFT) => void;
 }
 
-export function PropertyNFTCard({ nft, showBuyButton = false, onBuy }: PropertyNFTCardProps) {
-  const [showModal, setShowModal] = useState(false)
-  const [imageLoaded, setImageLoaded] = useState(false)
+export function PropertyNFTCard({
+  nft,
+  showBuyButton = false,
+  onBuy,
+}: PropertyNFTCardProps) {
+  const [showModal, setShowModal] = useState(false);
+  const [imageLoaded, setImageLoaded] = useState(false);
 
   // Guard clause to handle undefined nft
   if (!nft) {
@@ -33,61 +36,50 @@ export function PropertyNFTCard({ nft, showBuyButton = false, onBuy }: PropertyN
           <div className="text-sm">NFT data not available</div>
         </div>
       </div>
-    )
+    );
   }
-
-  const riskScore = nft.riskScore || 50 // Default risk score if undefined
-  const riskColor = riskScore <= 30 
-    ? 'text-green-400 bg-green-400/10 border-green-400/30' 
-    : riskScore <= 70 
-    ? 'text-yellow-400 bg-yellow-400/10 border-yellow-400/30'
-    : 'text-red-400 bg-red-400/10 border-red-400/30'
-
-  const riskLabel = riskScore <= 30 ? 'Low Risk' : riskScore <= 70 ? 'Medium Risk' : 'High Risk'
 
   return (
     <>
-      <div 
-        className="nft-card group cursor-pointer" 
+      <div
+        className="nft-card group cursor-pointer"
         onClick={(e) => {
           // Only open modal if not clicking on a button
-          const target = e.target as HTMLElement
-          if (target.tagName !== 'BUTTON' && !target.closest('button')) {
-            setShowModal(true)
+          const target = e.target as HTMLElement;
+          if (target.tagName !== "BUTTON" && !target.closest("button")) {
+            setShowModal(true);
           }
         }}
       >
         {/* Header Badges */}
         <div className="absolute top-4 left-4 right-4 flex justify-between items-start z-10">
-          <Badge className={`${riskColor} border font-semibold text-xs px-3 py-1`}>
+          <Badge className="bg-green-400/10 text-green-400 border-green-400/30 border font-semibold text-xs px-3 py-1">
             <Shield className="w-3 h-3 mr-1" />
-            {riskLabel}
+            Verified
           </Badge>
           <div className="flex space-x-2">
             <Badge className="bg-white/10 text-white border-white/20 backdrop-blur-md">
               <Star className="w-3 h-3 mr-1 text-yellow-400" />
-              {nft.rating || '4.8'}
+              Chain-Verified
             </Badge>
           </div>
         </div>
 
         {/* Image Container */}
         <div className="relative h-56 overflow-hidden rounded-t-20">
-          {!imageLoaded && (
-            <div className="absolute inset-0 skeleton"></div>
-          )}
+          {!imageLoaded && <div className="absolute inset-0 skeleton"></div>}
           <img
-            src={nft.image}
-            alt={nft.name}
+            src={(nft as any).image}
+            alt={(nft as any).name}
             className={`w-full h-full object-cover transition-all duration-700 group-hover:scale-110 ${
-              imageLoaded ? 'opacity-100' : 'opacity-0'
+              imageLoaded ? "opacity-100" : "opacity-0"
             }`}
             onLoad={() => setImageLoaded(true)}
           />
-          
+
           {/* Gradient Overlay */}
           <div className="absolute inset-0 bg-gradient-to-t from-black/60 via-transparent to-transparent"></div>
-          
+
           {/* Quick Actions */}
           <div className="absolute bottom-4 right-4 flex space-x-2 opacity-0 group-hover:opacity-100 transition-all duration-300">
             <button className="w-10 h-10 bg-white/20 backdrop-blur-md rounded-full flex items-center justify-center hover:bg-white/30 transition-colors">
@@ -104,25 +96,31 @@ export function PropertyNFTCard({ nft, showBuyButton = false, onBuy }: PropertyN
           {/* Title and Location */}
           <div>
             <h3 className="text-xl font-bold text-white mb-2 group-hover:text-gradient transition-all duration-300">
-              {nft.name}
+              {(nft as any).name}
             </h3>
             <div className="flex items-center text-white/60 text-sm">
               <MapPin className="w-4 h-4 mr-2" />
-              {nft.location}
+              On-chain Asset
             </div>
           </div>
 
           {/* Property Stats */}
           <div className="grid grid-cols-2 gap-4">
             <div className="space-y-1">
-              <p className="text-white/50 text-xs font-medium uppercase tracking-wide">Property Value</p>
+              <p className="text-white/50 text-xs font-medium uppercase tracking-wide">
+                Property Value
+              </p>
               <p className="text-white font-bold text-lg">
-                {formatCurrency(nft.price)}
+                {formatCurrency((nft as any).propertyValue)}
               </p>
             </div>
             <div className="space-y-1">
-              <p className="text-white/50 text-xs font-medium uppercase tracking-wide">Token ID</p>
-              <p className="text-white font-bold text-lg">#{nft.tokenId}</p>
+              <p className="text-white/50 text-xs font-medium uppercase tracking-wide">
+                Token ID
+              </p>
+              <p className="text-white font-bold text-lg">
+                #{(nft as any).tokenId.toString()}
+              </p>
             </div>
           </div>
 
@@ -131,15 +129,17 @@ export function PropertyNFTCard({ nft, showBuyButton = false, onBuy }: PropertyN
             <div className="flex items-center space-x-2">
               <TrendingUp className="w-4 h-4 text-green-400" />
               <div>
-                <p className="text-white/50 text-xs">APY</p>
-                <p className="text-white font-semibold text-sm">8.5%</p>
+                <p className="text-white/50 text-xs">Max LTV</p>
+                <p className="text-white font-semibold text-sm">70%</p>
               </div>
             </div>
             <div className="flex items-center space-x-2">
               <Activity className="w-4 h-4 text-blue-400" />
               <div>
-                <p className="text-white/50 text-xs">Liquidity</p>
-                <p className="text-white font-semibold text-sm">High</p>
+                <p className="text-white/50 text-xs">Status</p>
+                <p className="text-white font-semibold text-sm">
+                  {(nft as any).isCollateral ? "Collateralized" : "Available"}
+                </p>
               </div>
             </div>
           </div>
@@ -148,13 +148,8 @@ export function PropertyNFTCard({ nft, showBuyButton = false, onBuy }: PropertyN
           {showBuyButton && (
             <button
               onClick={() => {
-                console.log('=== BUTTON CLICKED ===')
-                console.log('NFT name:', nft.name)
-                console.log('onBuy exists:', !!onBuy)
                 if (onBuy) {
-                  onBuy(nft)
-                } else {
-                  console.error('onBuy is undefined!')
+                  onBuy(nft);
                 }
               }}
               className="w-full bg-blue-600 hover:bg-blue-500 text-white font-bold py-3 px-4 rounded-lg mt-6"
@@ -181,5 +176,5 @@ export function PropertyNFTCard({ nft, showBuyButton = false, onBuy }: PropertyN
         />
       )}
     </>
-  )
+  );
 }

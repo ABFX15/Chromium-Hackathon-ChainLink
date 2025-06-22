@@ -25,9 +25,3 @@ export const supportedChains = {
 export const getDestinationChains = (currentChainId: number) => {
   return Object.values(supportedChains).filter(chain => chain.id !== currentChainId)
 }
-
-export const estimateCCIPFee = async (sourceChain: SupportedChainKey, destinationChain: SupportedChainKey) => {
-  // This is a simplified fee estimation
-  // In production, this would call the actual CCIP fee estimation
-  return BigInt('10000000000000000') // 0.01 ETH
-}

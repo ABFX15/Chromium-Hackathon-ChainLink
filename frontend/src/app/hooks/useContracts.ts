@@ -1,581 +1,239 @@
 "use client";
 
 import { useAccount, useReadContract, useWriteContract, useWaitForTransactionReceipt } from "wagmi";
+import { readContract } from "@wagmi/core";
+import { config } from "@/app/lib/wagmi";
 import { useState, useEffect } from "react";
-import {
-    LOAN_MANAGER_ADDRESS,
-    PROPERTY_NFT_ADDRESS,
-    COLLATERAL_VAULT_ADDRESS,
-    LENDER_NFT_ADDRESS,
-    AI_RISK_MANAGER_ADDRESS,
-    PROPERTY_ORACLE_ADDRESS,
-    USDC_ADDRESS,
-    ASSET_TYPES,
-    LOAN_CONSTANTS,
-    CHAINLINK_FUNCTIONS_ROUTER,
-    CHAINLINK_LINK_TOKEN,
-    CHAINLINK_CCIP_ROUTER,
-} from "../../constants";
-import LoanManagerABI from "../../abis/LoanManager.json";
-import PropertyNFTABI from "../../abis/PropertyNFT.json";
-import CollateralVaultABI from "../../abis/CollateralVault.json";
-import LenderNFTABI from "../../abis/LenderNFT.json";
-import AIRiskManagerABI from "../../abis/AIRiskManager.json";
-import MockUSDCABI from "../../abis/MockUSDC.json";
+import { Address } from "viem";
 
-export interface Loan {
-    loanId: bigint;
-    tokenId: bigint;
-    principalAmount: bigint;
-    interestRate: bigint;
-    startTimestamp: bigint;
-    borrower: string;
-    lender: string;
-    isActive: boolean;
-    isFunded: boolean;
-    assetType: bigint;
-}
+import { CONTRACT_ADDRESSES } from "@/lib/contracts"; // Keep this for addresses
+import { Loan, PropertyNFT as NFTMetadata } from "@/types/contracts";
 
-export interface NFTMetadata {
-    tokenId: number;
-    owner: string;
-    uri: string;
-    value?: number;
-    isCollateral?: boolean;
-}
-
-export interface LenderPosition {
-    tokenId: number;
-    loanId: number;
-    amount: bigint;
-    lender: string;
-}
-
-export interface ChainLiquidity {
-    chainSelector: bigint;
-    totalLiquidity: bigint;
-    availableLiquidity: bigint;
-    utilizationRate: bigint;
-}
-
-export interface AIRiskScore {
-    loanId: number;
-    riskScore: number;
-    interestRate: number;
-    volatilityScore: number;
-}
+// Import ABIs from the correct JSON files
+import LoanManagerABI from "@/abis/LoanManager.json";
+import PropertyNFTABI from "@/abis/PropertyNFT.json";
+import MockUSDCABI from "@/abis/MockUSDC.json";
 
 export const useContracts = () => {
     const { address, isConnected } = useAccount();
     const [userNFTs, setUserNFTs] = useState<NFTMetadata[]>([]);
     const [userLoans, setUserLoans] = useState<Loan[]>([]);
-    const [lenderPositions, setLenderPositions] = useState<LenderPosition[]>([]);
-    const [chainLiquidity, setChainLiquidity] = useState<ChainLiquidity[]>([]);
-    const [aiRiskScores, setAiRiskScores] = useState<AIRiskScore[]>([]);
     const [loading, setLoading] = useState(false);
 
-    // Contract reads
-    const { data: userBalance } = useReadContract({
-        address: PROPERTY_NFT_ADDRESS as `0x${string}`,
-        abi: PropertyNFTABI.abi,
-        functionName: "balanceOf",
-        args: address ? [address] : undefined,
-        query: {
-            enabled: !!address,
-        },
-    });
-
-    const { data: nextLoanId } = useReadContract({
-        address: LOAN_MANAGER_ADDRESS as `0x${string}`,
-        abi: LoanManagerABI.abi,
-        functionName: "nextLoanId",
-    });
-
     const { data: userUSDCBalance } = useReadContract({
-        address: USDC_ADDRESS as `0x${string}`,
+        address: CONTRACT_ADDRESSES.USDC as Address,
         abi: MockUSDCABI.abi,
         functionName: "balanceOf",
         args: address ? [address] : undefined,
-        query: {
-            enabled: !!address,
-        },
+        query: { enabled: !!address },
     });
 
-    const { data: protocolYield } = useReadContract({
-        address: LOAN_MANAGER_ADDRESS as `0x${string}`,
+    const { writeContract, data: writeData, isPending } = useWriteContract();
+
+    const { isLoading: isProcessing, isSuccess: txSuccess } = useWaitForTransactionReceipt({ hash: writeData });
+
+    const [minting, setMinting] = useState(false);
+    const [approving, setApproving] = useState(false);
+    const [creatingLoan, setCreatingLoan] = useState(false);
+    const [repaying, setRepaying] = useState(false);
+    const [addingLiquidity, setAddingLiquidity] = useState(false);
+    const [funding, setFunding] = useState(false);
+
+    const executeContractWrite = async (setLoadingState: (loading: boolean) => void, params: any) => {
+        if (!address) return;
+        setLoadingState(true);
+        try {
+            await writeContract(params);
+        } catch (error) {
+            console.error("Contract write error:", error);
+        } finally {
+            setLoadingState(false);
+        }
+    };
+
+    const mintPropertyNFT = (tokenId: number, uri: string) => executeContractWrite(setMinting, {
+        address: CONTRACT_ADDRESSES.PROPERTY_NFT as Address,
+        abi: PropertyNFTABI.abi,
+        functionName: "safeMint",
+        args: [address, BigInt(tokenId), uri],
+    });
+
+    const approveNFTForLoan = (tokenId: number) => executeContractWrite(setApproving, {
+        address: CONTRACT_ADDRESSES.PROPERTY_NFT as Address,
+        abi: PropertyNFTABI.abi,
+        functionName: "approve",
+        args: [CONTRACT_ADDRESSES.LOAN_MANAGER, BigInt(tokenId)],
+    });
+
+    const createLoan = (tokenId: number, amount: number, apr: number) => executeContractWrite(setCreatingLoan, {
+        address: CONTRACT_ADDRESSES.LOAN_MANAGER as Address,
         abi: LoanManagerABI.abi,
-        functionName: "protocolYield",
-        args: address ? [address] : undefined,
-        query: {
-            enabled: !!address,
-        },
+        functionName: "createLoan",
+        args: [BigInt(tokenId), BigInt(amount), BigInt(apr)],
     });
 
-    // Contract writes
-    const { writeContract: writeContract, data: writeData } = useWriteContract();
-
-    // Transaction status
-    const { isLoading: minting, isSuccess: mintSuccess } = useWaitForTransactionReceipt({
-        hash: writeData,
+    const repayLoan = (loanId: number) => executeContractWrite(setRepaying, {
+        address: CONTRACT_ADDRESSES.LOAN_MANAGER as Address,
+        abi: LoanManagerABI.abi,
+        functionName: "repayLoan",
+        args: [BigInt(loanId)],
     });
 
-    const { isLoading: approving, isSuccess: approveSuccess } = useWaitForTransactionReceipt({
-        hash: writeData,
+    const addCCIPLiquidity = (chainSelector: bigint, amount: bigint) => executeContractWrite(setAddingLiquidity, {
+        address: CONTRACT_ADDRESSES.LOAN_MANAGER as Address,
+        abi: LoanManagerABI.abi,
+        functionName: 'addCCIPLiquidity',
+        args: [chainSelector, amount],
     });
 
-    const { isLoading: depositing, isSuccess: depositSuccess } = useWaitForTransactionReceipt({
-        hash: writeData,
-    });
-
-    const { isLoading: funding, isSuccess: fundSuccess } = useWaitForTransactionReceipt({
-        hash: writeData,
-    });
-
-    const { isLoading: repaying, isSuccess: repaySuccess } = useWaitForTransactionReceipt({
-        hash: writeData,
-    });
-
-    const { isLoading: requestingValuation, isSuccess: valuationSuccess } = useWaitForTransactionReceipt({
-        hash: writeData,
-    });
-
-    const { isLoading: addingLiquidity, isSuccess: liquiditySuccess } = useWaitForTransactionReceipt({
-        hash: writeData,
-    });
-
-    const { isLoading: withdrawingYield, isSuccess: withdrawSuccess } = useWaitForTransactionReceipt({
-        hash: writeData,
-    });
-
-    // Helper functions
-    const mintPropertyNFT = async (tokenId: number, uri: string) => {
-        if (!address) return;
-
-        try {
-            setLoading(true);
-            writeContract({
-                address: PROPERTY_NFT_ADDRESS as `0x${string}`,
-                abi: PropertyNFTABI.abi,
-                functionName: "safeMint",
-                args: [address, BigInt(tokenId), uri],
-            });
-        } catch (error) {
-            console.error("Error minting NFT:", error);
-        } finally {
-            setLoading(false);
-        }
+    const estimateCCIPFee = async (destinationChainKey: string) => {
+        console.log("Estimating fee for:", destinationChainKey);
+        // This should ideally call a contract function, but we'll keep the placeholder
+        return BigInt(1000000000000000);
     };
 
-    const approveNFTForLoan = async (tokenId: number) => {
-        if (!address) return;
-
-        try {
-            setLoading(true);
-            writeContract({
-                address: PROPERTY_NFT_ADDRESS as `0x${string}`,
-                abi: PropertyNFTABI.abi,
-                functionName: "approve",
-                args: [LOAN_MANAGER_ADDRESS, BigInt(tokenId)],
-            });
-        } catch (error) {
-            console.error("Error approving NFT:", error);
-        } finally {
-            setLoading(false);
-        }
+    const executeCCIPLoan = async (loanId: bigint, destinationChainSelector: bigint) => {
+        const fee = await estimateCCIPFee("placeholder");
+        executeContractWrite(setFunding, {
+            address: CONTRACT_ADDRESSES.LOAN_MANAGER as Address,
+            abi: LoanManagerABI.abi,
+            functionName: 'executeCCIPLoan',
+            args: [loanId, destinationChainSelector],
+            value: fee,
+        });
     };
 
-    const createLoan = async (tokenId: number, amount: number, assetType: number) => {
-        if (!address) return;
 
-        try {
-            setLoading(true);
-            writeContract({
-                address: LOAN_MANAGER_ADDRESS as `0x${string}`,
-                abi: LoanManagerABI.abi,
-                functionName: "depositNFTCollateral",
-                args: [BigInt(tokenId), BigInt(amount), BigInt(assetType)],
-            });
-        } catch (error) {
-            console.error("Error creating loan:", error);
-        } finally {
-            setLoading(false);
-        }
-    };
-
-    const fundLoanCrossChain = async (loanId: number) => {
-        if (!address) return;
-
-        try {
-            setLoading(true);
-            writeContract({
-                address: LOAN_MANAGER_ADDRESS as `0x${string}`,
-                abi: LoanManagerABI.abi,
-                functionName: "fundLoanCrossChain",
-                args: [BigInt(loanId)],
-                value: BigInt(1000000000000000), // 0.001 ETH for CCIP fees
-            });
-        } catch (error) {
-            console.error("Error funding loan:", error);
-        } finally {
-            setLoading(false);
-        }
-    };
-
-    const repayLoanAmount = async (loanId: number) => {
-        if (!address) return;
-
-        try {
-            setLoading(true);
-            writeContract({
-                address: LOAN_MANAGER_ADDRESS as `0x${string}`,
-                abi: LoanManagerABI.abi,
-                functionName: "repayLoan",
-                args: [BigInt(loanId)],
-            });
-        } catch (error) {
-            console.error("Error repaying loan:", error);
-        } finally {
-            setLoading(false);
-        }
-    };
-
-    const approveUSDCForLoan = async (amount: number) => {
-        if (!address) return;
-
-        try {
-            setLoading(true);
-            writeContract({
-                address: USDC_ADDRESS as `0x${string}`,
-                abi: MockUSDCABI.abi,
-                functionName: "approve",
-                args: [LOAN_MANAGER_ADDRESS, BigInt(amount)],
-            });
-        } catch (error) {
-            console.error("Error approving USDC:", error);
-        } finally {
-            setLoading(false);
-        }
-    };
-
-    // New AI Risk Management functions
-    const requestAIRiskScore = async (loanId: number) => {
-        if (!address) return;
-
-        try {
-            setLoading(true);
-            writeContract({
-                address: AI_RISK_MANAGER_ADDRESS as `0x${string}`,
-                abi: AIRiskManagerABI.abi,
-                functionName: "requestRiskScore",
-                args: [BigInt(loanId)],
-            });
-        } catch (error) {
-            console.error("Error requesting AI risk score:", error);
-        } finally {
-            setLoading(false);
-        }
-    };
-
-    const updateAIRiskScore = async (loanId: number, riskScore: number) => {
-        if (!address) return;
-
-        try {
-            setLoading(true);
-            writeContract({
-                address: AI_RISK_MANAGER_ADDRESS as `0x${string}`,
-                abi: AIRiskManagerABI.abi,
-                functionName: "updateRiskScore",
-                args: [BigInt(loanId), BigInt(riskScore)],
-            });
-        } catch (error) {
-            console.error("Error updating AI risk score:", error);
-        } finally {
-            setLoading(false);
-        }
-    };
-
-    // Property Oracle functions (simplified for now)
-    const requestPropertyValuation = async (tokenId: number) => {
-        if (!address) return;
-
-        try {
-            setLoading(true);
-            // For now, just simulate the valuation
-            console.log(`Requesting property valuation for token ${tokenId}`);
-            // TODO: Implement actual Chainlink Functions call when PropertyOracle ABI is available
-        } catch (error) {
-            console.error("Error requesting property valuation:", error);
-        } finally {
-            setLoading(false);
-        }
-    };
-
-    // Cross-chain liquidity functions
-    const addChainLiquidity = async (chainSelector: number, amount: number) => {
-        if (!address) return;
-
-        try {
-            setLoading(true);
-            writeContract({
-                address: LOAN_MANAGER_ADDRESS as `0x${string}`,
-                abi: LoanManagerABI.abi,
-                functionName: "addChainLiquidity",
-                args: [BigInt(chainSelector)],
-                value: BigInt(1000000000000000), // 0.001 ETH for CCIP fees
-            });
-        } catch (error) {
-            console.error("Error adding chain liquidity:", error);
-        } finally {
-            setLoading(false);
-        }
-    };
-
-    const withdrawChainLiquidity = async (chainSelector: number, amount: number) => {
-        if (!address) return;
-
-        try {
-            setLoading(true);
-            writeContract({
-                address: LOAN_MANAGER_ADDRESS as `0x${string}`,
-                abi: LoanManagerABI.abi,
-                functionName: "withdrawChainLiquidity",
-                args: [BigInt(chainSelector), BigInt(amount)],
-            });
-        } catch (error) {
-            console.error("Error withdrawing chain liquidity:", error);
-        } finally {
-            setLoading(false);
-        }
-    };
-
-    // Yield management functions
-    const withdrawProtocolYield = async () => {
-        if (!address) return;
-
-        try {
-            setLoading(true);
-            writeContract({
-                address: LOAN_MANAGER_ADDRESS as `0x${string}`,
-                abi: LoanManagerABI.abi,
-                functionName: "withdrawProtocolYield",
-                args: [],
-            });
-        } catch (error) {
-            console.error("Error withdrawing protocol yield:", error);
-        } finally {
-            setLoading(false);
-        }
-    };
-
-    // Property value management
-    const setPropertyValue = async (tokenId: number, value: number) => {
-        if (!address) return;
-
-        try {
-            setLoading(true);
-            writeContract({
-                address: COLLATERAL_VAULT_ADDRESS as `0x${string}`,
-                abi: CollateralVaultABI.abi,
-                functionName: "setPropertyValueTest",
-                args: [BigInt(tokenId), BigInt(value)],
-            });
-        } catch (error) {
-            console.error("Error setting property value:", error);
-        } finally {
-            setLoading(false);
-        }
-    };
-
-    // Calculate current debt for a loan
-    const calculateCurrentDebt = async (loanId: number) => {
-        // This would need to be implemented with proper contract reading
-        // For now, return a placeholder
-        return BigInt(0);
-    };
-
-    // Get loan details
-    const getLoanDetails = async (loanId: number) => {
-        // This would need to be implemented with proper contract reading
-        // For now, return a placeholder
-        return null;
-    };
-
-    // Get AI risk score for a loan
-    const getAIRiskScore = async (loanId: bigint) => {
-        if (!aiRiskManagerContract) return null;
-
-        try {
-            const result = await aiRiskManagerContract.read.getLoanRiskData([loanId]);
-            return {
-                riskScore: result[0],
-                volatilityScore: result[1],
-                interestRate: result[2],
-                lastUpdated: result[3]
-            };
-        } catch (error) {
-            console.error('Error getting AI risk score:', error);
-            return null;
-        }
-    };
-
-    // CCIP Cross-Chain Functions
-    const addCCIPLiquidity = async (chainSelector: bigint, amount: bigint) => {
-        if (!address || !crossChainLiquidityContract) return null;
-
-        try {
-            setAddingLiquidity(true);
-
-            // First approve USDC
-            if (mockUsdcContract) {
-                await mockUsdcContract.write.approve([
-                    crossChainLiquidityContract.address,
-                    amount
-                ]);
+    useEffect(() => {
+        const loadUserData = async () => {
+            if (!address || !isConnected) {
+                setUserNFTs([]);
+                setUserLoans([]);
+                return;
             }
+            setLoading(true);
+            try {
+                const nextLoanIdBigInt = await readContract(config, {
+                    address: CONTRACT_ADDRESSES.LOAN_MANAGER as Address,
+                    abi: LoanManagerABI.abi,
+                    functionName: "nextLoanId",
+                });
 
-            const hash = await crossChainLiquidityContract.write.addLiquidity([chainSelector], {
-                value: parseEther('0.01') // CCIP fee
-            });
+                const loans: Loan[] = [];
+                const collateralizedTokenIds = new Set<bigint>();
+                for (let i = 1; i < Number(nextLoanIdBigInt); i++) {
+                    const loanData = (await readContract(config, {
+                        address: CONTRACT_ADDRESSES.LOAN_MANAGER as Address,
+                        abi: LoanManagerABI.abi,
+                        functionName: "loans",
+                        args: [BigInt(i)],
+                    })) as any; // Still need 'any' for the raw tuple from contract
 
-            console.log('CCIP liquidity transaction hash:', hash);
-            setLiquiditySuccess(true);
-            return hash;
-        } catch (error) {
-            console.error('Error adding CCIP liquidity:', error);
-            throw error;
-        } finally {
+                    if (loanData && (loanData[5] === address || loanData[6] === address)) {
+                        const loan: Loan = {
+                            loanId: loanData[0],
+                            tokenId: loanData[1],
+                            principalAmount: loanData[2],
+                            interestRate: loanData[3],
+                            startTimestamp: loanData[4],
+                            borrower: loanData[5],
+                            lender: loanData[6],
+                            isActive: loanData[7],
+                            isFunded: loanData[8],
+                        };
+                        loans.push(loan);
+                        if (loan.isActive) {
+                            collateralizedTokenIds.add(loan.tokenId);
+                        }
+                    }
+                }
+                setUserLoans(loans);
+
+                const balance = await readContract(config, {
+                    address: CONTRACT_ADDRESSES.PROPERTY_NFT as Address,
+                    abi: PropertyNFTABI.abi,
+                    functionName: 'balanceOf',
+                    args: [address]
+                });
+
+                const nfts: NFTMetadata[] = [];
+                for (let i = 0; i < Number(balance); i++) {
+                    const tokenId = await readContract(config, {
+                        address: CONTRACT_ADDRESSES.PROPERTY_NFT as Address,
+                        abi: PropertyNFTABI.abi,
+                        functionName: 'tokenOfOwnerByIndex',
+                        args: [address, BigInt(i)]
+                    }) as bigint; // Correctly type tokenId
+
+                    const tokenURI = await readContract(config, {
+                        address: CONTRACT_ADDRESSES.PROPERTY_NFT as Address,
+                        abi: PropertyNFTABI.abi,
+                        functionName: 'tokenURI',
+                        args: [tokenId]
+                    }) as string;
+
+                    if (tokenURI) {
+                        const metadataResponse = await fetch(tokenURI.replace("ipfs://", "https://ipfs.io/ipfs/"));
+                        const metadata = await metadataResponse.json();
+                        const propertyValue = metadata.attributes?.find((a: any) => a.trait_type === 'Property Value')?.value || 0;
+
+                        nfts.push({
+                            id: tokenId.toString(),
+                            tokenId: Number(tokenId),
+                            name: metadata.name || 'Unknown Property',
+                            description: metadata.description || 'No description available.',
+                            image: metadata.image?.replace("ipfs://", "https://ipfs.io/ipfs/") || '',
+                            owner: address,
+                            isCollateral: collateralizedTokenIds.has(tokenId),
+                            propertyValue: propertyValue,
+                            maxLoan: propertyValue * 0.7, // 70% LTV
+                            // these are just illustrative and not in the updated type
+                            location: metadata.attributes?.find((a: any) => a.trait_type === 'Location')?.value || 'N/A',
+                            price: propertyValue,
+                        });
+                    }
+                }
+                setUserNFTs(nfts);
+
+            } catch (error) {
+                console.error("Error loading user data:", error);
+            } finally {
+                setLoading(false);
+            }
+        };
+        loadUserData();
+    }, [address, isConnected, txSuccess]);
+
+    useEffect(() => {
+        if (!isPending && !isProcessing) {
+            setMinting(false);
+            setApproving(false);
+            setCreatingLoan(false);
+            setRepaying(false);
             setAddingLiquidity(false);
-        }
-    };
-
-    const estimateCCIPFee = async (sourceChain: string, destinationChain: string) => {
-        if (!crossChainLiquidityContract) return BigInt(0);
-
-        try {
-            // This would typically call a fee estimation function on the contract
-            // For now, return a default estimate
-            return parseEther('0.01'); // 0.01 ETH estimate
-        } catch (error) {
-            console.error('Error estimating CCIP fee:', error);
-            return BigInt(0);
-        }
-    };
-
-    const executeCCIPLoan = async (loanId: bigint, destinationChain: bigint) => {
-        if (!address || !loanManagerContract) return null;
-
-        try {
-            setFunding(true);
-
-            const hash = await loanManagerContract.write.fundLoanCrossChain([
-                loanId,
-                destinationChain
-            ], {
-                value: parseEther('0.01') // CCIP fee
-            });
-
-            console.log('CCIP loan execution hash:', hash);
-            setFundSuccess(true);
-            return hash;
-        } catch (error) {
-            console.error('Error executing CCIP loan:', error);
-            throw error;
-        } finally {
             setFunding(false);
         }
-    };
-
-    // Load user data
-    useEffect(() => {
-        if (!address || !userBalance) return;
-
-        const loadUserData = async () => {
-            // Load user NFTs - simplified for now
-            const nfts: NFTMetadata[] = [];
-            for (let i = 0; i < Number(userBalance); i++) {
-                nfts.push({
-                    tokenId: i + 1,
-                    owner: address,
-                    uri: `https://ipfs.io/ipfs/QmDemo${i + 1}`,
-                    value: 500000 + (i * 250000), // Demo values
-                });
-            }
-            setUserNFTs(nfts);
-
-            // Load user loans - simplified for now
-            const loans: Loan[] = [];
-            // TODO: Implement proper loan loading when contract reading is set up
-            setUserLoans(loans);
-
-            // Load lender positions
-            const positions: LenderPosition[] = [];
-            // This would require iterating through LenderNFT tokens owned by user
-            setLenderPositions(positions);
-
-            // Load AI risk scores
-            const riskScores: AIRiskScore[] = [];
-            // TODO: Implement proper risk score loading
-            setAiRiskScores(riskScores);
-        };
-
-        loadUserData();
-    }, [address, userBalance, nextLoanId]);
+    }, [isPending, isProcessing]);
 
     return {
-        // State
         userNFTs,
         userLoans,
-        lenderPositions,
-        chainLiquidity,
-        aiRiskScores,
         loading,
-        nextLoanId: nextLoanId ? Number(nextLoanId) : 0,
-        userUSDCBalance: userUSDCBalance ? Number(userUSDCBalance) : 0,
-        protocolYield: protocolYield ? Number(protocolYield) : 0,
-
-        // Loading states
+        userUSDCBalance,
         minting,
         approving,
-        depositing,
-        funding,
+        creatingLoan,
         repaying,
-        requestingValuation,
         addingLiquidity,
-        withdrawingYield,
-
-        // Success states
-        mintSuccess,
-        approveSuccess,
-        depositSuccess,
-        fundSuccess,
-        repaySuccess,
-        valuationSuccess,
-        liquiditySuccess,
-        withdrawSuccess,
-
-        // Functions
+        funding,
+        isProcessing,
+        txSuccess,
         mintPropertyNFT,
         approveNFTForLoan,
         createLoan,
-        fundLoanCrossChain,
-        repayLoanAmount,
-        approveUSDCForLoan,
-        requestAIRiskScore,
-        updateAIRiskScore,
-        requestPropertyValuation,
-        addChainLiquidity,
-        withdrawChainLiquidity,
-        withdrawProtocolYield,
-        setPropertyValue,
-        calculateCurrentDebt,
-        getLoanDetails,
-        getAIRiskScore,
-
-        // Constants
-        ASSET_TYPES,
-        LOAN_CONSTANTS,
-        CHAINLINK_FUNCTIONS_ROUTER,
-        CHAINLINK_LINK_TOKEN,
-        CHAINLINK_CCIP_ROUTER,
+        repayLoan,
+        addCCIPLiquidity,
+        estimateCCIPFee,
+        executeCCIPLoan,
     };
 };

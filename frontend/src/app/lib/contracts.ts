@@ -76,6 +76,33 @@ export const LOAN_MANAGER_ABI = [
         ],
         "stateMutability": "view",
         "type": "function"
+    },
+    {
+        "inputs": [],
+        "name": "nextLoanId",
+        "outputs": [{ "internalType": "uint256", "name": "", "type": "uint256" }],
+        "stateMutability": "view",
+        "type": "function"
+    },
+    {
+        "inputs": [
+            { "internalType": "uint64", "name": "chainSelector", "type": "uint64" },
+            { "internalType": "uint256", "name": "amount", "type": "uint256" }
+        ],
+        "name": "addCCIPLiquidity",
+        "outputs": [],
+        "stateMutability": "nonpayable",
+        "type": "function"
+    },
+    {
+        "inputs": [
+            { "internalType": "uint256", "name": "loanId", "type": "uint256" },
+            { "internalType": "uint64", "name": "destinationChainSelector", "type": "uint64" }
+        ],
+        "name": "executeCCIPLoan",
+        "outputs": [],
+        "stateMutability": "payable",
+        "type": "function"
     }
 ] as const
 
@@ -147,25 +174,86 @@ export const PROPERTY_NFT_ABI = [
     }
 ] as const
 
-// USDC ABI
 export const USDC_ABI = [
     {
-        "inputs": [
-            { "internalType": "address", "name": "account", "type": "address" }
-        ],
-        "name": "balanceOf",
-        "outputs": [{ "internalType": "uint256", "name": "", "type": "uint256" }],
+        "constant": true,
+        "inputs": [],
+        "name": "name",
+        "outputs": [{ "name": "", "type": "string" }],
+        "payable": false,
         "stateMutability": "view",
         "type": "function"
     },
     {
-        "inputs": [
-            { "internalType": "address", "name": "spender", "type": "address" },
-            { "internalType": "uint256", "name": "amount", "type": "uint256" }
-        ],
+        "constant": false,
+        "inputs": [{ "name": "_spender", "type": "address" }, { "name": "_value", "type": "uint256" }],
         "name": "approve",
-        "outputs": [{ "internalType": "bool", "name": "", "type": "bool" }],
+        "outputs": [{ "name": "", "type": "bool" }],
+        "payable": false,
         "stateMutability": "nonpayable",
         "type": "function"
+    },
+    {
+        "constant": true,
+        "inputs": [],
+        "name": "totalSupply",
+        "outputs": [{ "name": "", "type": "uint256" }],
+        "payable": false,
+        "stateMutability": "view",
+        "type": "function"
+    },
+    {
+        "constant": false,
+        "inputs": [{ "name": "_from", "type": "address" }, { "name": "_to", "type": "address" }, { "name": "_value", "type": "uint256" }],
+        "name": "transferFrom",
+        "outputs": [{ "name": "", "type": "bool" }],
+        "payable": false,
+        "stateMutability": "nonpayable",
+        "type": "function"
+    },
+    {
+        "constant": true,
+        "inputs": [],
+        "name": "decimals",
+        "outputs": [{ "name": "", "type": "uint8" }],
+        "payable": false,
+        "stateMutability": "view",
+        "type": "function"
+    },
+    {
+        "constant": true,
+        "inputs": [{ "name": "_owner", "type": "address" }],
+        "name": "balanceOf",
+        "outputs": [{ "name": "balance", "type": "uint256" }],
+        "payable": false,
+        "stateMutability": "view",
+        "type": "function"
+    },
+    {
+        "constant": true,
+        "inputs": [],
+        "name": "symbol",
+        "outputs": [{ "name": "", "type": "string" }],
+        "payable": false,
+        "stateMutability": "view",
+        "type": "function"
+    },
+    {
+        "constant": false,
+        "inputs": [{ "name": "_to", "type": "address" }, { "name": "_value", "type": "uint256" }],
+        "name": "transfer",
+        "outputs": [{ "name": "", "type": "bool" }],
+        "payable": false,
+        "stateMutability": "nonpayable",
+        "type": "function"
+    },
+    {
+        "constant": true,
+        "inputs": [{ "name": "_owner", "type": "address" }, { "name": "_spender", "type": "address" }],
+        "name": "allowance",
+        "outputs": [{ "name": "", "type": "uint256" }],
+        "payable": false,
+        "stateMutability": "view",
+        "type": "function"
     }
-] as const
+] as const;

@@ -2,10 +2,14 @@ import { Address } from 'viem'
 
 export interface PropertyNFT {
   tokenId: bigint
+  name: string
+  description: string
+  image: string
   propertyValue: number
   isCollateral: boolean
   maxLoan: number
   tokenURI?: string
+  owner?: Address
 }
 
 export interface Loan {
@@ -14,8 +18,8 @@ export interface Loan {
   principalAmount: bigint
   interestRate: bigint
   startTimestamp: bigint
-  borrower: string
-  lender: string
+  borrower: Address
+  lender: Address
   isActive: boolean
   isFunded: boolean
 }
@@ -25,14 +29,14 @@ export interface DepositNFT {
   loanId: bigint
   collateralValue: bigint
   timestamp: bigint
-  borrower: string
+  borrower: Address
   isActive: boolean
 }
 
 export interface Transaction {
   hash: string
-  from: string
-  to: string
+  from: Address
+  to: Address
   value: bigint
   timestamp: number
   status: 'pending' | 'success' | 'failed'
