@@ -1,72 +1,17 @@
+import LoanManagerABIJson from "@/abis/LoanManager.json";
+import PropertyNFTABIJson from "@/abis/PropertyNFT.json";
+import MockUSDCABIJson from "@/abis/MockUSDC.json";
+
 export const CONTRACT_ADDRESSES = {
-  LOAN_MANAGER: '0x1234567890123456789012345678901234567890',
-  PROPERTY_NFT: '0x2345678901234567890123456789012345678901',
-  USDC: '0x3456789012345678901234567890123456789012',
-  AI_RISK_MANAGER: '0x4567890123456789012345678901234567890123',
-  COLLATERAL_VAULT: '0x5678901234567890123456789012345678901234'
+  LOAN_MANAGER: '0x169938695513a5dF8f38207d9b80967Df540BE2F',
+  PROPERTY_NFT: '0xDb45124D9A0339a1346059b581A2b75235555e7A',
+  COLLATERAL_VAULT: '0x1Be4d3f493cF51b4CB75eE3D22C2905AA0c690C8',
+  LENDER_NFT: '0x13E89b48885068AD083Adce1D7B856746D220186',
+  AI_RISK_MANAGER: '0x3A57b33eC6A781312B71d85D7aC83eFa943361F6',
+  PROPERTY_ORACLE: '0x259680677d29DF3BF7e5001aD30E51aa6Af76390',
+  USDC: '0xc2BeFC6516C1C0C8bf6bc6AfB0000b8A186cB1f6',
 };
 
-export const PROPERTY_NFT_ABI = [
-  {
-    "inputs": [
-      {"name": "to", "type": "address"},
-      {"name": "tokenId", "type": "uint256"}
-    ],
-    "name": "approve",
-    "outputs": [],
-    "stateMutability": "nonpayable",
-    "type": "function"
-  },
-  {
-    "inputs": [{"name": "tokenId", "type": "uint256"}],
-    "name": "tokenURI",
-    "outputs": [{"name": "", "type": "string"}],
-    "stateMutability": "view",
-    "type": "function"
-  }
-] as const;
-
-export const MOCK_USDC_ABI = [
-  {
-    "inputs": [
-      {"name": "spender", "type": "address"},
-      {"name": "amount", "type": "uint256"}
-    ],
-    "name": "approve",
-    "outputs": [{"name": "", "type": "bool"}],
-    "stateMutability": "nonpayable",
-    "type": "function"
-  },
-  {
-    "inputs": [
-      {"name": "to", "type": "address"},
-      {"name": "amount", "type": "uint256"}
-    ],
-    "name": "transfer",
-    "outputs": [{"name": "", "type": "bool"}],
-    "stateMutability": "nonpayable",
-    "type": "function"
-  },
-  {
-    "inputs": [{"name": "account", "type": "address"}],
-    "name": "balanceOf",
-    "outputs": [{"name": "", "type": "uint256"}],
-    "stateMutability": "view",
-    "type": "function"
-  }
-] as const;
-
-export const LOAN_MANAGER_ABI = [
-  {
-    "inputs": [],
-    "name": "InvalidInput",
-    "type": "error"
-  },
-  {
-    "inputs": [{"name": "loanId", "type": "uint256"}],
-    "name": "repayLoan",
-    "outputs": [],
-    "stateMutability": "nonpayable",
-    "type": "function"
-  }
-];
+export const PROPERTY_NFT_ABI = PropertyNFTABIJson.abi;
+export const MOCK_USDC_ABI = MockUSDCABIJson.abi;
+export const LOAN_MANAGER_ABI = LoanManagerABIJson.abi;

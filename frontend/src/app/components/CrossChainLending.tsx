@@ -50,7 +50,7 @@ export function CrossChainLending() {
   const chainId = useChainId();
   const { switchChain } = useSwitchChain();
   const { addCCIPLiquidity, estimateCCIPFee, addingLiquidity } = useContracts();
-
+  
   const [selectedDestination, setSelectedDestination] = useState<string>("");
   const [loanAmount, setLoanAmount] = useState("");
   const [estimatedFee, setEstimatedFee] = useState<bigint>(BigInt(0));
@@ -69,7 +69,7 @@ export function CrossChainLending() {
 
   const estimateFee = async () => {
     if (!currentChain || !selectedDestination) return;
-
+    
     setIsEstimating(true);
     try {
       const fee = await estimateCCIPFee(

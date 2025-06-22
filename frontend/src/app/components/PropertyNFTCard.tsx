@@ -16,15 +16,9 @@ import {
 
 interface PropertyNFTCardProps {
   nft: PropertyNFT;
-  showBuyButton?: boolean;
-  onBuy?: (nft: PropertyNFT) => void;
 }
 
-export function PropertyNFTCard({
-  nft,
-  showBuyButton = false,
-  onBuy,
-}: PropertyNFTCardProps) {
+export function PropertyNFTCard({ nft }: PropertyNFTCardProps) {
   const [showModal, setShowModal] = useState(false);
   const [imageLoaded, setImageLoaded] = useState(false);
 
@@ -144,21 +138,9 @@ export function PropertyNFTCard({
             </div>
           </div>
 
-          {/* Action Button */}
-          {showBuyButton && (
-            <button
-              onClick={() => {
-                if (onBuy) {
-                  onBuy(nft);
-                }
-              }}
-              className="w-full bg-blue-600 hover:bg-blue-500 text-white font-bold py-3 px-4 rounded-lg mt-6"
-              type="button"
-            >
-              <Zap className="w-4 h-4 mr-2 inline" />
-              Purchase NFT
-            </button>
-          )}
+          {/* Action Button - This button's logic was incorrect for a marketplace view */}
+          {/* It was opening a borrow workflow instead of a purchase/lend workflow */}
+          {/* The correct user flow is to open the detail modal and then choose to lend/fund */}
         </div>
 
         {/* Hover Effect Overlay */}
@@ -171,8 +153,6 @@ export function PropertyNFTCard({
           nft={nft}
           isOpen={showModal}
           onClose={() => setShowModal(false)}
-          showBuyButton={showBuyButton}
-          onBuy={onBuy}
         />
       )}
     </>

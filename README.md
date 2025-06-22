@@ -273,85 +273,71 @@ The platform includes comprehensive demo data:
 
 ## Architecture
 
-```
-┌─────────────────┐    ┌─────────────────┐    ┌─────────────────┐
-│   Next.js App   │    │  Smart Contracts│    │  External APIs  │
-│                 │    │                 │    │                 │
-│ • Dashboard     │◄──►│ • LoanManager   │◄──►│ • AWS Bedrock   │
-│ • NFT Gallery   │    │ • CollateralVault│   │ • Chainlink     │
-│ • Risk Monitor  │    │ • PropertyOracle│   │ • Price Feeds   │
-│ • Cross-Chain   │    │ • AIRiskManager │   │ • CCIP Router   │
-└─────────────────┘    └─────────────────┘    └─────────────────┘
-         │                       │                       │
-         └───────────────────────┼───────────────────────┘
-                                 │
-                    ┌─────────────────┐
-                    │   Multi-Chain   │
-                    │                 │
-                    │ • Ethereum      │
-                    │ • Avalanche     │
-                    │ • Polygon       │
-                    │ • Arbitrum      │
-                    └─────────────────┘
+```mermaid
+graph TD
+    subgraph "User Layer"
+        User["<br/>User"]
+    end
+
+    subgraph "Application Layer (Next.js)"
+        Frontend["<br/>Frontend UI"]
+        APIs["<br/>Backend APIs"]
+    end
+
+    subgraph "Smart Contract Layer (Solidity)"
+        LoanManager["LoanManager.sol"]
+        PropertyNFT["PropertyNFT.sol"]
+        PropertyOracle["PropertyOracle.sol"]
+    end
+
+    subgraph "External Services"
+        subgraph "Chainlink Services"
+            CCIP["Chainlink CCIP<br/>(Cross-Chain Lending)"]
+            Automation["Chainlink Automation<br/>(Liquidation Monitoring)"]
+            DataFeeds["Chainlink Data Feeds<br/>(Asset Pricing)"]
+        end
+        subgraph "Off-Chain APIs"
+            AWS["AWS Bedrock<br/>(AI Risk Assessment)"]
+            RentCast["RentCast API<br/>(Real Estate Data)"]
+        end
+    end
+
+    User --> Frontend
+    Frontend --> APIs
+    Frontend -->|Wallet Interactions| LoanManager
+    Frontend -->|Wallet Interactions| PropertyNFT
+
+    APIs --> RentCast
+    APIs --> AWS
+
+    AWS -->|Provides Risk Score| LoanManager
+
+    DataFeeds --> PropertyOracle
+    PropertyOracle -->|Provides Verified Prices| LoanManager
+
+    LoanManager -->|Executes Cross-Chain Tx| CCIP
+    Automation -->|Triggers Liquidations| LoanManager
+
+    style User fill:#2d3748,stroke:#fff,stroke-width:2px,color:#fff
+    style Frontend fill:#2d3748,stroke:#fff,stroke-width:2px,color:#fff
+    style APIs fill:#2d3748,stroke:#fff,stroke-width:2px,color:#fff
+
+    style LoanManager fill:#4a5568,stroke:#fff,stroke-width:2px,color:#fff
+    style PropertyNFT fill:#4a5568,stroke:#fff,stroke-width:2px,color:#fff
+    style PropertyOracle fill:#4a5568,stroke:#fff,stroke-width:2px,color:#fff
+
+    style CCIP fill:#3182ce,stroke:#fff,stroke-width:2px,color:#fff
+    style Automation fill:#3182ce,stroke:#fff,stroke-width:2px,color:#fff
+    style DataFeeds fill:#3182ce,stroke:#fff,stroke-width:2px,color:#fff
+
+    style AWS fill:#f56565,stroke:#fff,stroke-width:2px,color:#fff
+    style RentCast fill:#f56565,stroke:#fff,stroke-width:2px,color:#fff
 ```
 
 ## Production Deployment
 
 ### Environment Setup
 
-```bash
-# Production environment
-NODE_ENV=production
-
-# Update contract addresses for mainnet
-NEXT_PUBLIC_PROPERTY_NFT_ADDRESS=<mainnet_address>
-NEXT_PUBLIC_LOAN_MANAGER_ADDRESS=<mainnet_address>
-NEXT_PUBLIC_COLLATERAL_VAULT_ADDRESS=<mainnet_address>
-NEXT_PUBLIC_PROPERTY_ORACLE_ADDRESS=<mainnet_address>
-NEXT_PUBLIC_AI_RISK_MANAGER_ADDRESS=<mainnet_address>
 ```
 
-### Deploy Commands
-
-```bash
-# Build for production
-npm run build
-
-# Deploy contracts to mainnet
-npx hardhat run scripts/DeployScript.ts --network mainnet
-
-# Start production server
-npm start
 ```
-
-## Performance Metrics
-
-- **Gas Optimization**: Custom errors reduce gas costs by 30%
-- **Cross-Chain Speed**: CCIP enables sub-5-minute cross-chain transfers
-- **AI Response Time**: AWS Bedrock provides sub-second risk assessments
-- **Oracle Latency**: Chainlink Functions enable real-time data updates
-
-## Roadmap
-
-### Phase 2: Enhanced Features
-
-- **Mobile App**: React Native mobile application
-- **Advanced AI**: Multi-model AI risk assessment
-- **More Chains**: Additional blockchain support
-- **DeFi Integration**: Yield farming and liquidity mining
-
-### Phase 3: Enterprise Features
-
-- **Institutional Dashboard**: Enterprise-grade monitoring
-- **Regulatory Compliance**: KYC/AML integration
-- **Insurance Integration**: DeFi insurance partnerships
-- **Advanced Analytics**: Machine learning insights
-
-## License
-
-This project is licensed under the MIT License.
-
-
----
-
-**ORACLEND** - Building the future of AI-powered, cross-chain private credit with real-world assets. 🚀

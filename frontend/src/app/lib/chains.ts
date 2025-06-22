@@ -25,3 +25,4 @@ export const supportedChains = {
 export const getDestinationChains = (currentChainId: number) => {
   return Object.values(supportedChains).filter(chain => chain.id !== currentChainId)
 }
+ 

@@ -4,6 +4,8 @@ import {
   useWriteContract,
   useWaitForTransactionReceipt,
 } from "wagmi";
+import { waitForTransactionReceipt } from "@wagmi/core";
+import { config } from "@/app/lib/wagmi";
 import { parseUnits, formatUnits, Address } from "viem";
 import {
   X,
@@ -21,8 +23,12 @@ import {
   PROPERTY_NFT_ABI,
   MOCK_USDC_ABI,
 } from "@/lib/contracts";
+import { useContracts } from "@/app/hooks/useContracts";
 import { PropertyNFT } from "@/types/contracts";
 import { formatCurrency } from "@/lib/utils";
+import LoanManagerABI from "@/abis/LoanManager.json";
+import PropertyNFTABI from "@/abis/PropertyNFT.json";
+import MockUSDCABI from "@/abis/MockUSDC.json";
 
 interface CompleteWorkflowModalProps {
   isOpen: boolean;
@@ -48,6 +54,15 @@ export function CompleteWorkflowModal({
   mode,
 }: CompleteWorkflowModalProps) {
   const { address, isConnected } = useAccount();
+  const {
+    fundLoan,
+    createLoan,
+    approveNFT,
+    approveUSDC,
+    isProcessing: isContractProcessing,
+    creatingLoan,
+    approving,
+  } = useContracts();
   const [currentStep, setCurrentStep] = useState<WorkflowStep>("deposit");
   const [loanData, setLoanData] = useState<LoanData>({
     requestedAmount: 0,
@@ -56,10 +71,10 @@ export function CompleteWorkflowModal({
     maxLTV: 70,
   });
   const [isProcessing, setIsProcessing] = useState(false);
+  const [processingMessage, setProcessingMessage] = useState("");
   const [error, setError] = useState<string | null>(null);
 
-  const { writeContract, data: hash, isPending } = useWriteContract();
-  const { isLoading, isSuccess } = useWaitForTransactionReceipt({ hash });
+  const { writeContractAsync } = useWriteContract();
 
   // Reset state when modal opens/closes
   useEffect(() => {
@@ -76,39 +91,49 @@ export function CompleteWorkflowModal({
     }
   }, [isOpen, mode, nft]);
 
+  useEffect(() => {
+    if (creatingLoan) {
+      setProcessingMessage("Loan funded successfully!");
+      setCurrentStep("complete");
+    }
+  }, [creatingLoan]);
+
   if (!isOpen || !nft) return null;
 
   const handleDepositCollateral = async () => {
-    if (!isConnected || !address) return;
+    if (!isConnected || !address || !nft) return;
 
     setIsProcessing(true);
     setError(null);
 
     try {
-      // First approve NFT to LoanManager
-      writeContract({
-        address: CONTRACT_ADDRESSES.PROPERTY_NFT as Address,
-        abi: PROPERTY_NFT_ABI,
-        functionName: "approve",
-        args: [CONTRACT_ADDRESSES.LOAN_MANAGER as Address, BigInt(nft.tokenId)],
-      });
+      // Step 1: Approve NFT for LoanManager
+      setProcessingMessage("Approving NFT for collateral...");
+      const approved = await approveNFT(BigInt(nft.tokenId));
+      if (!approved) {
+        throw new Error("NFT Approval failed. Please try again.");
+      }
 
-      // Wait for approval, then create loan
-      setTimeout(() => {
-        writeContract({
-          address: CONTRACT_ADDRESSES.LOAN_MANAGER as Address,
-          abi: LOAN_MANAGER_ABI,
-          functionName: "createLoan",
-          args: [
-            BigInt(nft.tokenId),
-            parseUnits(loanData.requestedAmount.toString(), 6),
-            BigInt(loanData.estimatedAPR * 100),
-          ],
-        });
-      }, 3000);
+      // Step 2: Create the loan
+      setProcessingMessage("Creating loan contract...");
+      const created = await createLoan(
+        BigInt(nft.tokenId),
+        parseUnits(loanData.requestedAmount.toString(), 6),
+        loanData.estimatedAPR * 100
+      );
+
+      if (!created) {
+        throw new Error("Loan creation failed. Please try again.");
+      }
+
+      setProcessingMessage("Loan created successfully!");
+      setCurrentStep("ai_assessment");
     } catch (err: any) {
-      setError(`Collateral deposit failed: ${err.message}`);
+      console.error("Collateral deposit failed:", err);
+      setError(`Collateral deposit failed: ${err.shortMessage || err.message}`);
+    } finally {
       setIsProcessing(false);
+      setProcessingMessage("");
     }
   };
 
@@ -118,20 +143,23 @@ export function CompleteWorkflowModal({
 
     try {
       // Call our backend to trigger AWS Lambda risk assessment
-      const response = await fetch("/api/ai/risk-assessment", {
+      const response = await fetch("/api/assess-risk", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
           loanId: loanData.loanId,
           propertyData: {
-            value: (nft as any).propertyValue || 0,
-            type: "Residential",
-            location: "Downtown",
+            propertyValue: (nft as any).propertyValue || 0,
             loanAmount: loanData.requestedAmount,
+            propertyType: "Single Family", // Example value
+            location: (nft as any).location || "Unknown Location",
+            yearBuilt: 2005, // Example value
+            squareFootage: 2400, // Example value
           },
           borrowerData: {
             creditScore: 750,
             address: address,
+            debtToIncomeRatio: 35, // Example value
           },
         }),
       });
@@ -157,7 +185,13 @@ export function CompleteWorkflowModal({
   };
 
   const handleCrossChainFunding = async () => {
-    if (!isConnected || !address) return;
+    // This is a placeholder for a real implementation
+    // In a real app, you'd fetch the loanId for the given NFT
+    const loanIdToFund = 1; // Example: fund the first loan
+    if (!isConnected || !address || !loanIdToFund) {
+      setError("Could not determine which loan to fund.");
+      return;
+    }
 
     setIsProcessing(true);
     setError(null);
@@ -166,29 +200,24 @@ export function CompleteWorkflowModal({
       const usdcAmount = parseUnits(loanData.requestedAmount.toString(), 6);
 
       // First approve USDC to LoanManager
-      writeContract({
-        address: CONTRACT_ADDRESSES.USDC as Address,
-        abi: MOCK_USDC_ABI,
-        functionName: "approve",
-        args: [CONTRACT_ADDRESSES.LOAN_MANAGER as Address, usdcAmount],
-      });
+      setProcessingMessage("Approving USDC transfer...");
+      const approved = await approveUSDC(usdcAmount);
+      if (!approved) {
+        throw new Error("USDC approval failed. Please try again.");
+      }
 
-      // Wait for approval, then fund loan
-      setTimeout(() => {
-        writeContract({
-          address: CONTRACT_ADDRESSES.LOAN_MANAGER as Address,
-          abi: LOAN_MANAGER_ABI,
-          functionName: "createLoan",
-          args: [
-            BigInt(loanData.loanId || 1),
-            usdcAmount,
-            BigInt(loanData.estimatedAPR * 100),
-          ],
-        });
-      }, 3000);
+      setProcessingMessage("Funding loan via contract hook...");
+      const funded = await fundLoan(loanIdToFund);
+      if (!funded) {
+        throw new Error("Funding failed. Please try again.");
+      }
     } catch (err: any) {
-      setError(`Cross-chain funding failed: ${err.message}`);
+      setError(
+        `Cross-chain funding failed: ${err.shortMessage || err.message}`
+      );
+    } finally {
       setIsProcessing(false);
+      setProcessingMessage("");
     }
   };
 
@@ -285,13 +314,13 @@ export function CompleteWorkflowModal({
 
             <button
               onClick={handleDepositCollateral}
-              disabled={isPending || isProcessing}
+              disabled={isProcessing || creatingLoan || approving}
               className="w-full bg-cyan-600 hover:bg-cyan-700 disabled:bg-gray-600 text-white font-semibold py-3 px-4 rounded-lg transition-colors"
             >
-              {isPending || isProcessing ? (
+              {isProcessing || creatingLoan || approving ? (
                 <div className="flex items-center justify-center gap-2">
                   <Clock className="w-4 h-4 animate-spin" />
-                  Depositing Collateral...
+                  {processingMessage || "Processing..."}
                 </div>
               ) : (
                 "Deposit NFT as Collateral"
@@ -423,13 +452,13 @@ export function CompleteWorkflowModal({
 
             <button
               onClick={handleCrossChainFunding}
-              disabled={isPending || isProcessing}
+              disabled={isProcessing || creatingLoan || approving}
               className="w-full bg-blue-600 hover:bg-blue-700 disabled:bg-gray-600 text-white font-semibold py-3 px-4 rounded-lg transition-colors"
             >
-              {isPending || isProcessing ? (
+              {isProcessing || creatingLoan || approving ? (
                 <div className="flex items-center justify-center gap-2">
                   <Globe className="w-4 h-4 animate-spin" />
-                  Sending Cross-Chain...
+                  {processingMessage || "Funding..."}
                 </div>
               ) : (
                 "Fund Loan Cross-Chain"

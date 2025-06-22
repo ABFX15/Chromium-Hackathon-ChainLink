@@ -21,7 +21,7 @@ export function ActiveLoans({ loans }: ActiveLoansProps) {
     <div className="space-y-6">
       {/* Loan Health Dashboard */}
       <LoanHealthDashboard />
-
+      
       {/* Active Loans List */}
       <Card className="glass-effect">
         <CardHeader>

@@ -1,13 +1,26 @@
 import type { Config } from "tailwindcss";
+import { fontFamily } from "tailwindcss/defaultTheme";
 
 const config: Config = {
+    darkMode: ["class"],
     content: [
         "./src/**/*.{js,ts,jsx,tsx,mdx}",
         "./src/components/**/*.{js,ts,jsx,tsx,mdx}",
         "./src/app/**/*.{js,ts,jsx,tsx,mdx}",
     ],
     theme: {
+        container: {
+            center: true,
+            padding: "2rem",
+            screens: {
+                "2xl": "1400px",
+            },
+        },
         extend: {
+            fontFamily: {
+                sans: ["var(--font-inter)", ...fontFamily.sans],
+                heading: ["var(--font-orbitron)", ...fontFamily.sans],
+            },
             colors: {
                 background: "hsl(229, 84%, 5%)",
                 foreground: "hsl(0, 0%, 98%)",
@@ -39,8 +52,8 @@ const config: Config = {
                     DEFAULT: "hsl(0, 84%, 60%)",
                     foreground: "hsl(0, 0%, 98%)",
                 },
-                border: "hsl(215, 19%, 35%)",
-                input: "hsl(215, 19%, 35%)",
+                border: "hsl(var(--border))",
+                input: "hsl(var(--input))",
                 ring: "hsl(217, 91%, 60%)",
             },
             borderRadius: {

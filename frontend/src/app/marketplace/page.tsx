@@ -1,340 +1,171 @@
 "use client";
 
-import { useProperties } from "@/hooks/use-properties";
+import { useState, useMemo } from "react";
+import { useMarketplace } from "@/app/hooks/useMarketplace";
+import { PropertyNFTCard } from "@/app/components/PropertyNFTCard";
+import { AdvancedSearch, SearchFilters } from "@/app/components/AdvancedSearch";
+import { Building } from "lucide-react";
+import { PropertyNFT } from "@/types/contracts";
+import { Skeleton } from "@/app/components/ui/skeleton";
+import { CompleteWorkflowModal } from "@/app/components/CompleteWorkflowModal";
 
 export default function MarketplacePage() {
-  const { properties, isLoading } = useProperties();
+  const { nfts, loading } = useMarketplace();
+  const [searchTerm, setSearchTerm] = useState("");
+  const [filters, setFilters] = useState<SearchFilters>({
+    priceRange: [0, 5000000],
+    propertyType: [],
+    location: [],
+    yearBuilt: [1900, 2024],
+    ltvRange: [0, 100],
+    riskLevel: [],
+  });
 
-  if (isLoading) {
-    return (
-      <div style={{
-        backgroundColor: "black",
-        color: "#0ff",
-        fontFamily: "monospace",
-        padding: "20px",
-        minHeight: "100vh",
-        display: "flex",
-        alignItems: "center",
-        justifyContent: "center"
-      }}>
-        <div style={{ textAlign: "center" }}>
-          <div style={{
-            border: "2px solid #0ff",
-            borderRadius: "50%",
-            width: "50px",
-            height: "50px",
-            margin: "0 auto 20px",
-            borderTopColor: "transparent",
-            animation: "spin 1s linear infinite"
-          }} />
-          <h1 style={{ fontSize: "24px", color: "#0ff" }}>Loading Properties...</h1>
-          <p style={{ color: "rgba(255, 255, 255, 0.6)", marginTop: "10px" }}>
-            Fetching real estate data from RentCast API
-          </p>
-          <style jsx>{`
-            @keyframes spin {
-              to {
-                transform: rotate(360deg);
-              }
-            }
-          `}</style>
-        </div>
-      </div>
-    );
-  }
+  const [workflowModalOpen, setWorkflowModalOpen] = useState(false);
+  const [selectedNft, setSelectedNft] = useState<PropertyNFT | null>(null);
+
+  const handleBuyClick = (nft: PropertyNFT) => {
+    setSelectedNft(nft);
+    setWorkflowModalOpen(true);
+  };
+
+  const filteredNfts = useMemo(() => {
+    return nfts.filter((nft) => {
+      const nameMatch = nft.name
+        .toLowerCase()
+        .includes(searchTerm.toLowerCase());
+      const priceMatch =
+        nft.price >= filters.priceRange[0] &&
+        nft.price <= filters.priceRange[1];
+      const typeMatch =
+        filters.propertyType.length === 0 ||
+        filters.propertyType.some((type: string) =>
+          nft.description.toLowerCase().includes(type.toLowerCase())
+        );
+      const locationMatch =
+        filters.location.length === 0 ||
+        filters.location.includes(nft.location);
+
+      return nameMatch && priceMatch && typeMatch && locationMatch;
+    });
+  }, [nfts, searchTerm, filters]);
 
   return (
-    <div style={{
-      backgroundColor: "black",
-      color: "#0ff",
-      fontFamily: "monospace",
-      padding: "20px",
-      minHeight: "100vh"
-    }}>
-      <div style={{ marginBottom: "30px" }}>
-        <h1 style={{ fontSize: "28px", color: "#0ff", marginBottom: "10px" }}>
-          Property Marketplace
+    <div className="min-h-screen p-6 space-y-8">
+      {/* Header */}
+      <div>
+        <h1 className="text-3xl font-bold text-white mb-2 font-heading">
+          Real World Asset Marketplace
         </h1>
-        <p style={{ color: "rgba(255, 255, 255, 0.6)" }}>
-          Browse and invest in tokenized real estate properties powered by RentCast API
+        <p className="text-white/60">
+          Browse, purchase, and invest in tokenized real-world properties.
         </p>
-        <div style={{ 
-          color: "rgba(0, 255, 255, 0.8)", 
-          fontSize: "14px", 
-          marginTop: "10px",
-          display: "flex",
-          alignItems: "center",
-          gap: "10px"
-        }}>
-          <span style={{ 
-            display: "inline-block", 
-            width: "8px", 
-            height: "8px", 
-            backgroundColor: "#0f0", 
-            borderRadius: "50%",
-            animation: "pulse 2s infinite"
-          }} />
-          Live property data • {Array.isArray(properties) ? properties.length : 0} properties available
-          <style jsx>{`
-            @keyframes pulse {
-              0%, 100% { opacity: 1; }
-              50% { opacity: 0.3; }
-            }
-          `}</style>
-        </div>
       </div>
 
-      <div style={{
-        display: "grid",
-        gridTemplateColumns: "repeat(auto-fill, minmax(350px, 1fr))",
-        gap: "20px"
-      }}>
-        {properties.map((property) => (
-          <div
-            key={property.id}
-            style={{
-              border: "1px solid rgba(0, 255, 255, 0.2)",
-              borderRadius: "8px",
-              padding: "0",
-              backgroundColor: "rgba(0, 255, 255, 0.05)",
-              overflow: "hidden",
-              transition: "all 0.3s ease",
-              cursor: "pointer"
-            }}
-            onMouseEnter={(e) => {
-              e.currentTarget.style.border = "1px solid rgba(0, 255, 255, 0.6)";
-              e.currentTarget.style.backgroundColor = "rgba(0, 255, 255, 0.1)";
-              e.currentTarget.style.transform = "translateY(-2px)";
-            }}
-            onMouseLeave={(e) => {
-              e.currentTarget.style.border = "1px solid rgba(0, 255, 255, 0.2)";
-              e.currentTarget.style.backgroundColor = "rgba(0, 255, 255, 0.05)";
-              e.currentTarget.style.transform = "translateY(0)";
-            }}
-          >
-            <div style={{ position: "relative" }}>
-              <img
-                src={property.image}
-                alt={property.name}
-                style={{
-                  width: "100%",
-                  height: "220px",
-                  objectFit: "cover"
-                }}
-                onError={(e) => {
-                  e.currentTarget.src = "https://images.unsplash.com/photo-1564013799919-ab600027ffc6?auto=format&fit=crop&w=600&q=80";
-                }}
-              />
-              <div style={{
-                position: "absolute",
-                top: "10px",
-                right: "10px",
-                backgroundColor: "rgba(0, 0, 0, 0.8)",
-                color: "#0ff",
-                padding: "4px 8px",
-                borderRadius: "4px",
-                fontSize: "12px",
-                border: "1px solid rgba(0, 255, 255, 0.3)"
-              }}>
-                {property.type}
+      {/* Search and Filters */}
+      <AdvancedSearch
+        onSearchChange={setSearchTerm}
+        onFiltersChange={setFilters}
+      />
+
+      {/* Properties Grid */}
+      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-6">
+        {loading
+          ? Array.from({ length: 8 }).map((_, i) => (
+              <div key={i} className="glass-effect rounded-2xl p-4 space-y-3">
+                <Skeleton className="h-48 w-full rounded-xl bg-gray-700/50" />
+                <Skeleton className="h-6 w-3/4 rounded-lg bg-gray-700/50" />
+                <Skeleton className="h-4 w-1/2 rounded-lg bg-gray-700/50" />
+                <Skeleton className="h-8 w-full rounded-lg bg-gray-700/50" />
               </div>
-            </div>
+            ))
+          : filteredNfts.map((nft: PropertyNFT) => (
+              <PropertyNFTCard key={nft.id} nft={nft} />
+            ))}
+      </div>
 
-            <div style={{ padding: "20px" }}>
-              <h3 style={{ 
-                color: "#0ff", 
-                fontSize: "18px", 
-                marginBottom: "8px",
-                fontWeight: "bold"
-              }}>
-                {property.name}
-              </h3>
-
-              <p style={{ 
-                color: "rgba(255, 255, 255, 0.7)", 
-                marginBottom: "8px",
-                fontSize: "14px",
-                display: "flex",
-                alignItems: "center",
-                gap: "5px"
-              }}>
-                📍 {property.location}
-              </p>
-
-              <p style={{ 
-                color: "rgba(255, 255, 255, 0.6)", 
-                marginBottom: "15px", 
-                fontSize: "13px",
-                lineHeight: "1.4"
-              }}>
-                {property.description}
-              </p>
-
-              <div style={{ 
-                display: "flex", 
-                justifyContent: "space-between", 
-                alignItems: "center",
-                marginBottom: "15px"
-              }}>
-                <span style={{ 
-                  color: "#0ff", 
-                  fontSize: "24px", 
-                  fontWeight: "bold"
-                }}>
-                  ${property.price.toLocaleString()}
-                </span>
-                <span style={{ 
-                  color: "rgba(255, 255, 255, 0.6)", 
-                  fontSize: "12px"
-                }}>
-                  {property.sqft.toLocaleString()} sqft
-                </span>
-              </div>
-
-              <div style={{
-                display: "flex",
-                gap: "15px",
-                marginBottom: "15px",
-                fontSize: "13px",
-                color: "rgba(255, 255, 255, 0.7)"
-              }}>
-                {property.bedrooms > 0 && (
-                  <span style={{ display: "flex", alignItems: "center", gap: "3px" }}>
-                    🛏️ {property.bedrooms} bed
-                  </span>
-                )}
-                <span style={{ display: "flex", alignItems: "center", gap: "3px" }}>
-                  🚿 {property.bathrooms} bath
-                </span>
-                {property.yearBuilt && (
-                  <span style={{ display: "flex", alignItems: "center", gap: "3px" }}>
-                    📅 {property.yearBuilt}
-                  </span>
-                )}
-              </div>
-
-              <div style={{
-                display: "flex",
-                gap: "10px"
-              }}>
-                <button
-                  style={{
-                    flex: 1,
-                    backgroundColor: "rgba(0, 255, 255, 0.1)",
-                    border: "1px solid #0ff",
-                    color: "#0ff",
-                    padding: "12px",
-                    borderRadius: "4px",
-                    cursor: "pointer",
-                    fontFamily: "monospace",
-                    fontSize: "14px",
-                    fontWeight: "bold",
-                    transition: "all 0.2s ease"
-                  }}
-                  onMouseEnter={(e) => {
-                    e.currentTarget.style.backgroundColor = "rgba(0, 255, 255, 0.2)";
-                    e.currentTarget.style.transform = "scale(1.02)";
-                  }}
-                  onMouseLeave={(e) => {
-                    e.currentTarget.style.backgroundColor = "rgba(0, 255, 255, 0.1)";
-                    e.currentTarget.style.transform = "scale(1)";
-                  }}
-                >
-                  View Details
-                </button>
-                <button
-                  style={{
-                    backgroundColor: "rgba(0, 255, 0, 0.1)",
-                    border: "1px solid #0f0",
-                    color: "#0f0",
-                    padding: "12px 16px",
-                    borderRadius: "4px",
-                    cursor: "pointer",
-                    fontFamily: "monospace",
-                    fontSize: "14px",
-                    fontWeight: "bold",
-                    transition: "all 0.2s ease"
-                  }}
-                  onMouseEnter={(e) => {
-                    e.currentTarget.style.backgroundColor = "rgba(0, 255, 0, 0.2)";
-                    e.currentTarget.style.transform = "scale(1.05)";
-                  }}
-                  onMouseLeave={(e) => {
-                    e.currentTarget.style.backgroundColor = "rgba(0, 255, 0, 0.1)";
-                    e.currentTarget.style.transform = "scale(1)";
-                  }}
-                >
-                  💎 Invest
-                </button>
-              </div>
-            </div>
+      {!loading && filteredNfts.length === 0 && (
+        <div className="text-center py-20 col-span-full">
+          <div className="w-16 h-16 bg-gray-700/50 rounded-full flex items-center justify-center mx-auto mb-4">
+            <Building className="w-8 h-8 text-gray-400" />
           </div>
-        ))}
-      </div>
-
-      {properties.length === 0 && !isLoading && (
-        <div style={{
-          textAlign: "center",
-          marginTop: "100px",
-          color: "rgba(255, 255, 255, 0.6)"
-        }}>
-          <p>No properties available at the moment.</p>
+          <h3 className="text-xl font-medium text-white mb-2">
+            No properties found
+          </h3>
+          <p className="text-gray-400">
+            Try adjusting your search or filters to find what you're looking
+            for.
+          </p>
         </div>
+      )}
+
+      {selectedNft && (
+        <CompleteWorkflowModal
+          isOpen={workflowModalOpen}
+          onClose={() => setWorkflowModalOpen(false)}
+          nft={selectedNft}
+          mode="borrow"
+        />
       )}
     </div>
   );
 }
+
 const mockProperties = [
   {
-    id: '1',
-    name: 'Luxury Downtown Apartment',
-    location: 'New York, NY',
-    price: '500000',
-    imageUrl: 'https://images.unsplash.com/photo-1545324418-cc1a3fa10c00?w=400&h=300&fit=crop&crop=face',
+    id: "1",
+    name: "Luxury Downtown Apartment",
+    location: "New York, NY",
+    price: "500000",
+    imageUrl:
+      "https://images.unsplash.com/photo-1545324418-cc1a3fa10c00?w=400&h=300&fit=crop&crop=face",
     beds: 2,
     baths: 2,
     sqft: 1200,
-    propertyType: 'Apartment',
+    propertyType: "Apartment",
     yearBuilt: 2020,
-    description: 'Modern luxury apartment in the heart of downtown'
+    description: "Modern luxury apartment in the heart of downtown",
   },
   {
-    id: '2', 
-    name: 'Suburban Family Home',
-    location: 'Austin, TX',
-    price: '350000',
-    imageUrl: 'https://images.unsplash.com/photo-1570129477492-45c003edd2be?w=400&h=300&fit=crop&crop=face',
+    id: "2",
+    name: "Suburban Family Home",
+    location: "Austin, TX",
+    price: "350000",
+    imageUrl:
+      "https://images.unsplash.com/photo-1570129477492-45c003edd2be?w=400&h=300&fit=crop&crop=face",
     beds: 4,
     baths: 3,
     sqft: 2400,
-    propertyType: 'House',
+    propertyType: "House",
     yearBuilt: 2015,
-    description: 'Spacious family home in quiet neighborhood'
+    description: "Spacious family home in quiet neighborhood",
   },
   {
-    id: '3',
-    name: 'Modern Condo',
-    location: 'San Francisco, CA',
-    price: '750000',
-    imageUrl: 'https://images.unsplash.com/photo-1564013799919-ab600027ffc6?w=400&h=300&fit=crop&crop=face',
+    id: "3",
+    name: "Modern Condo",
+    location: "San Francisco, CA",
+    price: "750000",
+    imageUrl:
+      "https://images.unsplash.com/photo-1564013799919-ab600027ffc6?w=400&h=300&fit=crop&crop=face",
     beds: 3,
     baths: 2,
     sqft: 1800,
-    propertyType: 'Condo',
+    propertyType: "Condo",
     yearBuilt: 2018,
-    description: 'Sleek modern condo with bay views'
+    description: "Sleek modern condo with bay views",
   },
   {
-    id: '4',
-    name: 'Investment Property',
-    location: 'Miami, FL',
-    price: '425000',
-    imageUrl: 'https://images.unsplash.com/photo-1512917774080-9991f1c4c750?w=400&h=300&fit=crop&crop=face',
+    id: "4",
+    name: "Investment Property",
+    location: "Miami, FL",
+    price: "425000",
+    imageUrl:
+      "https://images.unsplash.com/photo-1512917774080-9991f1c4c750?w=400&h=300&fit=crop&crop=face",
     beds: 3,
     baths: 2,
     sqft: 1600,
-    propertyType: 'House',
+    propertyType: "House",
     yearBuilt: 2016,
-    description: 'Prime investment property in growing market'
-  }
+    description: "Prime investment property in growing market",
+  },
 ];

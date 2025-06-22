@@ -1,17 +1,20 @@
 import { Metadata } from "next";
 import { Providers } from "./providers";
 import "./globals.css";
-import { Inter } from "next/font/google";
-import { ClientNav } from "./components/client-nav";
-import ParticlesBackground from "@/app/components/ParticlesBackground";
+import { Inter, Orbitron } from "next/font/google";
 import MainLayout from "./components/MainLayout";
+import ParticlesBackground from "./components/ParticlesBackground";
 
-const inter = Inter({ subsets: ["latin"] });
+const inter = Inter({ subsets: ["latin"], variable: "--font-inter" });
+const orbitron = Orbitron({
+  subsets: ["latin"],
+  weight: ["400", "700"],
+  variable: "--font-orbitron",
+});
 
 export const metadata: Metadata = {
-  title: "ORACLEND - AI Lending Dashboard",
-  description:
-    "Cross-chain, AI-powered private credit protocol for real-world assets",
+  title: "ORACLEND",
+  description: "Next-gen RWA lending with AI risk analysis",
 };
 
 export default function RootLayout({
@@ -21,7 +24,7 @@ export default function RootLayout({
 }) {
   return (
     <html lang="en">
-      <body className={`${inter.className} text-foreground`}>
+      <body className={`${inter.variable} ${orbitron.variable} font-sans`}>
         <ParticlesBackground />
         <Providers>
           <MainLayout>{children}</MainLayout>

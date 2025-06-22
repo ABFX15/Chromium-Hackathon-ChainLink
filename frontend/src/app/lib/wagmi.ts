@@ -18,3 +18,4 @@ export const config = getDefaultConfig({
     [arbitrumSepolia.id]: http(),
   },
 });
+ 
