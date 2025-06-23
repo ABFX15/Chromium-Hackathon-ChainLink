@@ -23,7 +23,7 @@ import {
   PROPERTY_NFT_ABI,
   MOCK_USDC_ABI,
 } from "@/lib/contracts";
-import { useContracts } from "@/app/hooks/useContracts";
+import { useContracts } from "../hooks/useContracts";
 import { PropertyNFT } from "@/types/contracts";
 import { formatCurrency } from "@/lib/utils";
 import LoanManagerABI from "@/abis/LoanManager.json";
@@ -34,7 +34,7 @@ interface CompleteWorkflowModalProps {
   isOpen: boolean;
   onClose: () => void;
   nft: PropertyNFT | null;
-  mode: "borrow" | "lend";
+  mode: "borrow" | "lend" | "buy";
 }
 
 type WorkflowStep = "deposit" | "ai_assessment" | "fund" | "complete";
@@ -62,8 +62,9 @@ export function CompleteWorkflowModal({
     isProcessing: isContractProcessing,
     creatingLoan,
     approving,
+    allLoans,
   } = useContracts();
-  const [currentStep, setCurrentStep] = useState<WorkflowStep>("deposit");
+  const [currentStep, setCurrentStep] = useState<WorkflowStep>("ai_assessment");
   const [loanData, setLoanData] = useState<LoanData>({
     requestedAmount: 0,
     estimatedAPR: 5.0,
@@ -79,17 +80,52 @@ export function CompleteWorkflowModal({
   // Reset state when modal opens/closes
   useEffect(() => {
     if (isOpen) {
-      setCurrentStep(mode === "borrow" ? "deposit" : "fund");
       setError(null);
       setIsProcessing(false);
-      if (nft) {
-        setLoanData((prev) => ({
-          ...prev,
-          requestedAmount: Math.floor(((nft as any).propertyValue || 0) * 0.7), // 70% LTV
-        }));
+      setProcessingMessage("");
+
+      if (mode === "lend") {
+        const loanToFund = allLoans.find(
+          (loan) =>
+            loan.tokenId === BigInt(nft!.tokenId) &&
+            loan.isActive &&
+            !loan.isFunded
+        );
+
+        if (loanToFund) {
+          const apr = Number(loanToFund.interestRate) / 100;
+          // Reverse engineer the risk score from the APR
+          // Formula: APR = 5 + (riskScore / 100) * 10  => riskScore = (APR - 5) * 10
+          const inferredRiskScore = Math.round((apr - 5) * 10);
+
+          setCurrentStep("fund");
+          setLoanData({
+            loanId: Number(loanToFund.loanId),
+            requestedAmount: Number(loanToFund.principalAmount) / 1e6,
+            estimatedAPR: apr,
+            riskScore: inferredRiskScore > 0 ? inferredRiskScore : 0,
+            maxLTV: 70,
+          });
+        } else {
+          setError("No active, unfunded loan available for this property.");
+          setCurrentStep("fund"); // Stay on fund step to show error
+        }
+      } else {
+        // Borrow mode starts with AI assessment
+        setCurrentStep("ai_assessment");
+        if (nft) {
+          setLoanData({
+            requestedAmount: Math.floor(
+              ((nft as any).propertyValue || 0) * 0.7
+            ), // 70% LTV
+            estimatedAPR: 5.0,
+            riskScore: 0,
+            maxLTV: 70,
+          });
+        }
       }
     }
-  }, [isOpen, mode, nft]);
+  }, [isOpen, mode, nft, allLoans]);
 
   useEffect(() => {
     if (creatingLoan) {
@@ -127,7 +163,7 @@ export function CompleteWorkflowModal({
       }
 
       setProcessingMessage("Loan created successfully!");
-      setCurrentStep("ai_assessment");
+      setCurrentStep("complete");
     } catch (err: any) {
       console.error("Collateral deposit failed:", err);
       setError(`Collateral deposit failed: ${err.shortMessage || err.message}`);
@@ -140,56 +176,69 @@ export function CompleteWorkflowModal({
   const handleAIAssessment = async () => {
     setIsProcessing(true);
     setError(null);
+    setProcessingMessage("AI analyzing property and market conditions...");
 
     try {
-      // Call our backend to trigger AWS Lambda risk assessment
+      // Call our backend to trigger AWS Bedrock risk assessment
       const response = await fetch("/api/assess-risk", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
-          loanId: loanData.loanId,
-          propertyData: {
-            propertyValue: (nft as any).propertyValue || 0,
-            loanAmount: loanData.requestedAmount,
-            propertyType: "Single Family", // Example value
-            location: (nft as any).location || "Unknown Location",
-            yearBuilt: 2005, // Example value
-            squareFootage: 2400, // Example value
-          },
-          borrowerData: {
-            creditScore: 750,
-            address: address,
-            debtToIncomeRatio: 35, // Example value
-          },
+          propertyValue: (nft as any).propertyValue || 0,
+          loanAmount: loanData.requestedAmount,
+          propertyType: "Single Family",
+          location: (nft as any).location || "Unknown Location",
+          yearBuilt: 2005,
+          squareFootage: 2400,
+          borrowerCreditScore: 750,
+          debtToIncomeRatio: 35,
         }),
       });
 
       const result = await response.json();
 
       if (result.success) {
-        const newAPR = 5 + result.riskScore * 0.1; // Base 5% + risk adjustment
+        const newAPR = Math.max(3.5, 5 + (result.riskScore / 100) * 10); // Dynamic APR based on risk
         setLoanData((prev) => ({
           ...prev,
           riskScore: result.riskScore,
           estimatedAPR: newAPR,
         }));
-        setCurrentStep("fund");
+        setProcessingMessage("AI assessment complete - loan terms optimized!");
+        setTimeout(() => {
+          setCurrentStep("deposit");
+          setProcessingMessage("");
+        }, 2000);
       } else {
-        throw new Error(result.error);
+        throw new Error(result.error || "Risk assessment failed");
       }
     } catch (err: any) {
-      setError(`AI assessment failed: ${err.message}`);
+      console.error("AI Assessment Error:", err);
+      setError(`AI assessment is currently unavailable. Using default values.`);
+      // Fallback to default risk assessment
+      setLoanData((prev) => ({
+        ...prev,
+        riskScore: 45, // Default medium risk
+        estimatedAPR: 6.5, // Default APR
+      }));
+      setProcessingMessage("Using default risk assessment");
+      setTimeout(() => {
+        setCurrentStep("deposit");
+        setProcessingMessage("");
+      }, 1500);
     }
 
     setIsProcessing(false);
   };
 
   const handleCrossChainFunding = async () => {
-    // This is a placeholder for a real implementation
-    // In a real app, you'd fetch the loanId for the given NFT
-    const loanIdToFund = 1; // Example: fund the first loan
-    if (!isConnected || !address || !loanIdToFund) {
-      setError("Could not determine which loan to fund.");
+    const loanToFund = allLoans.find(
+      (loan) =>
+        loan.tokenId === BigInt(nft!.tokenId) && loan.isActive && !loan.isFunded
+    );
+
+    if (!isConnected || !address || !loanToFund) {
+      setError("Could not find an active, unfunded loan for this property.");
       return;
     }
 
@@ -207,7 +256,7 @@ export function CompleteWorkflowModal({
       }
 
       setProcessingMessage("Funding loan via contract hook...");
-      const funded = await fundLoan(loanIdToFund);
+      const funded = await fundLoan(Number(loanToFund.loanId));
       if (!funded) {
         throw new Error("Funding failed. Please try again.");
       }
@@ -242,11 +291,28 @@ export function CompleteWorkflowModal({
   };
 
   const getStepIndex = (step: WorkflowStep) => {
-    const steps = ["deposit", "ai_assessment", "fund", "complete"];
+    const steps = ["ai_assessment", "deposit", "fund", "complete"];
     return steps.indexOf(step);
   };
 
   const renderStepContent = () => {
+    const stepLabels = {
+      setup:
+        mode === "borrow"
+          ? "Setup Collateral"
+          : mode === "lend"
+          ? "Select Loan to Fund"
+          : "Purchase Details",
+      assess: "AI Risk Assessment",
+      fund:
+        mode === "borrow"
+          ? "Get Funded"
+          : mode === "lend"
+          ? "Fund Loan"
+          : "Complete Purchase",
+      complete: "Complete",
+    };
+
     switch (currentStep) {
       case "deposit":
         return (
@@ -256,7 +322,7 @@ export function CompleteWorkflowModal({
                 Deposit NFT Collateral
               </h3>
               <p className="text-gray-400">
-                Step 1: Secure your property NFT as loan collateral
+                Step 2: Secure your property NFT as loan collateral
               </p>
             </div>
 
@@ -337,7 +403,7 @@ export function CompleteWorkflowModal({
                 AI Risk Assessment
               </h3>
               <p className="text-gray-400">
-                Step 2: AWS Bedrock analyzes loan risk and adjusts interest
+                Step 1: AWS Bedrock analyzes loan risk and adjusts interest
                 rates
               </p>
             </div>
@@ -440,6 +506,10 @@ export function CompleteWorkflowModal({
                   </span>
                 </div>
                 <div className="flex justify-between">
+                  <span className="text-gray-400">AI Risk Score:</span>
+                  <span className="text-white">{loanData.riskScore}/100</span>
+                </div>
+                <div className="flex justify-between">
                   <span className="text-gray-400">Destination:</span>
                   <span className="text-white">Avalanche Fuji</span>
                 </div>
@@ -492,8 +562,12 @@ export function CompleteWorkflowModal({
         {/* Header */}
         <div className="flex items-center justify-between p-6 border-b border-gray-700">
           <h2 className="text-2xl font-bold text-white">
-            {mode === "borrow" ? "Borrow Against NFT" : "Fund Loan"} -{" "}
-            {(nft as any).name}
+            {mode === "borrow"
+              ? "Borrow Against NFT"
+              : mode === "lend"
+              ? "Fund Loan"
+              : "Purchase Property"}{" "}
+            - {(nft as any).name}
           </h2>
           <button onClick={onClose} className="text-gray-400 hover:text-white">
             <X className="w-6 h-6" />
@@ -504,7 +578,7 @@ export function CompleteWorkflowModal({
         <div className="p-6 border-b border-gray-700">
           <div className="flex items-center justify-between">
             {(
-              ["deposit", "ai_assessment", "fund", "complete"] as WorkflowStep[]
+              ["ai_assessment", "deposit", "fund", "complete"] as WorkflowStep[]
             ).map((step, index) => (
               <div key={step} className="flex items-center">
                 <div

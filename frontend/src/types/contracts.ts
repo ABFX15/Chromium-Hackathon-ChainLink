@@ -25,6 +25,7 @@ export interface PropertyNFT {
   propertyValue: number;
   maxLoan: number;
   description: string;
+  riskScore: number;
 }
 
 export interface LoanRequest {

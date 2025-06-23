@@ -22,6 +22,22 @@ interface PropertyRiskData {
 
 export async function POST(req: NextRequest) {
   try {
+    const data = await req.json();
+    // Directly return mock data for now to ensure frontend works
+    return NextResponse.json(generateMockRiskAssessment(data));
+  } catch (error) {
+    console.error("Risk assessment error:", error);
+    return NextResponse.json(
+      { error: "Failed to generate mock risk assessment" },
+      { status: 500 }
+    );
+  }
+}
+
+/*
+// Temporarily disabled the live Bedrock call to use mock data
+export async function POST_LIVE(req: NextRequest) {
+  try {
     const data: PropertyRiskData = await req.json();
 
     // Debug logging
@@ -104,6 +120,7 @@ Consider factors like property age, location risk, market conditions, LTV ratio,
     );
   }
 }
+*/
 
 function generateMockRiskAssessment(data: PropertyRiskData) {
   // Input validation with defaults

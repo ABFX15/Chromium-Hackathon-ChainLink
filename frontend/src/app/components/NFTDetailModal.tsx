@@ -14,6 +14,7 @@ import {
 import { formatCurrency } from "@/lib/utils";
 import { CompleteWorkflowModal } from "./CompleteWorkflowModal";
 import { useAccount } from "wagmi";
+import { useContracts } from "../hooks/useContracts";
 
 interface NFTDetailModalProps {
   nft: PropertyNFT | null;
@@ -30,7 +31,8 @@ export function NFTDetailModal({
   showBuyButton,
   onBuy,
 }: NFTDetailModalProps) {
-  const { isConnected } = useAccount();
+  const { isConnected, address } = useAccount();
+  const { allLoans } = useContracts();
   const [workflowModalOpen, setWorkflowModalOpen] = useState(false);
   const [workflowMode, setWorkflowMode] = useState<"borrow" | "lend">("borrow");
 
@@ -40,6 +42,14 @@ export function NFTDetailModal({
   };
 
   if (!isOpen || !nft) return null;
+
+  const relevantLoan = allLoans.find(
+    (loan) => loan.tokenId === BigInt(nft.tokenId) && loan.isActive
+  );
+  const isOwner = address === nft.owner;
+  const canBorrow = isOwner && !nft.isCollateral;
+  const canLend =
+    !isOwner && nft.isCollateral && relevantLoan && !relevantLoan.isFunded;
 
   // Helper function with proper type safety
   const getRarity = (value: number) => {
@@ -148,20 +158,24 @@ export function NFTDetailModal({
             {/* Action Buttons */}
             {isConnected && (
               <div className="space-y-3 pt-4 border-t border-gray-700">
-                <button
-                  onClick={() => handleWorkflowStart("borrow")}
-                  className="w-full flex items-center justify-center gap-2 bg-blue-600 hover:bg-blue-700 text-white font-semibold py-3 px-4 rounded-lg transition-colors"
-                >
-                  <Shield className="w-5 h-5" />
-                  Borrow Against NFT
-                </button>
-                <button
-                  onClick={() => handleWorkflowStart("lend")}
-                  className="w-full flex items-center justify-center gap-2 bg-green-600 hover:bg-green-700 text-white font-semibold py-3 px-4 rounded-lg transition-colors"
-                >
-                  <DollarSign className="w-5 h-5" />
-                  Lend / Fund Loan
-                </button>
+                {canBorrow && (
+                  <button
+                    onClick={() => handleWorkflowStart("borrow")}
+                    className="w-full flex items-center justify-center gap-2 bg-blue-600 hover:bg-blue-700 text-white font-semibold py-3 px-4 rounded-lg transition-colors"
+                  >
+                    <Shield className="w-5 h-5" />
+                    Borrow Against NFT
+                  </button>
+                )}
+                {canLend && (
+                  <button
+                    onClick={() => handleWorkflowStart("lend")}
+                    className="w-full flex items-center justify-center gap-2 bg-green-600 hover:bg-green-700 text-white font-semibold py-3 px-4 rounded-lg transition-colors"
+                  >
+                    <DollarSign className="w-5 h-5" />
+                    Lend / Fund Loan
+                  </button>
+                )}
               </div>
             )}
           </div>

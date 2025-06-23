@@ -17,7 +17,6 @@ contract CollateralVault is Ownable {
 
     // Custom Errors
     error CollateralVault__NotAuthorized();
-    error CollateralVault__InvalidOracle();
     error CollateralVault__NFTNotDeposited();
     error CollateralVault__LoanStillActive();
     error CollateralVault__NotNFTOwner();

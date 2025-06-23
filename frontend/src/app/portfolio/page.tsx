@@ -9,13 +9,15 @@ import {
   DollarSign,
   Landmark,
 } from "lucide-react";
-import { useMemo } from "react";
+import { useMemo, useState } from "react";
 import Link from "next/link";
 import { formatUnits } from "viem";
 import { Card, CardContent } from "@/app/components/ui/card";
+import { MintNFTModal } from "@/app/components/MintNFTModal";
 
 export default function PortfolioPage() {
   const { userNFTs, userUSDCBalance, loading } = useContracts();
+  const [isMintModalOpen, setIsMintModalOpen] = useState(false);
 
   const { totalValue, averageValue } = useMemo(() => {
     const total = userNFTs.reduce(
@@ -79,6 +81,12 @@ export default function PortfolioPage() {
           <p className="text-xl text-gray-300 max-w-2xl mx-auto">
             An overview of your real estate assets and performance
           </p>
+          <button
+            onClick={() => setIsMintModalOpen(true)}
+            className="mt-4 px-6 py-3 bg-gradient-to-r from-cyan-500 to-blue-500 text-white font-bold rounded-lg hover:opacity-90 transition-opacity"
+          >
+            Mint New Property NFT
+          </button>
         </div>
 
         {/* Stats Grid */}
@@ -150,6 +158,10 @@ export default function PortfolioPage() {
           )}
         </Card>
       </div>
+      <MintNFTModal
+        isOpen={isMintModalOpen}
+        onClose={() => setIsMintModalOpen(false)}
+      />
     </div>
   );
 }

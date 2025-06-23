@@ -12,15 +12,55 @@ import {
   ExternalLink,
   Star,
   Activity,
+  DollarSign,
+  ShoppingCart,
 } from "lucide-react";
+import { CompleteWorkflowModal } from "./CompleteWorkflowModal";
+import { useAccount } from "wagmi";
+import { useContracts } from "../hooks/useContracts";
 
 interface PropertyNFTCardProps {
   nft: PropertyNFT;
+  showBuyButton?: boolean;
+  onBuy?: (nft: PropertyNFT) => void;
 }
 
-export function PropertyNFTCard({ nft }: PropertyNFTCardProps) {
-  const [showModal, setShowModal] = useState(false);
+export function PropertyNFTCard({
+  nft,
+  showBuyButton = false,
+  onBuy,
+}: PropertyNFTCardProps) {
+  const [isModalOpen, setIsModalOpen] = useState(false);
+  const [workflowModalOpen, setWorkflowModalOpen] = useState(false);
+  const [workflowMode, setWorkflowMode] = useState<"buy" | "borrow" | "lend">(
+    "buy"
+  );
   const [imageLoaded, setImageLoaded] = useState(false);
+  const [setShowModal] = useState(false);
+  const { address } = useAccount();
+  const { allLoans } = useContracts();
+
+  const handleCardClick = () => {
+    setIsModalOpen(true);
+  };
+
+  const handleBuyClick = (e: React.MouseEvent) => {
+    e.stopPropagation();
+    setWorkflowMode("buy");
+    setWorkflowModalOpen(true);
+  };
+
+  const handleLoanClick = (e: React.MouseEvent) => {
+    e.stopPropagation();
+    setWorkflowMode("borrow");
+    setWorkflowModalOpen(true);
+  };
+
+  const handleLendClick = (e: React.MouseEvent) => {
+    e.stopPropagation();
+    setWorkflowMode("lend");
+    setWorkflowModalOpen(true);
+  };
 
   // Guard clause to handle undefined nft
   if (!nft) {
@@ -33,6 +73,14 @@ export function PropertyNFTCard({ nft }: PropertyNFTCardProps) {
     );
   }
 
+  const relevantLoan = allLoans.find(
+    (loan) => loan.tokenId === BigInt(nft.tokenId) && loan.isActive
+  );
+  const isOwner = address === nft.owner;
+  const canBorrow = isOwner && !nft.isCollateral;
+  const canLend =
+    !isOwner && nft.isCollateral && relevantLoan && !relevantLoan.isFunded;
+
   return (
     <>
       <div
@@ -41,7 +89,7 @@ export function PropertyNFTCard({ nft }: PropertyNFTCardProps) {
           // Only open modal if not clicking on a button
           const target = e.target as HTMLElement;
           if (target.tagName !== "BUTTON" && !target.closest("button")) {
-            setShowModal(true);
+            setIsModalOpen(true);
           }
         }}
       >
@@ -138,23 +186,53 @@ export function PropertyNFTCard({ nft }: PropertyNFTCardProps) {
             </div>
           </div>
 
-          {/* Action Button - This button's logic was incorrect for a marketplace view */}
-          {/* It was opening a borrow workflow instead of a purchase/lend workflow */}
-          {/* The correct user flow is to open the detail modal and then choose to lend/fund */}
+          {/* Action Buttons */}
+          <div className="space-y-2 pt-4 border-t border-white/10">
+            <div className="grid grid-cols-2 gap-2">
+              {canBorrow ? (
+                <button
+                  onClick={handleLoanClick}
+                  className="bg-green-600 hover:bg-green-700 text-white font-semibold py-2 px-4 rounded-lg transition-colors flex items-center justify-center gap-1 text-sm"
+                >
+                  <DollarSign className="w-4 h-4" />
+                  Borrow
+                </button>
+              ) : (
+                <div />
+              )}
+              {canLend ? (
+                <button
+                  onClick={handleLendClick}
+                  className="bg-orange-600 hover:bg-orange-700 text-white font-semibold py-2 px-4 rounded-lg transition-colors flex items-center justify-center gap-1 text-sm"
+                >
+                  <TrendingUp className="w-4 h-4" />
+                  Lend
+                </button>
+              ) : (
+                <div />
+              )}
+            </div>
+          </div>
         </div>
 
         {/* Hover Effect Overlay */}
         <div className="absolute inset-0 bg-gradient-to-br from-blue-500/5 via-transparent to-purple-500/5 opacity-0 group-hover:opacity-100 transition-opacity duration-500 pointer-events-none rounded-20"></div>
       </div>
 
-      {/* Detail Modal */}
-      {showModal && (
-        <NFTDetailModal
-          nft={nft}
-          isOpen={showModal}
-          onClose={() => setShowModal(false)}
-        />
-      )}
+      <NFTDetailModal
+        nft={nft}
+        isOpen={isModalOpen}
+        onClose={() => setIsModalOpen(false)}
+        showBuyButton={showBuyButton}
+        onBuy={onBuy}
+      />
+
+      <CompleteWorkflowModal
+        isOpen={workflowModalOpen}
+        onClose={() => setWorkflowModalOpen(false)}
+        nft={nft}
+        mode={workflowMode}
+      />
     </>
   );
 }

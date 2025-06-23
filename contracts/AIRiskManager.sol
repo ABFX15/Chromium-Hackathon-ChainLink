@@ -220,11 +220,11 @@ contract AIRiskManager is FunctionsClient, Ownable {
         string memory response
     ) internal pure returns (uint256) {
         bytes memory responseBytes = bytes(response);
-        for (uint i = 0; i < responseBytes.length - PATTERN_LENGTH + 1; i++) {
+        for (uint256 i = 0; i < responseBytes.length - PATTERN_LENGTH + 1; i++) {
             // Check for "riskScore" pattern
             if (i + PATTERN_LENGTH <= responseBytes.length) {
                 bytes memory pattern = new bytes(PATTERN_LENGTH);
-                for (uint j = 0; j < PATTERN_LENGTH; j++) {
+                for (uint256 j = 0; j < PATTERN_LENGTH; j++) {
                     pattern[j] = responseBytes[i + j];
                 }
                 if (keccak256(pattern) == keccak256("riskScore")) {
@@ -240,7 +240,7 @@ contract AIRiskManager is FunctionsClient, Ownable {
                     }
                     if (end > start) {
                         bytes memory scoreBytes = new bytes(end - start);
-                        for (uint k = 0; k < end - start; k++) {
+                        for (uint256 k = 0; k < end - start; k++) {
                             scoreBytes[k] = responseBytes[start + k];
                         }
                         string memory scoreStr = string(scoreBytes);

@@ -1,7 +1,7 @@
 "use client";
 
-import { useState, useMemo } from "react";
-import { useMarketplace } from "@/app/hooks/useMarketplace";
+import { useState, useMemo, useEffect } from "react";
+import { useContracts } from "@/app/hooks/useContracts";
 import { PropertyNFTCard } from "@/app/components/PropertyNFTCard";
 import { AdvancedSearch, SearchFilters } from "@/app/components/AdvancedSearch";
 import { Building } from "lucide-react";
@@ -10,7 +10,7 @@ import { Skeleton } from "@/app/components/ui/skeleton";
 import { CompleteWorkflowModal } from "@/app/components/CompleteWorkflowModal";
 
 export default function MarketplacePage() {
-  const { nfts, loading } = useMarketplace();
+  const { allProperties: nfts, loading, loadAllProperties } = useContracts();
   const [searchTerm, setSearchTerm] = useState("");
   const [filters, setFilters] = useState<SearchFilters>({
     priceRange: [0, 5000000],
@@ -24,12 +24,17 @@ export default function MarketplacePage() {
   const [workflowModalOpen, setWorkflowModalOpen] = useState(false);
   const [selectedNft, setSelectedNft] = useState<PropertyNFT | null>(null);
 
+  useEffect(() => {
+    loadAllProperties();
+  }, [loadAllProperties]);
+
   const handleBuyClick = (nft: PropertyNFT) => {
     setSelectedNft(nft);
     setWorkflowModalOpen(true);
   };
 
   const filteredNfts = useMemo(() => {
+    if (!nfts) return [];
     return nfts.filter((nft) => {
       const nameMatch = nft.name
         .toLowerCase()
@@ -80,7 +85,12 @@ export default function MarketplacePage() {
               </div>
             ))
           : filteredNfts.map((nft: PropertyNFT) => (
-              <PropertyNFTCard key={nft.id} nft={nft} />
+              <PropertyNFTCard
+                key={nft.id}
+                nft={nft}
+                showBuyButton={true}
+                onBuy={handleBuyClick}
+              />
             ))}
       </div>
 
@@ -104,7 +114,7 @@ export default function MarketplacePage() {
           isOpen={workflowModalOpen}
           onClose={() => setWorkflowModalOpen(false)}
           nft={selectedNft}
-          mode="borrow"
+          mode="buy"
         />
       )}
     </div>
