@@ -35,10 +35,6 @@ export default function MarketplacePage() {
   const [workflowModalOpen, setWorkflowModalOpen] = useState(false);
   const [selectedNft, setSelectedNft] = useState<PropertyNFT | null>(null);
 
-  useEffect(() => {
-    loadAllProperties();
-  }, [loadAllProperties]);
-
   const handleBuyClick = (nft: PropertyNFT) => {
     setSelectedNft(nft);
     setWorkflowModalOpen(true);

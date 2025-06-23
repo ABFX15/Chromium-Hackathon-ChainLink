@@ -3,6 +3,7 @@
 import { useState, Fragment } from "react";
 import { X, UploadCloud, Loader } from "lucide-react";
 import { useContracts } from "../hooks/useContracts";
+import { toast } from "react-hot-toast";
 
 interface MintNFTModalProps {
   isOpen: boolean;
@@ -10,7 +11,7 @@ interface MintNFTModalProps {
 }
 
 export function MintNFTModal({ isOpen, onClose }: MintNFTModalProps) {
-  const { mintPropertyNFT } = useContracts();
+  const { mintPropertyNFT, refreshAllData } = useContracts();
   const [image, setImage] = useState<File | null>(null);
   const [imagePreview, setImagePreview] = useState<string | null>(null);
   const [isUploading, setIsUploading] = useState(false);
@@ -44,8 +45,8 @@ export function MintNFTModal({ isOpen, onClose }: MintNFTModalProps) {
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (!image || !formData.name || !formData.propertyValue) {
-      alert("Please fill all required fields and upload an image.");
+    if (!image || !formData.name) {
+      toast.error("Please fill all required fields and upload an image.");
       return;
     }
 
@@ -64,27 +65,21 @@ export function MintNFTModal({ isOpen, onClose }: MintNFTModalProps) {
       });
 
       if (!res.ok) {
-        throw new Error("Failed to upload to IPFS");
+        throw new Error("Failed to upload to IPFS. Please try again.");
       }
-
       const { metadataUrl } = await res.json();
       setIsUploading(false);
 
       setIsMinting(true);
-      const success = await mintPropertyNFT(
-        metadataUrl,
-        parseInt(formData.propertyValue, 10)
-      );
+      const txHash = await mintPropertyNFT(metadataUrl);
 
-      if (success) {
-        alert("NFT Minted Successfully!");
+      if (txHash) {
+        await refreshAllData();
         onClose();
-      } else {
-        throw new Error("Minting failed. Please try again.");
       }
     } catch (error: any) {
-      console.error(error);
-      alert(`Error: ${error.message}`);
+      console.error("Minting process failed:", error);
+      toast.error(`An unexpected error occurred: ${error.message}`);
     } finally {
       setIsUploading(false);
       setIsMinting(false);

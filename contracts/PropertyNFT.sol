@@ -24,6 +24,7 @@ contract PropertyNFT is ERC721, ERC721Enumerable, ERC721Burnable, Ownable {
     error InvalidRecipient();
 
     string private _baseTokenURI;
+    uint256 private _nextTokenId = 1;
     mapping(uint256 => string) private _tokenURIs;
 
     constructor(
@@ -39,19 +40,19 @@ contract PropertyNFT is ERC721, ERC721Enumerable, ERC721Burnable, Ownable {
     /**
      * @notice Mints a new property NFT to the specified address.
      * @param to The recipient address.
-     * @param tokenId The unique token ID.
      * @param uri The metadata URI for the property.
      */
     function safeMint(
         address to,
-        uint256 tokenId,
         string memory uri
-    ) external onlyOwner {
+    ) external onlyOwner returns (uint256) {
         if (to == address(0)) revert InvalidRecipient();
         if (bytes(uri).length == 0) revert InvalidTokenURI();
 
+        uint256 tokenId = _nextTokenId++;
         _safeMint(to, tokenId);
         _setTokenURI(tokenId, uri);
+        return tokenId;
     }
 
     /**

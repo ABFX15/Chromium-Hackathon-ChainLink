@@ -18,6 +18,7 @@ import {
   Zap,
   DollarSign,
   AlertCircle,
+  Info,
 } from "lucide-react";
 import {
   supportedChains,
@@ -46,15 +47,28 @@ interface Chain {
 }
 
 export function CrossChainLending() {
-  const { address } = useAccount();
+  const { address, isConnected, chain } = useAccount();
   const chainId = useChainId();
   const { switchChain } = useSwitchChain();
-  const { addCCIPLiquidity, estimateCCIPFee, addingLiquidity } = useContracts();
-  
+
+  const {
+    addCCIPLiquidity,
+    estimateCCIPFee,
+    approveUSDC,
+    addingLiquidity,
+    isProcessing,
+  } = useContracts();
+
   const [selectedDestination, setSelectedDestination] = useState<string>("");
   const [loanAmount, setLoanAmount] = useState("");
   const [estimatedFee, setEstimatedFee] = useState<bigint>(BigInt(0));
   const [isEstimating, setIsEstimating] = useState(false);
+
+  const handleChainSwitch = (newChainId: number) => {
+    if (switchChain) {
+      switchChain({ chainId: newChainId });
+    }
+  };
 
   const currentChain = Object.values(supportedChains).find(
     (chain: Chain) => chain.id === chainId
@@ -62,34 +76,18 @@ export function CrossChainLending() {
   const destinationChains = getDestinationChains(chainId) as Chain[];
 
   useEffect(() => {
-    if (selectedDestination && currentChain) {
-      estimateFee();
-    }
-  }, [selectedDestination, currentChain]);
-
-  const estimateFee = async () => {
-    if (!currentChain || !selectedDestination) return;
-    
-    setIsEstimating(true);
-    try {
-      const fee = await estimateCCIPFee(
-        selectedDestination as SupportedChainKey
-      );
-      setEstimatedFee(fee);
-    } catch (error) {
-      console.error("Fee estimation error:", error);
-    } finally {
-      setIsEstimating(false);
-    }
-  };
-
-  const handleChainSwitch = async (chainId: number) => {
-    try {
-      await switchChain({ chainId });
-    } catch (error) {
-      console.error("Chain switch error:", error);
-    }
-  };
+    const estimateFee = async () => {
+      if (selectedDestination && currentChain) {
+        setIsEstimating(true);
+        const fee = await estimateCCIPFee(
+          selectedDestination as SupportedChainKey
+        );
+        setEstimatedFee(fee);
+        setIsEstimating(false);
+      }
+    };
+    estimateFee();
+  }, [selectedDestination, currentChain, estimateCCIPFee]);
 
   const getChainIcon = (chainName: string) => {
     switch (chainName.toLowerCase()) {
@@ -128,7 +126,7 @@ export function CrossChainLending() {
         <CardHeader>
           <CardTitle className="text-cyan-400 font-mono flex items-center gap-2">
             <Network className="w-5 h-5" />
-            [ccip_chain_status]
+            Chain Status
           </CardTitle>
         </CardHeader>
         <CardContent>
@@ -164,7 +162,7 @@ export function CrossChainLending() {
         <CardHeader>
           <CardTitle className="text-cyan-400 font-mono flex items-center gap-2">
             <Globe className="w-5 h-5" />
-            [supported_chains]
+            Available Networks
           </CardTitle>
         </CardHeader>
         <CardContent>
@@ -206,7 +204,7 @@ export function CrossChainLending() {
         <CardHeader>
           <CardTitle className="text-cyan-400 font-mono flex items-center gap-2">
             <Zap className="w-5 h-5" />
-            [ccip_cross_chain_lending]
+            Add Cross-Chain Liquidity
           </CardTitle>
         </CardHeader>
         <CardContent className="space-y-4">
@@ -248,7 +246,7 @@ export function CrossChainLending() {
                   onValueChange={setSelectedDestination}
                 >
                   <SelectTrigger className="bg-gray-800/50 border-cyan-500/30 text-cyan-300 font-mono">
-                    <SelectValue placeholder="select_destination_chain" />
+                    <SelectValue placeholder="Select Destination Chain" />
                   </SelectTrigger>
                   <SelectContent className="bg-gray-800 border-cyan-500/30">
                     {destinationChains.map((chain: Chain) => (
@@ -301,7 +299,7 @@ export function CrossChainLending() {
                       </div>
                     ) : (
                       <div className="text-cyan-300 font-mono">
-                        {(Number(estimatedFee) / 1e18).toFixed(4)} ETH
+                        {(Number(estimatedFee) / 1e18).toFixed(6)} ETH
                       </div>
                     )}
                     <div className="text-cyan-500/70 font-mono text-xs">
@@ -317,53 +315,53 @@ export function CrossChainLending() {
                   !selectedDestination ||
                   !loanAmount ||
                   !address ||
-                  addingLiquidity
+                  addingLiquidity ||
+                  isProcessing
                 }
                 onClick={async () => {
                   if (selectedDestination && loanAmount) {
-                    try {
-                      const destChainKey = Object.keys(supportedChains).find(
-                        (key) =>
-                          supportedChains[
-                            key as SupportedChainKey
-                          ].name.toLowerCase() ===
-                          selectedDestination.toLowerCase()
-                      );
-                      const chainSelector = destChainKey
-                        ? BigInt(
-                            supportedChains[destChainKey as SupportedChainKey]
-                              .ccipChainSelector
-                          )
-                        : BigInt(0);
+                    const destChainKey = Object.keys(supportedChains).find(
+                      (key) =>
+                        key.toLowerCase() === selectedDestination.toLowerCase()
+                    );
 
-                      if (chainSelector !== BigInt(0)) {
+                    if (destChainKey) {
+                      const chainSelector = BigInt(
+                        supportedChains[destChainKey as SupportedChainKey]
+                          .ccipChainSelector
+                      );
+                      const amount = BigInt(loanAmount) * BigInt(10 ** 6);
+                      // Approve USDC first
+                      const approved = await approveUSDC(amount);
+                      if (approved) {
                         await addCCIPLiquidity(
                           chainSelector,
-                          BigInt(loanAmount) * BigInt(10 ** 6)
-                        ); // USDC has 6 decimals
+                          amount,
+                          estimatedFee
+                        );
                       }
-                    } catch (error) {
-                      console.error("CCIP loan failed:", error);
                     }
                   }
                 }}
                 className="w-full bg-cyan-500/20 hover:bg-cyan-500/30 border border-cyan-500/50 text-cyan-300 font-mono"
               >
                 <Zap className="w-4 h-4 mr-2" />
-                {addingLiquidity ? "[executing...]" : "[execute_ccip_loan]"}
+                {addingLiquidity || isProcessing
+                  ? "Executing..."
+                  : "Add Liquidity Cross-Chain"}
               </Button>
             </>
           ) : (
             <div className="text-center py-8">
               <div className="text-cyan-500/70 font-mono text-sm mb-4">
-                switch_to_sepolia_for_collateral_deposits
+                Switch to Sepolia to provide collateral or liquidity.
               </div>
               <Button
                 onClick={() => handleChainSwitch(supportedChains.sepolia.id)}
                 className="bg-blue-500/20 hover:bg-blue-500/30 border border-blue-500/50 text-blue-300 font-mono"
               >
                 <Network className="w-4 h-4 mr-2" />
-                [switch_to_sepolia]
+                Switch to Sepolia
               </Button>
             </div>
           )}
@@ -375,7 +373,7 @@ export function CrossChainLending() {
         <CardHeader>
           <CardTitle className="text-cyan-400 font-mono flex items-center gap-2">
             <DollarSign className="w-5 h-5" />
-            [ccip_protocol_stats]
+            Protocol Statistics
           </CardTitle>
         </CardHeader>
         <CardContent>
@@ -398,9 +396,9 @@ export function CrossChainLending() {
             </div>
             <div className="space-y-1">
               <div className="text-cyan-500 font-mono text-sm">
-                cross_chain_loans
+                cross_chain_liquidity
               </div>
-              <div className="text-cyan-300 font-mono text-lg">23</div>
+              <div className="text-cyan-300 font-mono text-lg">$1.8M</div>
             </div>
           </div>
         </CardContent>

@@ -7,10 +7,10 @@ if (!process.env.NEXT_PUBLIC_WALLETCONNECT_PROJECT_ID) {
 }
 
 export const config = getDefaultConfig({
-  appName: 'Oraclend',
-  projectId: process.env.NEXT_PUBLIC_WALLETCONNECT_PROJECT_ID,
+  appName: 'ORACLEND',
+  projectId: process.env.NEXT_PUBLIC_WALLETCONNECT_PROJECT_ID!,
   chains: [sepolia, avalancheFuji, polygonMumbai, arbitrumSepolia],
-  ssr: true,
+  ssr: false, // Disable SSR to prevent server-side execution errors
   transports: {
     [sepolia.id]: http(),
     [avalancheFuji.id]: http(),
@@ -18,4 +18,3 @@ export const config = getDefaultConfig({
     [arbitrumSepolia.id]: http(),
   },
 });
- 

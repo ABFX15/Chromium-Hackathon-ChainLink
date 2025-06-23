@@ -1,5 +1,4 @@
 import { useState } from "react";
-import { PropertyNFT } from "@/types/contracts";
 import { formatCurrency } from "@/lib/utils";
 import { NFTDetailModal } from "./NFTDetailModal";
 import { Badge } from "@/components/ui/badge";
@@ -17,12 +16,12 @@ import {
 } from "lucide-react";
 import { CompleteWorkflowModal } from "./CompleteWorkflowModal";
 import { useAccount } from "wagmi";
-import { useContracts } from "../hooks/useContracts";
+import { useContracts, NFT as ContractNFT } from "../hooks/useContracts";
 
 interface PropertyNFTCardProps {
-  nft: PropertyNFT;
+  nft: ContractNFT;
   showBuyButton?: boolean;
-  onBuy?: (nft: PropertyNFT) => void;
+  onBuy?: (nft: ContractNFT) => void;
 }
 
 export function PropertyNFTCard({
@@ -36,7 +35,6 @@ export function PropertyNFTCard({
     "buy"
   );
   const [imageLoaded, setImageLoaded] = useState(false);
-  const [setShowModal] = useState(false);
   const { address } = useAccount();
   const { allLoans } = useContracts();
 
@@ -68,6 +66,35 @@ export function PropertyNFTCard({
       <div className="nft-card bg-gray-800/50 border border-gray-700 rounded-20 p-6">
         <div className="text-center text-gray-400">
           <div className="text-sm">NFT data not available</div>
+        </div>
+      </div>
+    );
+  }
+
+  if (nft.isSyncing) {
+    return (
+      <div className="nft-card group">
+        <div className="relative h-56 overflow-hidden rounded-t-20 animate-pulse bg-gray-800">
+          <img
+            src={nft.image}
+            alt={nft.name}
+            className="w-full h-full object-cover opacity-50"
+          />
+        </div>
+        <div className="p-6 space-y-4 bg-gray-800/50 rounded-b-20">
+          <div>
+            <h3 className="text-xl font-bold text-white mb-2">{nft.name}</h3>
+            <div className="flex items-center text-white/60 text-sm">
+              <MapPin className="w-4 h-4 mr-2" />
+              On-chain Asset
+            </div>
+          </div>
+          <div className="pt-4 border-t border-white/10">
+            <div className="flex items-center space-x-2 text-cyan-400">
+              <Zap className="w-4 h-4 animate-spin" />
+              <p className="text-sm">{nft.description}</p>
+            </div>
+          </div>
         </div>
       </div>
     );
@@ -111,8 +138,8 @@ export function PropertyNFTCard({
         <div className="relative h-56 overflow-hidden rounded-t-20">
           {!imageLoaded && <div className="absolute inset-0 skeleton"></div>}
           <img
-            src={(nft as any).image}
-            alt={(nft as any).name}
+            src={nft.image}
+            alt={nft.name}
             className={`w-full h-full object-cover transition-all duration-700 group-hover:scale-110 ${
               imageLoaded ? "opacity-100" : "opacity-0"
             }`}
@@ -138,7 +165,7 @@ export function PropertyNFTCard({
           {/* Title and Location */}
           <div>
             <h3 className="text-xl font-bold text-white mb-2 group-hover:text-gradient transition-all duration-300">
-              {(nft as any).name}
+              {nft.name}
             </h3>
             <div className="flex items-center text-white/60 text-sm">
               <MapPin className="w-4 h-4 mr-2" />
@@ -153,7 +180,7 @@ export function PropertyNFTCard({
                 Property Value
               </p>
               <p className="text-white font-bold text-lg">
-                {formatCurrency((nft as any).propertyValue)}
+                {formatCurrency(nft.propertyValue)}
               </p>
             </div>
             <div className="space-y-1">
@@ -161,7 +188,7 @@ export function PropertyNFTCard({
                 Token ID
               </p>
               <p className="text-white font-bold text-lg">
-                #{(nft as any).tokenId.toString()}
+                #{nft.tokenId.toString()}
               </p>
             </div>
           </div>
@@ -180,7 +207,7 @@ export function PropertyNFTCard({
               <div>
                 <p className="text-white/50 text-xs">Status</p>
                 <p className="text-white font-semibold text-sm">
-                  {(nft as any).isCollateral ? "Collateralized" : "Available"}
+                  {nft.isCollateral ? "Collateralized" : "Available"}
                 </p>
               </div>
             </div>
@@ -189,28 +216,32 @@ export function PropertyNFTCard({
           {/* Action Buttons */}
           <div className="space-y-2 pt-4 border-t border-white/10">
             <div className="grid grid-cols-2 gap-2">
+              <button
+                onClick={() => setIsModalOpen(true)}
+                className="bg-gray-700 hover:bg-gray-600 text-white font-semibold py-2 px-4 rounded-lg transition-colors flex items-center justify-center gap-1 text-sm col-span-2"
+              >
+                <Eye className="w-4 h-4" />
+                View Details
+              </button>
+            </div>
+            <div className="grid grid-cols-1">
               {canBorrow ? (
                 <button
                   onClick={handleLoanClick}
-                  className="bg-green-600 hover:bg-green-700 text-white font-semibold py-2 px-4 rounded-lg transition-colors flex items-center justify-center gap-1 text-sm"
+                  className="bg-blue-600 hover:bg-blue-700 text-white font-semibold py-2 px-4 rounded-lg transition-colors flex items-center justify-center gap-1 text-sm"
                 >
                   <DollarSign className="w-4 h-4" />
-                  Borrow
+                  Request Loan
                 </button>
-              ) : (
-                <div />
-              )}
-              {canLend ? (
+              ) : canLend ? (
                 <button
                   onClick={handleLendClick}
-                  className="bg-orange-600 hover:bg-orange-700 text-white font-semibold py-2 px-4 rounded-lg transition-colors flex items-center justify-center gap-1 text-sm"
+                  className="bg-green-600 hover:bg-green-700 text-white font-semibold py-2 px-4 rounded-lg transition-colors flex items-center justify-center gap-1 text-sm"
                 >
                   <TrendingUp className="w-4 h-4" />
-                  Lend
+                  Fund Loan
                 </button>
-              ) : (
-                <div />
-              )}
+              ) : null}
             </div>
           </div>
         </div>

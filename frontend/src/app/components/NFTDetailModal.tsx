@@ -164,7 +164,7 @@ export function NFTDetailModal({
                     className="w-full flex items-center justify-center gap-2 bg-blue-600 hover:bg-blue-700 text-white font-semibold py-3 px-4 rounded-lg transition-colors"
                   >
                     <Shield className="w-5 h-5" />
-                    Borrow Against NFT
+                    Request Loan
                   </button>
                 )}
                 {canLend && (
@@ -173,7 +173,7 @@ export function NFTDetailModal({
                     className="w-full flex items-center justify-center gap-2 bg-green-600 hover:bg-green-700 text-white font-semibold py-3 px-4 rounded-lg transition-colors"
                   >
                     <DollarSign className="w-5 h-5" />
-                    Lend / Fund Loan
+                    Fund Loan
                   </button>
                 )}
               </div>

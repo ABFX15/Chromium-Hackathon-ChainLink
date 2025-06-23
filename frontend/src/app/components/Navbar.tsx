@@ -4,7 +4,7 @@ import { Logo } from "./Logo";
 import { Building, Home, LineChart, Repeat, Wallet } from "lucide-react";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
-import { WalletConnectButton } from "./WalletConnectButton";
+import { ConnectButton } from "@rainbow-me/rainbowkit";
 
 export function Navbar() {
   const pathname = usePathname();
@@ -38,7 +38,7 @@ export function Navbar() {
       </div>
 
       <div className="flex items-center gap-4">
-        <WalletConnectButton />
+        <ConnectButton />
       </div>
     </header>
   );

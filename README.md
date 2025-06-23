@@ -182,31 +182,58 @@ The application will be available at `http://localhost:3000`
 - **Event Logging**: Comprehensive event tracking for transparency
 - **Upgradeable Design**: Modular architecture for future enhancements
 
-## How to Use
+## Platform Workflow
+
+The ORACLEND platform facilitates a seamless peer-to-peer lending market for tokenized real-world assets. The diagram below illustrates the core user journeys for both Borrowers and Lenders.
+
+```mermaid
+graph TD
+    subgraph Borrower Journey
+        A[1. Mint Property NFT] --> B{2. Request Loan};
+        B --> C[3. Lock NFT in Collateral Vault];
+    end
+
+    subgraph Lender Journey
+        D[4. Browse Marketplace for Loans] --> E{5. Fund Loan};
+        E --> F[6. Earn Interest];
+    end
+
+    subgraph Repayment
+        G[7. Borrower Repays Loan + Interest] --> H[8. Borrower Reclaims NFT];
+        F --> G;
+    end
+
+    C --> D;
+    E -.-> G;
+
+    style A fill:#0284c7,stroke:#0369a1,stroke-width:2px,color:#fff
+    style B fill:#0284c7,stroke:#0369a1,stroke-width:2px,color:#fff
+    style C fill:#0284c7,stroke:#0369a1,stroke-width:2px,color:#fff
+    style H fill:#0284c7,stroke:#0369a1,stroke-width:2px,color:#fff
+
+    style D fill:#16a34a,stroke:#15803d,stroke-width:2px,color:#fff
+    style E fill:#16a34a,stroke:#15803d,stroke-width:2px,color:#fff
+    style F fill:#16a34a,stroke:#15803d,stroke-width:2px,color:#fff
+
+    style G fill:#be185d,stroke:#9d174d,stroke-width:2px,color:#fff
+```
 
 ### For Borrowers
 
-1. **Connect Wallet**: Use MetaMask or any Web3 wallet
-2. **Mint NFT**: Create property NFT or use existing one
-3. **Request Valuation**: Get real-time property value via Chainlink
-4. **Create Loan**: Deposit NFT as collateral with desired loan amount
-5. **AI Assessment**: Wait for AI risk score and interest rate calculation
-6. **Receive Funding**: Get loan funded via cross-chain transfer
+1.  **Mint Property NFT**: A user tokenizes their real-world asset (e.g., a house) by minting it as an NFT on the platform.
+2.  **Request a Loan**: The NFT owner initiates a loan request, specifying the amount of USDC they wish to borrow against their asset.
+3.  **Collateral is Locked**: Upon request, the Property NFT is automatically transferred into a secure `CollateralVault` smart contract, where it remains locked until the loan is repaid. The loan is now listed on the marketplace for lenders to fund.
 
 ### For Lenders
 
-1. **Connect Wallet**: Ensure you have USDC for lending
-2. **Browse Opportunities**: View available loans with AI risk scores
-3. **Add Liquidity**: Contribute to cross-chain liquidity pools
-4. **Fund Loans**: Fund loans and receive LenderNFT positions
-5. **Monitor Returns**: Track yields and loan performance
+1.  **Browse Marketplace**: Lenders can view all active, unfunded loan requests on the marketplace. Each listing includes the property details, AI-driven risk score, and the interest rate (APR) they will earn.
+2.  **Fund Loan**: A lender provides the requested USDC to fund the loan. This is done via a cross-chain transaction using Chainlink CCIP.
+3.  **Earn Interest**: In return for funding the loan, the lender receives a LenderNFT (an interest-bearing token) and begins earning the specified yield.
 
-### For Portfolio Management
+### Loan Repayment & Liquidation
 
-1. **Dashboard Overview**: View total portfolio value and risk metrics
-2. **AI Risk Monitoring**: Track real-time risk scores and health factors
-3. **Cross-Chain Positions**: Monitor liquidity across multiple chains
-4. **Yield Management**: Withdraw protocol yields and manage returns
+- **Repayment**: The borrower repays the USDC loan plus the accrued interest. Once fully repaid, their original Property NFT is returned from the vault, and the LenderNFT is burned.
+- **Liquidation**: If the borrower fails to repay or if their loan's health factor drops below the liquidation threshold (due to changes in collateral value), the system allows the lender to liquidate the position and claim the underlying Property NFT.
 
 ## Advanced Features
 

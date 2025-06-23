@@ -6,7 +6,7 @@ import {
 } from "wagmi";
 import { waitForTransactionReceipt } from "@wagmi/core";
 import { config } from "@/app/lib/wagmi";
-import { parseUnits, formatUnits, Address } from "viem";
+import { parseUnits, formatUnits, Address, parseEther } from "viem";
 import {
   X,
   CheckCircle,
@@ -16,19 +16,13 @@ import {
   CreditCard,
   Shield,
   Globe,
+  TrendingUp,
+  BrainCircuit,
+  ArrowRight,
 } from "lucide-react";
-import {
-  CONTRACT_ADDRESSES,
-  LOAN_MANAGER_ABI,
-  PROPERTY_NFT_ABI,
-  MOCK_USDC_ABI,
-} from "@/lib/contracts";
 import { useContracts } from "../hooks/useContracts";
 import { PropertyNFT } from "@/types/contracts";
 import { formatCurrency } from "@/lib/utils";
-import LoanManagerABI from "@/abis/LoanManager.json";
-import PropertyNFTABI from "@/abis/PropertyNFT.json";
-import MockUSDCABI from "@/abis/MockUSDC.json";
 
 interface CompleteWorkflowModalProps {
   isOpen: boolean;
@@ -37,7 +31,12 @@ interface CompleteWorkflowModalProps {
   mode: "borrow" | "lend" | "buy";
 }
 
-type WorkflowStep = "deposit" | "ai_assessment" | "fund" | "complete";
+type WorkflowStep =
+  | "deposit"
+  | "ai_assessment"
+  | "ai_strategy"
+  | "fund"
+  | "complete";
 
 interface LoanData {
   loanId?: number;
@@ -45,6 +44,12 @@ interface LoanData {
   estimatedAPR: number;
   riskScore: number;
   maxLTV: number;
+}
+
+interface AIStrategy {
+  protocol: string;
+  apy: number;
+  projectedYield: number;
 }
 
 export function CompleteWorkflowModal({
@@ -56,7 +61,7 @@ export function CompleteWorkflowModal({
   const { address, isConnected } = useAccount();
   const {
     fundLoan,
-    createLoan,
+    depositNFTCollateral,
     approveNFT,
     approveUSDC,
     isProcessing: isContractProcessing,
@@ -75,6 +80,7 @@ export function CompleteWorkflowModal({
   const [processingMessage, setProcessingMessage] = useState("");
   const [error, setError] = useState<string | null>(null);
   const [assessmentComplete, setAssessmentComplete] = useState(false);
+  const [aiStrategy, setAiStrategy] = useState<AIStrategy | null>(null);
 
   const { writeContractAsync } = useWriteContract();
 
@@ -85,6 +91,7 @@ export function CompleteWorkflowModal({
       setIsProcessing(false);
       setProcessingMessage("");
       setAssessmentComplete(false);
+      setAiStrategy(null);
 
       if (mode === "lend") {
         const loanToFund = allLoans.find(
@@ -99,15 +106,19 @@ export function CompleteWorkflowModal({
           // Reverse engineer the risk score from the APR
           // Formula: APR = 5 + (riskScore / 100) * 10  => riskScore = (APR - 5) * 10
           const inferredRiskScore = Math.round((apr - 5) * 10);
+          const requestedAmount = Number(loanToFund.principalAmount) / 1e6;
 
-          setCurrentStep("fund");
+          setCurrentStep("ai_assessment");
           setLoanData({
             loanId: Number(loanToFund.loanId),
-            requestedAmount: Number(loanToFund.principalAmount) / 1e6,
+            requestedAmount: requestedAmount,
             estimatedAPR: apr,
             riskScore: inferredRiskScore > 0 ? inferredRiskScore : 0,
             maxLTV: 70,
           });
+
+          // Pre-run AI assessment for lender flow
+          handleAIAssessment(requestedAmount, true);
         } else {
           setError("No active, unfunded loan available for this property.");
           setCurrentStep("fund"); // Stay on fund step to show error
@@ -129,13 +140,6 @@ export function CompleteWorkflowModal({
     }
   }, [isOpen, mode, nft, allLoans]);
 
-  useEffect(() => {
-    if (creatingLoan) {
-      setProcessingMessage("Loan funded successfully!");
-      setCurrentStep("complete");
-    }
-  }, [creatingLoan]);
-
   if (!isOpen || !nft) return null;
 
   const handleDepositCollateral = async () => {
@@ -153,15 +157,16 @@ export function CompleteWorkflowModal({
       }
 
       // Step 2: Create the loan
-      setProcessingMessage("Creating loan contract...");
-      const created = await createLoan(
+      setProcessingMessage("Depositing NFT as collateral...");
+      const created = await depositNFTCollateral(
         BigInt(nft.tokenId),
         parseUnits(loanData.requestedAmount.toString(), 6),
-        loanData.estimatedAPR * 100
+        loanData.estimatedAPR,
+        0 // assetType 0 for Real Estate
       );
 
       if (!created) {
-        throw new Error("Loan creation failed. Please try again.");
+        throw new Error("Collateral deposit failed. Please try again.");
       }
 
       setProcessingMessage("Loan created successfully!");
@@ -175,7 +180,7 @@ export function CompleteWorkflowModal({
     }
   };
 
-  const handleAIAssessment = async () => {
+  const handleAIAssessment = async (amount: number, isLenderFlow = false) => {
     setIsProcessing(true);
     setError(null);
     setProcessingMessage("AI analyzing property and market conditions...");
@@ -187,7 +192,7 @@ export function CompleteWorkflowModal({
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
           propertyValue: (nft as any).propertyValue || 0,
-          loanAmount: loanData.requestedAmount,
+          loanAmount: amount,
           propertyType: "Single Family",
           location: (nft as any).location || "Unknown Location",
           yearBuilt: 2005,
@@ -208,6 +213,14 @@ export function CompleteWorkflowModal({
         }));
         setProcessingMessage("AI assessment complete - loan terms optimized!");
         setAssessmentComplete(true);
+
+        if (isLenderFlow || mode === "lend") {
+          setAiStrategy({
+            protocol: "Aave",
+            apy: 3.2,
+            projectedYield: amount * 0.032,
+          });
+        }
       } else {
         throw new Error(result.error || "Risk assessment failed");
       }
@@ -220,11 +233,17 @@ export function CompleteWorkflowModal({
         riskScore: 45, // Default medium risk
         estimatedAPR: 6.5, // Default APR
       }));
-      setProcessingMessage("Using default risk assessment");
+      // Generate a mock AI strategy on error
+      setAiStrategy({
+        protocol: "Aave",
+        apy: 3.2,
+        projectedYield: amount * 0.032,
+      });
+      setProcessingMessage("Using default risk assessment and strategy");
       setAssessmentComplete(true);
+    } finally {
+      setIsProcessing(false);
     }
-
-    setIsProcessing(false);
   };
 
   const handleCrossChainFunding = async () => {
@@ -252,10 +271,14 @@ export function CompleteWorkflowModal({
       }
 
       setProcessingMessage("Funding loan via contract hook...");
-      const funded = await fundLoan(Number(loanToFund.loanId));
+      const fee = parseEther("0.01"); // Hardcoded fee, can be replaced by estimation
+      const funded = await fundLoan(Number(loanToFund.loanId), fee);
       if (!funded) {
         throw new Error("Funding failed. Please try again.");
       }
+
+      setProcessingMessage("Loan funded successfully!");
+      setCurrentStep("complete");
     } catch (err: any) {
       setError(
         `Cross-chain funding failed: ${err.shortMessage || err.message}`
@@ -279,6 +302,8 @@ export function CompleteWorkflowModal({
         return <Shield className="w-6 h-6 text-cyan-400" />;
       case "ai_assessment":
         return <Zap className="w-6 h-6 text-purple-400" />;
+      case "ai_strategy":
+        return <BrainCircuit className="w-6 h-6 text-orange-400" />;
       case "fund":
         return <Globe className="w-6 h-6 text-blue-400" />;
       case "complete":
@@ -287,38 +312,35 @@ export function CompleteWorkflowModal({
   };
 
   const getStepIndex = (step: WorkflowStep) => {
-    const steps = ["ai_assessment", "deposit", "fund", "complete"];
-    return steps.indexOf(step);
+    if (mode === "lend") {
+      const lendSteps: WorkflowStep[] = [
+        "ai_assessment",
+        "ai_strategy",
+        "fund",
+        "complete",
+      ];
+      return lendSteps.indexOf(step);
+    }
+    const borrowSteps: WorkflowStep[] = [
+      "ai_assessment",
+      "deposit",
+      "complete",
+    ];
+    return borrowSteps.indexOf(step);
   };
 
   const renderStepContent = () => {
-    const stepLabels = {
-      setup:
-        mode === "borrow"
-          ? "Setup Collateral"
-          : mode === "lend"
-          ? "Select Loan to Fund"
-          : "Purchase Details",
-      assess: "AI Risk Assessment",
-      fund:
-        mode === "borrow"
-          ? "Get Funded"
-          : mode === "lend"
-          ? "Fund Loan"
-          : "Complete Purchase",
-      complete: "Complete",
-    };
-
     switch (currentStep) {
       case "deposit":
         return (
           <div className="space-y-6">
             <div className="text-center">
               <h3 className="text-xl font-bold text-white mb-2">
-                Deposit NFT Collateral
+                Confirm Loan Request
               </h3>
               <p className="text-gray-400">
-                Step 2: Secure your property NFT as loan collateral
+                Step 2: Review and submit your loan request. Your NFT will be
+                held as collateral.
               </p>
             </div>
 
@@ -385,7 +407,7 @@ export function CompleteWorkflowModal({
                   {processingMessage || "Processing..."}
                 </div>
               ) : (
-                "Deposit NFT as Collateral"
+                "Submit Loan Request"
               )}
             </button>
           </div>
@@ -443,7 +465,7 @@ export function CompleteWorkflowModal({
 
             {!assessmentComplete ? (
               <button
-                onClick={handleAIAssessment}
+                onClick={() => handleAIAssessment(loanData.requestedAmount)}
                 disabled={isProcessing}
                 className="w-full bg-purple-600 hover:bg-purple-700 disabled:bg-gray-600 text-white font-semibold py-3 px-4 rounded-lg transition-colors"
               >
@@ -458,12 +480,103 @@ export function CompleteWorkflowModal({
               </button>
             ) : (
               <button
-                onClick={() => setCurrentStep("deposit")}
+                onClick={() =>
+                  setCurrentStep(mode === "lend" ? "ai_strategy" : "deposit")
+                }
                 className="w-full bg-cyan-600 hover:bg-cyan-700 text-white font-semibold py-3 px-4 rounded-lg transition-colors"
               >
-                Continue to Deposit
+                Proceed
               </button>
             )}
+          </div>
+        );
+      case "ai_strategy":
+        return (
+          <div className="space-y-6">
+            <div className="text-center">
+              <h3 className="text-xl font-bold text-white mb-2">
+                AI-Powered Yield Strategy
+              </h3>
+              <p className="text-gray-400">
+                The AI suggests an optimal yield-farming strategy for the loaned
+                capital.
+              </p>
+            </div>
+
+            <div className="bg-orange-900/20 border border-orange-500/30 rounded-xl p-4">
+              <div className="flex items-start gap-3">
+                <BrainCircuit className="w-5 h-5 text-orange-400 mt-0.5" />
+                <div>
+                  <h4 className="text-orange-400 font-medium">
+                    Automated Yield Farming on Avalanche
+                  </h4>
+                  <p className="text-orange-300 text-sm mt-1">
+                    Funds will be deposited into Aave to generate additional
+                    yield for the lender while the borrower receives their
+                    principal.
+                  </p>
+                </div>
+              </div>
+            </div>
+
+            {aiStrategy && (
+              <div className="bg-gray-800/50 rounded-xl p-4 border border-gray-700 space-y-4">
+                <h4 className="text-white font-semibold mb-3">
+                  Strategy Details
+                </h4>
+                <div className="flex items-center justify-between">
+                  <span className="text-gray-400">Protocol:</span>
+                  <span className="text-white font-bold">
+                    {aiStrategy.protocol}
+                  </span>
+                </div>
+                <div className="flex items-center justify-between">
+                  <span className="text-gray-400">Projected APY:</span>
+                  <span className="text-green-400 font-bold">
+                    {aiStrategy.apy.toFixed(2)}%
+                  </span>
+                </div>
+                <div className="flex items-center justify-between">
+                  <span className="text-gray-400">Est. Extra Yield (1yr):</span>
+                  <span className="text-green-400 font-bold">
+                    {formatCurrency(aiStrategy.projectedYield)}
+                  </span>
+                </div>
+              </div>
+            )}
+
+            <div className="flex items-center justify-center space-x-4 text-sm text-gray-300">
+              <div className="text-center">
+                <div className="p-3 bg-gray-700 rounded-full mb-2">
+                  {" "}
+                  <Globe className="w-6 h-6 text-blue-400" />
+                </div>
+                Sepolia
+              </div>
+              <ArrowRight className="w-6 h-6 text-gray-500" />
+              <div className="text-center">
+                <div className="p-3 bg-gray-700 rounded-full mb-2">
+                  {" "}
+                  <TrendingUp className="w-6 h-6 text-red-400" />
+                </div>
+                Avalanche
+              </div>
+              <ArrowRight className="w-6 h-6 text-gray-500" />
+              <div className="text-center">
+                <div className="p-3 bg-gray-700 rounded-full mb-2">
+                  {" "}
+                  <Shield className="w-6 h-6 text-purple-400" />
+                </div>
+                Aave
+              </div>
+            </div>
+
+            <button
+              onClick={() => setCurrentStep("fund")}
+              className="w-full bg-orange-600 hover:bg-orange-700 text-white font-semibold py-3 px-4 rounded-lg transition-colors"
+            >
+              Proceed to Funding
+            </button>
           </div>
         );
 
@@ -548,11 +661,13 @@ export function CompleteWorkflowModal({
             <CheckCircle className="w-16 h-16 text-green-400 mx-auto" />
             <div>
               <h3 className="text-xl font-bold text-white mb-2">
-                Workflow Complete!
+                {mode === "borrow"
+                  ? "Loan Request Submitted!"
+                  : "Loan Funded Successfully!"}
               </h3>
               <p className="text-gray-400">
                 {mode === "borrow"
-                  ? "Your NFT is now collateralized and ready for funding"
+                  ? "Your NFT is now collateralized and your loan is listed on the marketplace."
                   : "Loan funded successfully via Chainlink CCIP"}
               </p>
             </div>
@@ -568,7 +683,7 @@ export function CompleteWorkflowModal({
         <div className="flex items-center justify-between p-6 border-b border-gray-700">
           <h2 className="text-2xl font-bold text-white">
             {mode === "borrow"
-              ? "Borrow Against NFT"
+              ? "Request a Loan"
               : mode === "lend"
               ? "Fund Loan"
               : "Purchase Property"}{" "}
@@ -582,23 +697,24 @@ export function CompleteWorkflowModal({
         {/* Progress Steps */}
         <div className="p-6 border-b border-gray-700">
           <div className="flex items-center justify-between">
-            {(
-              ["ai_assessment", "deposit", "fund", "complete"] as WorkflowStep[]
+            {(mode === "lend"
+              ? ["ai_assessment", "ai_strategy", "fund", "complete"]
+              : ["ai_assessment", "deposit", "complete"]
             ).map((step, index) => (
               <div key={step} className="flex items-center">
                 <div
                   className={`flex items-center justify-center w-10 h-10 rounded-full border-2 ${
-                    getStepIndex(currentStep) >= index
+                    getStepIndex(currentStep as WorkflowStep) >= index
                       ? "border-cyan-400 bg-cyan-400/20"
                       : "border-gray-600"
                   }`}
                 >
-                  {getStepIcon(step)}
+                  {getStepIcon(step as WorkflowStep)}
                 </div>
-                {index < 3 && (
+                {index < (mode === "lend" ? 3 : 2) && (
                   <div
                     className={`w-16 h-0.5 mx-2 ${
-                      getStepIndex(currentStep) > index
+                      getStepIndex(currentStep as WorkflowStep) > index
                         ? "bg-cyan-400"
                         : "bg-gray-600"
                     }`}

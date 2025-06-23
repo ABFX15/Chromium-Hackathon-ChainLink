@@ -5,6 +5,8 @@ import { readContract, waitForTransactionReceipt } from "@wagmi/core";
 import { config } from "@/app/lib/wagmi";
 import { useState, useEffect, useCallback } from "react";
 import { Address } from "viem";
+import { toast } from "react-hot-toast";
+import { SupportedChainKey } from "@/app/lib/chains";
 
 import { CONTRACT_ADDRESSES } from "@/lib/contracts";
 import { Loan, PropertyNFT as NFTMetadata } from "@/types/contracts";
@@ -12,13 +14,33 @@ import { Loan, PropertyNFT as NFTMetadata } from "@/types/contracts";
 import LoanManagerABI from "@/abis/LoanManager.json";
 import PropertyNFTABI from "@/abis/PropertyNFT.json";
 import MockUSDCABI from "@/abis/MockUSDC.json";
+import CrossChainLiquidityPoolABI from "@/abis/CrossChainLiquidityPool.json";
+
+// --- Helper function for fetching with retry ---
+const fetchWithRetry = async (url: string, retries = 5, delay = 2000): Promise<Response> => {
+    for (let i = 0; i < retries; i++) {
+        const response = await fetch(url);
+        if (response.ok) {
+            return response;
+        }
+        if (i < retries - 1) {
+            console.log(`Attempt ${i + 1} failed with status ${response.status}. Retrying in ${delay / 1000}s...`);
+            await new Promise(resolve => setTimeout(resolve, delay));
+        } else {
+            return response;
+        }
+    }
+    throw new Error("fetchWithRetry failed after all retries.");
+};
+
+export type NFT = NFTMetadata & { isSyncing?: boolean };
 
 export const useContracts = () => {
     const { address, isConnected } = useAccount();
-    const [userNFTs, setUserNFTs] = useState<NFTMetadata[]>([]);
+    const [userNFTs, setUserNFTs] = useState<NFT[]>([]);
     const [userLoans, setUserLoans] = useState<Loan[]>([]);
     const [loading, setLoading] = useState(false);
-    const [allProperties, setAllProperties] = useState<NFTMetadata[]>([]);
+    const [allProperties, setAllProperties] = useState<NFT[]>([]);
     const [allLoans, setAllLoans] = useState<Loan[]>([]);
 
     const { data: userUSDCBalance } = useReadContract({
@@ -35,61 +57,103 @@ export const useContracts = () => {
     const [minting, setMinting] = useState(false);
     const [approving, setApproving] = useState(false);
     const [creatingLoan, setCreatingLoan] = useState(false);
+    const [addingLiquidity, setAddingLiquidity] = useState(false);
 
-    const executeContractWrite = async (setLoadingState: (loading: boolean) => void, params: any): Promise<boolean> => {
-        if (!address) return false;
+    const executeContractWrite = async (setLoadingState: (loading: boolean) => void, params: any): Promise<Address | undefined> => {
+        if (!address) {
+            toast.error("Please connect your wallet first.");
+            return undefined;
+        };
         setLoadingState(true);
         try {
             const hash = await writeContractAsync(params);
+            toast.loading("Transaction submitted... waiting for confirmation.", { id: hash });
             await waitForTransactionReceipt(config, { hash });
-            return true;
-        } catch (error) {
+            toast.success("Transaction Confirmed!", { id: hash });
+            return hash;
+        } catch (error: any) {
             console.error("Contract write error:", error);
-            return false;
+            const message = error.shortMessage || error.message;
+            toast.error(message.includes("User rejected the request") ? "Transaction rejected." : `Error: ${message}`);
+            return undefined;
         } finally {
             setLoadingState(false);
         }
     };
 
-    const approveNFT = (tokenId: bigint) => executeContractWrite(setApproving, {
+    const approveNFT = (tokenId: bigint): Promise<Address | undefined> => executeContractWrite(setApproving, {
         address: CONTRACT_ADDRESSES.PROPERTY_NFT as Address,
         abi: PropertyNFTABI.abi,
         functionName: "approve",
         args: [CONTRACT_ADDRESSES.LOAN_MANAGER as Address, tokenId],
     });
 
-    const approveUSDC = (amount: bigint) => executeContractWrite(setApproving, {
+    const approveUSDC = (amount: bigint): Promise<Address | undefined> => executeContractWrite(setApproving, {
         address: CONTRACT_ADDRESSES.USDC as Address,
         abi: MockUSDCABI.abi,
         functionName: "approve",
         args: [CONTRACT_ADDRESSES.LOAN_MANAGER as Address, amount],
     });
 
-
-    const createLoan = (tokenId: bigint, amount: bigint, apr: number) => executeContractWrite(setCreatingLoan, {
+    const repayLoan = (loanId: bigint): Promise<Address | undefined> => executeContractWrite(() => { }, {
         address: CONTRACT_ADDRESSES.LOAN_MANAGER as Address,
         abi: LoanManagerABI.abi,
-        functionName: "createLoan",
-        args: [tokenId, amount, BigInt(apr)],
+        functionName: "repayLoan",
+        args: [loanId],
     });
 
-    const fundLoan = (loanId: number) => executeContractWrite(setCreatingLoan, {
+    const depositNFTCollateral = (tokenId: bigint, amount: bigint, apr: number, assetType: number): Promise<Address | undefined> => executeContractWrite(setCreatingLoan, {
+        address: CONTRACT_ADDRESSES.LOAN_MANAGER as Address,
+        abi: LoanManagerABI.abi,
+        functionName: "depositNFTCollateral",
+        args: [tokenId, amount, BigInt(assetType), BigInt(Math.round(apr * 100))],
+    });
+
+    const fundLoan = (loanId: number, fee: bigint): Promise<Address | undefined> => executeContractWrite(setCreatingLoan, {
         address: CONTRACT_ADDRESSES.LOAN_MANAGER as Address,
         abi: LoanManagerABI.abi,
         functionName: "fundLoanCrossChain",
         args: [BigInt(loanId)],
+        value: fee,
     });
 
-    const mintPropertyNFT = async (metadataUrl: string, propertyValue: number) => {
-        return executeContractWrite(() => { }, {
+    const mintPropertyNFT = async (metadataUrl: string): Promise<Address | undefined> => {
+        return executeContractWrite(setMinting, {
             address: CONTRACT_ADDRESSES.PROPERTY_NFT as Address,
             abi: PropertyNFTABI.abi,
             functionName: 'safeMint',
-            args: [address, BigInt(propertyValue), metadataUrl],
+            args: [address, metadataUrl],
         });
     };
 
+    const addCCIPLiquidity = async (destinationChainSelector: bigint, amount: bigint, fee: bigint): Promise<Address | undefined> => {
+        return executeContractWrite(setAddingLiquidity, {
+            address: CONTRACT_ADDRESSES.CROSS_CHAIN_LIQUIDITY_POOL as Address,
+            abi: CrossChainLiquidityPoolABI as any,
+            functionName: 'addLiquidity',
+            args: [destinationChainSelector, amount],
+            value: fee,
+        });
+    };
+
+    const estimateCCIPFee = useCallback(async (destinationChain: SupportedChainKey) => {
+        if (!address) return BigInt(0);
+        try {
+            const fee = await readContract(config, {
+                address: CONTRACT_ADDRESSES.CROSS_CHAIN_LIQUIDITY_POOL as Address,
+                abi: CrossChainLiquidityPoolABI as any,
+                functionName: "estimateFee",
+                args: [destinationChain],
+            });
+            return fee as bigint;
+        } catch (error) {
+            console.error("Fee estimation error:", error);
+            return BigInt(0);
+        }
+    }, [address]);
+
     const loadAllProperties = useCallback(async () => {
+        console.log("Loading all properties...");
         setLoading(true);
         try {
             const totalSupply = await readContract(config, {
@@ -112,7 +176,7 @@ export const useContracts = () => {
                     }
                 }
 
-                const nfts: NFTMetadata[] = [];
+                const nfts: NFT[] = [];
                 for (let i = 0; i < Number(totalSupply); i++) {
                     try {
                         const tokenId = await readContract(config, {
@@ -132,9 +196,22 @@ export const useContracts = () => {
                         if (tokenURI) {
                             const ipfsGatewayUrl = "https://gateway.pinata.cloud/ipfs/";
                             const metadataUrl = tokenURI.replace("ipfs://", ipfsGatewayUrl);
-                            const metadataResponse = await fetch(metadataUrl);
+                            const metadataResponse = await fetchWithRetry(metadataUrl);
 
-                            if (!metadataResponse.ok) continue;
+                            if (!metadataResponse.ok) {
+                                const owner = await readContract(config, { address: CONTRACT_ADDRESSES.PROPERTY_NFT as Address, abi: PropertyNFTABI.abi, functionName: 'ownerOf', args: [tokenId] }) as Address;
+                                nfts.push({
+                                    id: tokenId.toString(),
+                                    tokenId: Number(tokenId),
+                                    name: `Property #${tokenId.toString()}`,
+                                    description: 'Metadata is propagating. Please check back shortly.',
+                                    image: '/properties/mock-2.jpg',
+                                    owner: owner,
+                                    isCollateral: collateralizedTokenIds.has(tokenId),
+                                    propertyValue: 0, price: 0, maxLoan: 0, location: 'Syncing...', riskScore: 0, isSyncing: true,
+                                });
+                                continue;
+                            }
 
                             const metadata = await metadataResponse.json();
                             const propertyValue = metadata.attributes?.find((a: any) => a.trait_type === 'Property Value')?.value || 0;
@@ -150,11 +227,9 @@ export const useContracts = () => {
                                 image: imageUrl,
                                 owner: owner,
                                 isCollateral: collateralizedTokenIds.has(tokenId),
-                                propertyValue,
-                                price: propertyValue,
-                                maxLoan: propertyValue * 0.7,
+                                propertyValue, price: propertyValue, maxLoan: propertyValue * 0.7,
                                 location: metadata.attributes?.find((a: any) => a.trait_type === 'Location')?.value || 'N/A',
-                                riskScore: riskScore,
+                                riskScore: riskScore, isSyncing: false,
                             });
                         }
                     } catch (e) {
@@ -174,114 +249,109 @@ export const useContracts = () => {
         }
     }, [address]);
 
-    useEffect(() => {
-        const loadUserData = async () => {
-            if (!address || !isConnected) {
-                setUserNFTs([]);
-                setUserLoans([]);
-                return;
-            }
-            setLoading(true);
-            try {
-                const nextLoanId = await readContract(config, { address: CONTRACT_ADDRESSES.LOAN_MANAGER as Address, abi: LoanManagerABI.abi, functionName: "nextLoanId" }) as bigint;
-                const loans: Loan[] = [];
-                const allLoansTemp: Loan[] = [];
-                const collateralizedTokenIds = new Set<bigint>();
-                for (let i = 1; i < Number(nextLoanId); i++) {
-                    try {
-                        const loanData = await readContract(config, { address: CONTRACT_ADDRESSES.LOAN_MANAGER as Address, abi: LoanManagerABI.abi, functionName: "loans", args: [BigInt(i)] }) as any;
-                        const loan: Loan = { loanId: loanData[0], tokenId: loanData[1], principalAmount: loanData[2], interestRate: loanData[3], startTimestamp: loanData[4], borrower: loanData[5], lender: loanData[6], isActive: loanData[7], isFunded: loanData[8] };
-                        allLoansTemp.push(loan);
+    const loadUserData = useCallback(async () => {
+        if (!address || !isConnected) {
+            setUserNFTs([]);
+            setUserLoans([]);
+            return;
+        }
+        console.log("Loading user data...");
+        setLoading(true);
+        try {
+            const nextLoanId = await readContract(config, { address: CONTRACT_ADDRESSES.LOAN_MANAGER as Address, abi: LoanManagerABI.abi, functionName: "nextLoanId" }) as bigint;
+            const loans: Loan[] = [];
+            const allLoansTemp: Loan[] = [];
+            const collateralizedTokenIds = new Set<bigint>();
+            for (let i = 1; i < Number(nextLoanId); i++) {
+                try {
+                    const loanData = await readContract(config, { address: CONTRACT_ADDRESSES.LOAN_MANAGER as Address, abi: LoanManagerABI.abi, functionName: "loans", args: [BigInt(i)] }) as any;
+                    const loan: Loan = { loanId: loanData[0], tokenId: loanData[1], principalAmount: loanData[2], interestRate: loanData[3], startTimestamp: loanData[4], borrower: loanData[5], lender: loanData[6], isActive: loanData[7], isFunded: loanData[8] };
+                    allLoansTemp.push(loan);
 
-                        if (loanData && (loanData[5] === address || loanData[6] === address)) {
-                            loans.push(loan);
-                        }
-                        if (loan.isActive) collateralizedTokenIds.add(loan.tokenId);
-                    } catch (e) {
-                        console.warn(`Could not fetch loan with ID ${i}:`, e);
+                    if (loanData && (loanData[5] === address || loanData[6] === address)) {
+                        loans.push(loan);
                     }
+                    if (loan.isActive) collateralizedTokenIds.add(loan.tokenId);
+                } catch (e) {
+                    console.warn(`Could not fetch loan with ID ${i}:`, e);
                 }
+            }
 
-                // If using mock properties, add a mock loan for the lendable property
-                if (allProperties.some(p => p.id.startsWith('mock-'))) {
-                    allLoansTemp.push({
-                        loanId: BigInt(101),
-                        tokenId: BigInt(9002), // Sunny Beachside Bungalow
-                        principalAmount: BigInt(840000 * 1e6),
-                        interestRate: BigInt(7.5 * 100),
-                        startTimestamp: BigInt(Math.floor(Date.now() / 1000)),
-                        borrower: '0xMockBorrower',
-                        lender: '0x0000000000000000000000000000000000000000',
-                        isActive: true,
-                        isFunded: false,
-                    });
-                }
+            setUserLoans(loans);
+            setAllLoans(allLoansTemp);
 
-                setUserLoans(loans);
-                setAllLoans(allLoansTemp);
+            const balance = await readContract(config, { address: CONTRACT_ADDRESSES.PROPERTY_NFT as Address, abi: PropertyNFTABI.abi, functionName: 'balanceOf', args: [address] }) as bigint;
+            const nfts: NFT[] = [];
+            for (let i = 0; i < Number(balance); i++) {
+                try {
+                    const tokenId = await readContract(config, { address: CONTRACT_ADDRESSES.PROPERTY_NFT as Address, abi: PropertyNFTABI.abi, functionName: 'tokenOfOwnerByIndex', args: [address, BigInt(i)] }) as bigint;
+                    const tokenURI = await readContract(config, { address: CONTRACT_ADDRESSES.PROPERTY_NFT as Address, abi: PropertyNFTABI.abi, functionName: 'tokenURI', args: [tokenId] }) as string;
+                    if (tokenURI) {
+                        const ipfsGatewayUrl = "https://gateway.pinata.cloud/ipfs/";
+                        const metadataUrl = tokenURI.replace("ipfs://", ipfsGatewayUrl);
+                        const metadataResponse = await fetchWithRetry(metadataUrl);
 
-                const balance = await readContract(config, { address: CONTRACT_ADDRESSES.PROPERTY_NFT as Address, abi: PropertyNFTABI.abi, functionName: 'balanceOf', args: [address] }) as bigint;
-                const nfts: NFTMetadata[] = [];
-                for (let i = 0; i < Number(balance); i++) {
-                    try {
-                        const tokenId = await readContract(config, { address: CONTRACT_ADDRESSES.PROPERTY_NFT as Address, abi: PropertyNFTABI.abi, functionName: 'tokenOfOwnerByIndex', args: [address, BigInt(i)] }) as bigint;
-                        const tokenURI = await readContract(config, { address: CONTRACT_ADDRESSES.PROPERTY_NFT as Address, abi: PropertyNFTABI.abi, functionName: 'tokenURI', args: [tokenId] }) as string;
-                        if (tokenURI) {
-                            const ipfsGatewayUrl = "https://gateway.pinata.cloud/ipfs/";
-                            const metadataUrl = tokenURI.replace("ipfs://", ipfsGatewayUrl);
-
-                            const metadataResponse = await fetch(metadataUrl);
-
-                            if (!metadataResponse.ok) {
-                                console.error(`Failed to fetch NFT metadata from ${metadataUrl}. Status: ${metadataResponse.status}`);
-                                continue;
-                            }
-
-                            const metadata = await metadataResponse.json();
-                            const propertyValue = metadata.attributes?.find((a: any) => a.trait_type === 'Property Value')?.value || 0;
-                            const imageUrl = metadata.image?.replace("ipfs://", ipfsGatewayUrl) || '';
-                            const riskScore = metadata.attributes?.find((a: any) => a.trait_type === 'Risk Score')?.value || 50;
-
+                        if (!metadataResponse.ok) {
                             nfts.push({
                                 id: tokenId.toString(),
                                 tokenId: Number(tokenId),
-                                name: metadata.name || 'Unknown',
-                                description: metadata.description || '',
-                                image: imageUrl,
+                                name: `My Property #${tokenId.toString()}`,
+                                description: 'Your NFT was minted successfully. Metadata is propagating and will appear shortly.',
+                                image: '/properties/mock-1.jpg',
                                 owner: address,
                                 isCollateral: collateralizedTokenIds.has(tokenId),
-                                propertyValue,
-                                price: propertyValue,
-                                maxLoan: propertyValue * 0.7,
-                                location: metadata.attributes?.find((a: any) => a.trait_type === 'Location')?.value || 'N/A',
-                                riskScore: riskScore,
+                                propertyValue: 0, price: 0, maxLoan: 0, location: 'Syncing...', riskScore: 0, isSyncing: true,
                             });
+                            continue;
                         }
-                    } catch (e) {
-                        console.warn(`Could not process NFT with index ${i}:`, e);
+
+                        const metadata = await metadataResponse.json();
+                        const propertyValue = metadata.attributes?.find((a: any) => a.trait_type === 'Property Value')?.value || 0;
+                        const imageUrl = metadata.image?.replace("ipfs://", ipfsGatewayUrl) || '';
+                        const riskScore = metadata.attributes?.find((a: any) => a.trait_type === 'Risk Score')?.value || 50;
+
+                        nfts.push({
+                            id: tokenId.toString(),
+                            tokenId: Number(tokenId),
+                            name: metadata.name || 'Unknown',
+                            description: metadata.description || '',
+                            image: imageUrl,
+                            owner: address,
+                            isCollateral: collateralizedTokenIds.has(tokenId),
+                            propertyValue, price: propertyValue, maxLoan: propertyValue * 0.7,
+                            location: metadata.attributes?.find((a: any) => a.trait_type === 'Location')?.value || 'N/A',
+                            riskScore: riskScore, isSyncing: false,
+                        });
                     }
+                } catch (e) {
+                    console.warn(`Could not process NFT with index ${i}:`, e);
                 }
-                setUserNFTs(nfts);
-            } catch (error) {
-                console.error("Error loading user data:", error);
-                setUserNFTs([]);
-                setUserLoans([]);
-            } finally {
-                setLoading(false);
             }
-        };
-        loadUserData();
-    }, [address, isConnected, txSuccess, allProperties]);
-
-    useEffect(() => {
-        if (!isPending && !isProcessing) {
-            setMinting(false);
-            setApproving(false);
-            setCreatingLoan(false);
+            setUserNFTs(nfts);
+        } catch (error) {
+            console.error("Error loading user data:", error);
+            setUserNFTs([]);
+            setUserLoans([]);
+        } finally {
+            setLoading(false);
         }
-    }, [isPending, isProcessing]);
+    }, [address, isConnected]);
 
-    return { userNFTs, userLoans, allLoans, loading, userUSDCBalance, minting, approving, creatingLoan, isProcessing, txSuccess, createLoan, fundLoan, approveNFT, approveUSDC, mintPropertyNFT, allProperties, loadAllProperties };
+    const refreshAllData = useCallback(async () => {
+        toast.loading("Refreshing on-chain data...");
+        await Promise.all([loadAllProperties(), loadUserData()]);
+        toast.dismiss();
+        toast.success("Data refreshed!");
+    }, [loadAllProperties, loadUserData]);
+
+    // This effect runs on mount and when the user connects/disconnects.
+    useEffect(() => {
+        if (isConnected) {
+            refreshAllData();
+        }
+    }, [isConnected, refreshAllData]);
+
+    return { userNFTs, userLoans, allLoans, loading, userUSDCBalance, minting, approving, creatingLoan, isProcessing, txSuccess, depositNFTCollateral, fundLoan, approveNFT, approveUSDC, mintPropertyNFT, allProperties, loadAllProperties, addCCIPLiquidity, estimateCCIPFee, addingLiquidity, repayLoan, refreshAllData };
 };
 
 const getMockProperties = (ownerAddress?: Address): NFTMetadata[] => {
