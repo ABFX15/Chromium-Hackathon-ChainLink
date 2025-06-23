@@ -74,6 +74,7 @@ export function CompleteWorkflowModal({
   const [isProcessing, setIsProcessing] = useState(false);
   const [processingMessage, setProcessingMessage] = useState("");
   const [error, setError] = useState<string | null>(null);
+  const [assessmentComplete, setAssessmentComplete] = useState(false);
 
   const { writeContractAsync } = useWriteContract();
 
@@ -83,6 +84,7 @@ export function CompleteWorkflowModal({
       setError(null);
       setIsProcessing(false);
       setProcessingMessage("");
+      setAssessmentComplete(false);
 
       if (mode === "lend") {
         const loanToFund = allLoans.find(
@@ -205,10 +207,7 @@ export function CompleteWorkflowModal({
           estimatedAPR: newAPR,
         }));
         setProcessingMessage("AI assessment complete - loan terms optimized!");
-        setTimeout(() => {
-          setCurrentStep("deposit");
-          setProcessingMessage("");
-        }, 2000);
+        setAssessmentComplete(true);
       } else {
         throw new Error(result.error || "Risk assessment failed");
       }
@@ -222,10 +221,7 @@ export function CompleteWorkflowModal({
         estimatedAPR: 6.5, // Default APR
       }));
       setProcessingMessage("Using default risk assessment");
-      setTimeout(() => {
-        setCurrentStep("deposit");
-        setProcessingMessage("");
-      }, 1500);
+      setAssessmentComplete(true);
     }
 
     setIsProcessing(false);
@@ -445,20 +441,29 @@ export function CompleteWorkflowModal({
               </div>
             )}
 
-            <button
-              onClick={handleAIAssessment}
-              disabled={isProcessing}
-              className="w-full bg-purple-600 hover:bg-purple-700 disabled:bg-gray-600 text-white font-semibold py-3 px-4 rounded-lg transition-colors"
-            >
-              {isProcessing ? (
-                <div className="flex items-center justify-center gap-2">
-                  <Zap className="w-4 h-4 animate-spin" />
-                  Running AI Assessment...
-                </div>
-              ) : (
-                "Run AI Risk Assessment"
-              )}
-            </button>
+            {!assessmentComplete ? (
+              <button
+                onClick={handleAIAssessment}
+                disabled={isProcessing}
+                className="w-full bg-purple-600 hover:bg-purple-700 disabled:bg-gray-600 text-white font-semibold py-3 px-4 rounded-lg transition-colors"
+              >
+                {isProcessing ? (
+                  <div className="flex items-center justify-center gap-2">
+                    <Zap className="w-4 h-4 animate-spin" />
+                    Running AI Assessment...
+                  </div>
+                ) : (
+                  "Run AI Risk Assessment"
+                )}
+              </button>
+            ) : (
+              <button
+                onClick={() => setCurrentStep("deposit")}
+                className="w-full bg-cyan-600 hover:bg-cyan-700 text-white font-semibold py-3 px-4 rounded-lg transition-colors"
+              >
+                Continue to Deposit
+              </button>
+            )}
           </div>
         );
 

@@ -4,13 +4,24 @@ import { useState, useMemo, useEffect } from "react";
 import { useContracts } from "@/app/hooks/useContracts";
 import { PropertyNFTCard } from "@/app/components/PropertyNFTCard";
 import { AdvancedSearch, SearchFilters } from "@/app/components/AdvancedSearch";
-import { Building } from "lucide-react";
+import {
+  Building,
+  Building2,
+  Landmark,
+  DollarSign,
+  TrendingUp,
+} from "lucide-react";
 import { PropertyNFT } from "@/types/contracts";
 import { Skeleton } from "@/app/components/ui/skeleton";
 import { CompleteWorkflowModal } from "@/app/components/CompleteWorkflowModal";
+import { Card } from "@/app/components/ui/card";
 
 export default function MarketplacePage() {
-  const { allProperties: nfts, loading, loadAllProperties } = useContracts();
+  const {
+    allProperties: properties,
+    loading,
+    loadAllProperties,
+  } = useContracts();
   const [searchTerm, setSearchTerm] = useState("");
   const [filters, setFilters] = useState<SearchFilters>({
     priceRange: [0, 5000000],
@@ -34,8 +45,8 @@ export default function MarketplacePage() {
   };
 
   const filteredNfts = useMemo(() => {
-    if (!nfts) return [];
-    return nfts.filter((nft) => {
+    if (!properties) return [];
+    return properties.filter((nft) => {
       const nameMatch = nft.name
         .toLowerCase()
         .includes(searchTerm.toLowerCase());
@@ -53,61 +64,113 @@ export default function MarketplacePage() {
 
       return nameMatch && priceMatch && typeMatch && locationMatch;
     });
-  }, [nfts, searchTerm, filters]);
+  }, [properties, searchTerm, filters]);
+
+  const stats = useMemo(() => {
+    const totalValue = properties.reduce(
+      (sum, nft) => sum + (nft.propertyValue || 0),
+      0
+    );
+    const availableForLoan = properties.filter(
+      (nft) => !nft.isCollateral
+    ).length;
+
+    return [
+      {
+        title: "Total Properties Listed",
+        value: properties.length,
+        icon: Building2,
+        color: "from-cyan-500 to-cyan-600",
+        description: "All properties available on the platform",
+      },
+      {
+        title: "Total Value Locked",
+        value: `$${(totalValue / 1_000_000).toFixed(1)}M`,
+        icon: Landmark,
+        color: "from-blue-500 to-blue-600",
+        description: "Total value of all listed assets",
+      },
+      {
+        title: "Available for Loans",
+        value: availableForLoan,
+        icon: DollarSign,
+        color: "from-green-500 to-green-600",
+        description: "Properties ready for new loan applications",
+      },
+      {
+        title: "Avg. Property Value",
+        value: `$${(totalValue / (properties.length || 1) / 1000).toFixed(0)}K`,
+        icon: TrendingUp,
+        color: "from-purple-500 to-purple-600",
+        description: "Average value per listed property",
+      },
+    ];
+  }, [properties]);
+
+  if (loading && properties.length === 0) {
+    return (
+      <div className="flex justify-center items-center h-screen">
+        <div className="text-white">Loading marketplace...</div>
+      </div>
+    );
+  }
 
   return (
-    <div className="min-h-screen p-6 space-y-8">
-      {/* Header */}
-      <div>
-        <h1 className="text-3xl font-bold text-white mb-2 font-heading">
-          Real World Asset Marketplace
-        </h1>
-        <p className="text-white/60">
-          Browse, purchase, and invest in tokenized real-world properties.
-        </p>
+    <div className="min-h-screen text-white p-6">
+      <div className="absolute inset-0 -z-10 overflow-hidden">
+        <div className="absolute top-20 left-20 w-96 h-96 bg-purple-500/5 rounded-full blur-3xl animate-pulse"></div>
+        <div className="absolute bottom-20 right-20 w-96 h-96 bg-green-500/5 rounded-full blur-3xl animate-pulse delay-1000"></div>
       </div>
 
-      {/* Search and Filters */}
-      <AdvancedSearch
-        onSearchChange={setSearchTerm}
-        onFiltersChange={setFilters}
-      />
-
-      {/* Properties Grid */}
-      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-6">
-        {loading
-          ? Array.from({ length: 8 }).map((_, i) => (
-              <div key={i} className="glass-effect rounded-2xl p-4 space-y-3">
-                <Skeleton className="h-48 w-full rounded-xl bg-gray-700/50" />
-                <Skeleton className="h-6 w-3/4 rounded-lg bg-gray-700/50" />
-                <Skeleton className="h-4 w-1/2 rounded-lg bg-gray-700/50" />
-                <Skeleton className="h-8 w-full rounded-lg bg-gray-700/50" />
-              </div>
-            ))
-          : filteredNfts.map((nft: PropertyNFT) => (
-              <PropertyNFTCard
-                key={nft.id}
-                nft={nft}
-                showBuyButton={true}
-                onBuy={handleBuyClick}
-              />
-            ))}
-      </div>
-
-      {!loading && filteredNfts.length === 0 && (
-        <div className="text-center py-20 col-span-full">
-          <div className="w-16 h-16 bg-gray-700/50 rounded-full flex items-center justify-center mx-auto mb-4">
-            <Building className="w-8 h-8 text-gray-400" />
+      <div className="relative max-w-7xl mx-auto space-y-8">
+        <div className="text-center space-y-4">
+          <div className="flex items-center justify-center gap-3">
+            <Building2 className="w-8 h-8 text-cyan-400" />
+            <h1 className="text-4xl lg:text-5xl font-bold font-heading bg-gradient-to-r from-white via-cyan-200 to-blue-300 bg-clip-text text-transparent">
+              Real World Asset Marketplace
+            </h1>
           </div>
-          <h3 className="text-xl font-medium text-white mb-2">
-            No properties found
-          </h3>
-          <p className="text-gray-400">
-            Try adjusting your search or filters to find what you're looking
-            for.
+          <p className="text-xl text-gray-300 max-w-2xl mx-auto">
+            Browse, purchase, and invest in tokenized real-world properties.
           </p>
         </div>
-      )}
+
+        {/* Stats Grid */}
+        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
+          {stats.map((stat) => (
+            <Card
+              key={stat.title}
+              className="bg-gradient-to-br from-white/5 to-white/10 backdrop-blur-xl border-white/20 hover:border-white/30 transition-all duration-300 hover:scale-105"
+            >
+              <div className="p-6">
+                <div className="flex items-center justify-between mb-4">
+                  <div
+                    className={`p-3 rounded-xl bg-gradient-to-r ${stat.color}`}
+                  >
+                    <stat.icon className="w-6 h-6 text-white" />
+                  </div>
+                </div>
+                <div className="space-y-1">
+                  <p className="text-3xl font-bold text-white">{stat.value}</p>
+                  <p className="font-medium text-gray-300">{stat.title}</p>
+                  <p className="text-sm text-gray-400">{stat.description}</p>
+                </div>
+              </div>
+            </Card>
+          ))}
+        </div>
+
+        <Card className="bg-gradient-to-br from-white/5 to-white/10 backdrop-blur-xl border-white/20 p-6">
+          <h2 className="text-2xl font-bold font-heading text-white mb-6">
+            All Properties ({properties.length})
+          </h2>
+          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-6">
+            {properties.map((nft) => (
+              <PropertyNFTCard key={nft.id} nft={nft} />
+            ))}
+          </div>
+        </Card>
+      </div>
 
       {selectedNft && (
         <CompleteWorkflowModal
