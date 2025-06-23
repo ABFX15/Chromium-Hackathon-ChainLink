@@ -8,7 +8,7 @@ import {
 } from "@/lib/utils";
 import { Loan } from "@/types/contracts";
 import { useToast } from "@/hooks/use-toast";
-import { useContracts } from "../hooks/useContracts";
+import { useContracts } from "../contexts/ContractsContext";
 
 interface LoanCardProps {
   loan: Loan;

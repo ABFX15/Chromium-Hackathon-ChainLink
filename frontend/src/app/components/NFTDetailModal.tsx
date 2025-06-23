@@ -14,7 +14,7 @@ import {
 import { formatCurrency } from "@/lib/utils";
 import { CompleteWorkflowModal } from "./CompleteWorkflowModal";
 import { useAccount } from "wagmi";
-import { useContracts } from "../hooks/useContracts";
+import { useContracts } from "../contexts/ContractsContext";
 
 interface NFTDetailModalProps {
   nft: PropertyNFT | null;

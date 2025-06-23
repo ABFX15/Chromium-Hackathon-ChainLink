@@ -16,7 +16,8 @@ import {
 } from "lucide-react";
 import { CompleteWorkflowModal } from "./CompleteWorkflowModal";
 import { useAccount } from "wagmi";
-import { useContracts, NFT as ContractNFT } from "../hooks/useContracts";
+import { useContracts } from "../contexts/ContractsContext";
+import { NFT as ContractNFT } from "../hooks/useContracts";
 
 interface PropertyNFTCardProps {
   nft: ContractNFT;

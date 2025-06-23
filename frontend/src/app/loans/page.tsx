@@ -1,7 +1,7 @@
 "use client";
 
 import { useMemo } from "react";
-import { useContracts } from "@/app/hooks/useContracts";
+import { useContracts } from "../contexts/ContractsContext";
 import { formatCurrency } from "@/lib/utils";
 import { Button } from "@/app/components/ui/button";
 import {

@@ -1,7 +1,7 @@
 "use client";
 
 import { useState, useMemo } from "react";
-import { useContracts } from "@/app/hooks/useContracts";
+import { useContracts } from "../contexts/ContractsContext";
 import { useLoanHealth, type LoanHealth } from "@/hooks/use-loan-health";
 import {
   Card,
@@ -11,13 +11,13 @@ import {
 } from "../components/ui/card";
 import { Badge } from "../components/ui/badge";
 import { Button } from "../components/ui/button";
-import { 
-  Shield, 
-  Zap, 
-  Target, 
-  AlertTriangle, 
-  Clock, 
-  TrendingUp, 
+import {
+  Shield,
+  Zap,
+  Target,
+  AlertTriangle,
+  Clock,
+  TrendingUp,
   Activity,
   RefreshCw,
   Eye,
@@ -166,31 +166,31 @@ export default function LiquidationPage() {
         {/* Stats Grid */}
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
           {[
-            { 
-              title: "Total Monitored", 
-              value: loans.length, 
-              icon: Target, 
+            {
+              title: "Total Monitored",
+              value: loans.length,
+              icon: Target,
               color: "from-blue-500 to-blue-600",
               description: "Active loans under surveillance",
             },
-            { 
-              title: "At Risk", 
-              value: atRiskLoans.length, 
-              icon: AlertTriangle, 
+            {
+              title: "At Risk",
+              value: atRiskLoans.length,
+              icon: AlertTriangle,
               color: "from-orange-500 to-orange-600",
               description: "Loans requiring attention",
             },
-            { 
-              title: "Automated", 
-              value: loans.length, 
-              icon: Zap, 
+            {
+              title: "Automated",
+              value: loans.length,
+              icon: Zap,
               color: "from-green-500 to-green-600",
               description: "Protected by smart contracts",
             },
-            { 
-              title: "Threshold", 
-              value: "80%", 
-              icon: Activity, 
+            {
+              title: "Threshold",
+              value: "80%",
+              icon: Activity,
               color: "from-purple-500 to-purple-600",
               description: "Liquidation trigger point",
             },
@@ -226,7 +226,7 @@ export default function LiquidationPage() {
                 <Activity className="w-6 h-6 text-cyan-400" />
                 Active Loan Monitoring
               </CardTitle>
-              <Button 
+              <Button
                 onClick={handleRefresh}
                 disabled={refreshing}
                 className="bg-gradient-to-r from-cyan-500 to-blue-500 hover:from-cyan-400 hover:to-blue-400 text-white"
@@ -280,7 +280,7 @@ export default function LiquidationPage() {
                         className="text-center py-8 text-gray-400"
                       >
                         Loading loans...
-                        </td>
+                      </td>
                     </tr>
                   ) : loans.length > 0 ? (
                     loans.map((loan) => (
@@ -293,8 +293,8 @@ export default function LiquidationPage() {
                         className="text-center py-8 text-gray-400"
                       >
                         No active loans to monitor.
-                        </td>
-                      </tr>
+                      </td>
+                    </tr>
                   )}
                 </tbody>
               </table>
@@ -313,24 +313,24 @@ export default function LiquidationPage() {
           <CardContent>
             <div className="grid grid-cols-1 md:grid-cols-3 gap-8">
               {[
-                { 
-                  icon: "⚡", 
-                  value: "99.9%", 
-                  label: "Uptime", 
+                {
+                  icon: "⚡",
+                  value: "99.9%",
+                  label: "Uptime",
                   color: "from-green-500 to-green-600",
                   description: "System availability",
                 },
-                { 
-                  icon: "◎", 
-                  value: "0.002", 
-                  label: "ETH Gas Used", 
+                {
+                  icon: "◎",
+                  value: "0.002",
+                  label: "ETH Gas Used",
                   color: "from-blue-500 to-blue-600",
                   description: "Average per transaction",
                 },
-                { 
-                  icon: "⏲", 
-                  value: "12", 
-                  label: "Liquidations Prevented", 
+                {
+                  icon: "⏲",
+                  value: "12",
+                  label: "Liquidations Prevented",
                   color: "from-purple-500 to-purple-600",
                   description: "This month",
                 },

@@ -1,7 +1,7 @@
 "use client";
 
 import { useState, useEffect, useMemo } from "react";
-import { useContracts } from "@/app/hooks/useContracts";
+import { useContracts } from "../contexts/ContractsContext";
 import { Loan, PropertyNFT } from "@/types/contracts";
 import { formatCurrency } from "@/lib/utils";
 import {

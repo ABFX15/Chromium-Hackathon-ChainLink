@@ -1,7 +1,7 @@
 "use client";
 
 import { useState, useMemo, useEffect } from "react";
-import { useContracts } from "@/app/hooks/useContracts";
+import { useContracts } from "../contexts/ContractsContext";
 import { PropertyNFTCard } from "@/app/components/PropertyNFTCard";
 import { AdvancedSearch, SearchFilters } from "@/app/components/AdvancedSearch";
 import {
@@ -160,6 +160,12 @@ export default function MarketplacePage() {
           <h2 className="text-2xl font-bold font-heading text-white mb-6">
             All Properties ({properties.length})
           </h2>
+          <button
+            onClick={loadAllProperties}
+            className="mb-6 px-4 py-2 bg-cyan-600 text-white rounded-lg hover:bg-cyan-700"
+          >
+            Refresh Marketplace
+          </button>
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-6">
             {properties.map((nft) => (
               <PropertyNFTCard key={nft.id} nft={nft} />

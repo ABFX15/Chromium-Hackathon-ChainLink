@@ -1,6 +1,6 @@
 "use client";
 
-import { useContracts } from "@/app/hooks/useContracts";
+import { useContracts } from "../contexts/ContractsContext";
 import { PropertyNFTCard } from "@/app/components/PropertyNFTCard";
 import {
   Building2,

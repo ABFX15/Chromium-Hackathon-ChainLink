@@ -6,6 +6,7 @@ import { WagmiProvider } from "wagmi";
 import { lightTheme, RainbowKitProvider } from "@rainbow-me/rainbowkit";
 import config from "@/rainbowKitConfig";
 import "@rainbow-me/rainbowkit/styles.css";
+import { ContractsProvider } from "./contexts/ContractsContext";
 
 export function Providers(props: { children: ReactNode }) {
   const [queryClient] = useState(() => new QueryClient());
@@ -14,7 +15,7 @@ export function Providers(props: { children: ReactNode }) {
     <WagmiProvider config={config}>
       <QueryClientProvider client={queryClient}>
         <RainbowKitProvider theme={lightTheme({ borderRadius: "medium" })}>
-          {props.children}
+          <ContractsProvider>{props.children}</ContractsProvider>
         </RainbowKitProvider>
       </QueryClientProvider>
     </WagmiProvider>

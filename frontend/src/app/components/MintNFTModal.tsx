@@ -2,7 +2,7 @@
 
 import { useState, Fragment } from "react";
 import { X, UploadCloud, Loader } from "lucide-react";
-import { useContracts } from "../hooks/useContracts";
+import { useContracts } from "../contexts/ContractsContext";
 import { toast } from "react-hot-toast";
 
 interface MintNFTModalProps {

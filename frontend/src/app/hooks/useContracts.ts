@@ -194,7 +194,7 @@ export const useContracts = () => {
                         }) as string;
 
                         if (tokenURI) {
-                            const ipfsGatewayUrl = "https://gateway.pinata.cloud/ipfs/";
+                            const ipfsGatewayUrl = "https://ipfs.io/ipfs/";
                             const metadataUrl = tokenURI.replace("ipfs://", ipfsGatewayUrl);
                             const metadataResponse = await fetchWithRetry(metadataUrl);
 
@@ -287,7 +287,7 @@ export const useContracts = () => {
                     const tokenId = await readContract(config, { address: CONTRACT_ADDRESSES.PROPERTY_NFT as Address, abi: PropertyNFTABI.abi, functionName: 'tokenOfOwnerByIndex', args: [address, BigInt(i)] }) as bigint;
                     const tokenURI = await readContract(config, { address: CONTRACT_ADDRESSES.PROPERTY_NFT as Address, abi: PropertyNFTABI.abi, functionName: 'tokenURI', args: [tokenId] }) as string;
                     if (tokenURI) {
-                        const ipfsGatewayUrl = "https://gateway.pinata.cloud/ipfs/";
+                        const ipfsGatewayUrl = "https://ipfs.io/ipfs/";
                         const metadataUrl = tokenURI.replace("ipfs://", ipfsGatewayUrl);
                         const metadataResponse = await fetchWithRetry(metadataUrl);
 

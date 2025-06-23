@@ -1,4 +1,4 @@
-import { useContracts } from "@/app/hooks/useContracts";
+import { useContracts } from "../contexts/ContractsContext";
 import { formatCurrency } from "@/lib/utils";
 import { TrendingUp, Building2, CreditCard, DollarSign } from "lucide-react";
 import { useMemo } from "react";

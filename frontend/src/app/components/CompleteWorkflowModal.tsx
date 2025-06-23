@@ -20,7 +20,7 @@ import {
   BrainCircuit,
   ArrowRight,
 } from "lucide-react";
-import { useContracts } from "../hooks/useContracts";
+import { useContracts } from "../contexts/ContractsContext";
 import { PropertyNFT } from "@/types/contracts";
 import { formatCurrency } from "@/lib/utils";
 
