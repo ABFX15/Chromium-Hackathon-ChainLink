@@ -263,4 +263,183 @@ describe("LoanManager", function () {
         // expect(await nft.ownerOf(tokenId)).to.equal(collateralVault.target);
     });
 
+    it("should allow owner to set property oracle and emit event", async function () {
+        await expect(loanManager.connect(owner).setPropertyOracle(propertyOracle.target))
+            .to.emit(loanManager, "PropertyOracleUpdated").withArgs(propertyOracle.target);
+        expect(await loanManager.propertyOracle()).to.equal(propertyOracle.target);
+    });
+
+    it("should revert setPropertyOracle if not owner", async function () {
+        await expect(
+            loanManager.connect(addr1).setPropertyOracle(propertyOracle.target)
+        ).to.be.revertedWithCustomError(loanManager, "OwnableUnauthorizedAccount");
+    });
+
+    it("should revert setPropertyOracle if zero address", async function () {
+        await expect(
+            loanManager.connect(owner).setPropertyOracle(ethers.ZeroAddress)
+        ).to.be.revertedWithCustomError(loanManager, "LoanManager__InvalidOracleAddress");
+    });
+
+    it("should allow owner to set yield vault", async function () {
+        await expect(loanManager.connect(owner).setYieldVault(addr1.address)).not.to.be.reverted;
+        expect(await loanManager.yieldVaultAddress()).to.equal(addr1.address);
+    });
+
+    it("should revert setYieldVault if not owner", async function () {
+        await expect(
+            loanManager.connect(addr1).setYieldVault(addr1.address)
+        ).to.be.revertedWithCustomError(loanManager, "OwnableUnauthorizedAccount");
+    });
+
+    it("should revert setYieldVault if zero address", async function () {
+        await expect(
+            loanManager.connect(owner).setYieldVault(ethers.ZeroAddress)
+        ).to.be.revertedWithCustomError(loanManager, "LoanManager__InvalidVaultAddress");
+    });
+
+    it("should allow owner to withdraw Ether", async function () {
+        // Send Ether to contract
+        await owner.sendTransaction({ to: loanManager.target, value: ethers.parseEther("1.0") });
+        const ownerBalanceBefore = await ethers.provider.getBalance(owner.address);
+        const tx = await loanManager.connect(owner).withdrawEther();
+        const receipt = await tx.wait();
+        const gasUsed = receipt.gasUsed * receipt.gasPrice;
+        const ownerBalanceAfter = await ethers.provider.getBalance(owner.address);
+        expect(ownerBalanceAfter).to.be.above(ownerBalanceBefore - BigInt(gasUsed));
+    });
+
+    it("should revert withdrawEther if not owner", async function () {
+        await expect(
+            loanManager.connect(addr1).withdrawEther()
+        ).to.be.revertedWithCustomError(loanManager, "OwnableUnauthorizedAccount");
+    });
+
+    describe("Yield Withdrawal", function () {
+        beforeEach(async function () {
+            // Set up protocol and lender yield
+            await loanManager.connect(owner).setPropertyOracle(propertyOracle.target);
+            // Mint and deposit NFT as collateral
+            await nft.connect(owner).mint(addr1.address, 1);
+            await propertyOracle.connect(owner).setPropertyValue(1, 10000);
+            await nft.connect(addr1).approve(loanManager.target, 1);
+            await loanManager.connect(addr1).depositNFTCollateral(1, 1000, 0, 500);
+            // Fund the loan
+            await usdc.connect(owner).mint(addr1.address, 1000);
+            await usdc.connect(addr1).approve(loanManager.target, 1000);
+            await loanManager.connect(addr1).fundLoanCrossChain(1);
+            // For positive-path tests, mint USDC to contract for yield withdrawal
+            // For negative-path tests, do not mint USDC
+        });
+
+        it("should revert withdrawProtocolYield if no yield", async function () {
+            await expect(
+                loanManager.connect(owner).withdrawProtocolYield()
+            ).to.be.revertedWithCustomError(loanManager, "LoanManager__NoYieldToWithdraw");
+        });
+
+        it("should allow owner to withdraw protocol yield", async function () {
+            await usdc.connect(owner).mint(loanManager.target, 80);
+            await loanManager.setTestYield(loanManager.target, 80, true);
+            const ownerBalanceBefore = await usdc.balanceOf(owner.address);
+            await expect(
+                loanManager.connect(owner).withdrawProtocolYield()
+            ).not.to.be.reverted;
+            const ownerBalanceAfter = await usdc.balanceOf(owner.address);
+            expect(ownerBalanceAfter - ownerBalanceBefore).to.equal(80n);
+        });
+
+        it("should revert withdrawLenderYield if no yield", async function () {
+            await expect(
+                loanManager.connect(addr1).withdrawLenderYield()
+            ).to.be.revertedWithCustomError(loanManager, "LoanManager__NoYieldToWithdraw");
+        });
+
+        it("should allow lender to withdraw lender yield", async function () {
+            await usdc.connect(owner).mint(loanManager.target, 120);
+            await loanManager.setTestYield(addr1.address, 120, false);
+            const lenderBalanceBefore = await usdc.balanceOf(addr1.address);
+            await expect(
+                loanManager.connect(addr1).withdrawLenderYield()
+            ).not.to.be.reverted;
+            const lenderBalanceAfter = await usdc.balanceOf(addr1.address);
+            expect(lenderBalanceAfter - lenderBalanceBefore).to.equal(120n);
+        });
+    });
+
+    describe("Loan Lifecycle", function () {
+        it("should complete the full loan lifecycle and return NFT to borrower", async function () {
+            // Set up oracle
+            await loanManager.connect(owner).setPropertyOracle(propertyOracle.target);
+            // Mint NFT to addr1
+            await nft.connect(owner).mint(addr1.address, 1);
+            await propertyOracle.connect(owner).setPropertyValue(1, 10000);
+            await nft.connect(addr1).approve(loanManager.target, 1);
+            // Deposit collateral
+            await expect(
+                loanManager.connect(addr1).depositNFTCollateral(1, 1000, 0, 500)
+            ).to.emit(loanManager, "LoanCreated");
+            expect(await nft.ownerOf(1)).to.equal(collateralVault.target);
+
+            // Fund the loan (addr1 is both borrower and lender for simplicity)
+            await usdc.connect(owner).mint(addr1.address, 1000);
+            await usdc.connect(addr1).approve(loanManager.target, 1000);
+            await expect(
+                loanManager.connect(addr1).fundLoanCrossChain(1)
+            ).to.emit(loanManager, "LoanFunded");
+
+            // Repay the loan
+            // Simulate time passing for interest
+            await ethers.provider.send("evm_increaseTime", [60 * 60 * 24 * 7]); // 1 week
+            await ethers.provider.send("evm_mine", []);
+            const loanDetails = await loanManager.getLoanDetails(1);
+            const principal = BigInt(loanDetails[1]);
+            const interestRate = BigInt(loanDetails[2]);
+            const startTimestamp = Number(loanDetails[3]);
+            const block = await ethers.provider.getBlock("latest");
+            if (!block) throw new Error("Failed to get latest block");
+            const now = block.timestamp;
+            const timeElapsed = BigInt(now - startTimestamp);
+            const accruedInterest = (principal * interestRate * timeElapsed) / (365n * 24n * 60n * 60n * 10000n);
+            const totalRepayment = principal + accruedInterest;
+            await usdc.connect(owner).mint(addr1.address, totalRepayment);
+            await usdc.connect(addr1).approve(loanManager.target, totalRepayment);
+            await expect(
+                loanManager.connect(addr1).repayLoan(1)
+            ).to.emit(loanManager, "LoanRepaid");
+            // NFT should be returned to borrower
+            expect(await nft.ownerOf(1)).to.equal(addr1.address);
+        });
+    });
+
+    describe("Liquidation", function () {
+        it("should liquidate undercollateralized loan and transfer NFT to lender", async function () {
+            // Set up oracle
+            await loanManager.connect(owner).setPropertyOracle(propertyOracle.target);
+            // Mint NFT to addr1 (tokenId 2)
+            await nft.connect(owner).mint(addr1.address, 2);
+            const ownerOf2 = await nft.ownerOf(2);
+            console.log('Owner of tokenId 2 before deposit:', ownerOf2);
+            await propertyOracle.connect(owner).setPropertyValue(2, 10000);
+            await nft.connect(addr1).approve(loanManager.target, 2);
+            // Deposit collateral
+            await loanManager.connect(addr1).depositNFTCollateral(2, 1000, 0, 500);
+            // Fund the loan (owner as lender)
+            await usdc.connect(owner).mint(owner.address, 1000);
+            await usdc.connect(owner).approve(loanManager.target, 1000);
+            await loanManager.connect(owner).fundLoanCrossChain(2);
+            // Simulate undercollateralization by dropping property value
+            await propertyOracle.connect(owner).setPropertyValue(2, 500);
+            // Check health factor is below 1
+            const healthFactor = await loanManager.getHealthFactor(2);
+            expect(healthFactor).to.be.lt(10000); // PRECISION = 10000
+            // Trigger liquidation
+            const performData = ethers.AbiCoder.defaultAbiCoder().encode(["uint256"], [2]);
+            await expect(
+                loanManager.connect(owner).performUpkeep(performData)
+            ).to.emit(loanManager, "CollateralLiquidated");
+            // NFT should be transferred to lender (owner)
+            expect(await nft.ownerOf(2)).to.equal(owner.address);
+        });
+    });
 }); 

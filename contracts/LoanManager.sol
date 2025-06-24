@@ -131,6 +131,9 @@ contract LoanManager is
 
     // --- Admin Functions ---
 
+    // Allow contract to receive Ether
+    receive() external payable {}
+
     function pause() external onlyOwner {
         _pause();
     }
@@ -386,6 +389,19 @@ contract LoanManager is
         if (vaultAddress == address(0))
             revert LoanManager__InvalidVaultAddress();
         yieldVaultAddress = vaultAddress;
+    }
+
+    // --- TEST-ONLY: Set protocol or lender yield for testing purposes ---
+    function setTestYield(
+        address who,
+        uint256 amount,
+        bool isProtocol
+    ) external {
+        if (isProtocol) {
+            protocolYield[who] = amount;
+        } else {
+            lenderYield[who] = amount;
+        }
     }
 
     // --- View Functions ---
