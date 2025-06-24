@@ -28,4 +28,7 @@ contract MockRouter {
     ) public payable returns (bytes32) {
         return bytes32(0);
     }
+
+    // Allow contract to receive ETH
+    receive() external payable {}
 }

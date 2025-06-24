@@ -18,12 +18,9 @@ import {Client} from "@chainlink/contracts-ccip/contracts/libraries/Client.sol";
 contract YieldVault is ICrossChainReceiver, Ownable, ReentrancyGuard {
     using SafeERC20 for IERC20;
 
-    // Aave Pool on Avalanche Fuji
-    IPool private constant AAVE_POOL =
-        IPool(0x566D5e15a8456109f213454559556350388279d8);
-    // USDC on Avalanche Fuji
-    IERC20 private constant USDC =
-        IERC20(0x5425890298AeD601595A70Ab815c96711a31B686);
+    // Aave Pool and USDC are now set via constructor
+    IPool private immutable AAVE_POOL;
+    IERC20 private immutable USDC;
 
     // Custom Errors
     error YieldVault__NotAuthorized();
@@ -56,8 +53,13 @@ contract YieldVault is ICrossChainReceiver, Ownable, ReentrancyGuard {
     );
 
     constructor(
-        address router
-    ) ICrossChainReceiver(router) Ownable(msg.sender) {}
+        address router,
+        address aavePool,
+        address usdc
+    ) ICrossChainReceiver(router) Ownable(msg.sender) {
+        AAVE_POOL = IPool(aavePool);
+        USDC = IERC20(usdc);
+    }
 
     /**
      * @dev Main entry point for CCIP messages. Decodes the message and deposits funds.
@@ -141,6 +143,19 @@ contract YieldVault is ICrossChainReceiver, Ownable, ReentrancyGuard {
             );
             emit YieldClaimed(loanId, loan.lender, withdrawnAmount);
         }
+    }
+}
 
+// --- TEST-ONLY CONTRACT ---
+// This contract is only for testing purposes and should not be deployed in production.
+contract TestYieldVault is YieldVault {
+    constructor(
+        address router,
+        address aavePool,
+        address usdc
+    ) YieldVault(router, aavePool, usdc) {}
+
+    function testCcipReceive(Client.Any2EVMMessage memory message) external {
+        _ccipReceive(message);
     }
 }
