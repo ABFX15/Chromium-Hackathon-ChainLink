@@ -262,7 +262,8 @@ contract LoanManager is
 
     function repayLoan(uint256 loanId) external whenNotPaused nonReentrant {
         Loan storage loan = loans[loanId];
-        if (!loan.isActive) revert LoanManager__LoanNotActive();
+        if (loan.borrower == address(0) || !loan.isActive)
+            revert LoanManager__LoanNotActive();
         if (msg.sender != loan.borrower) revert LoanManager__NotAuthorized();
 
         uint256 accruedInterest = _calculateAccruedInterest(loan);

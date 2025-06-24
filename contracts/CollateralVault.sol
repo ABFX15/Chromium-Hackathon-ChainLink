@@ -13,6 +13,7 @@ import {Ownable} from "@openzeppelin/contracts/access/Ownable.sol";
 contract CollateralVault is Ownable {
     error CollateralVault__NotLoanManager();
     error CollateralVault__AlreadyInVault();
+    error CollateralVault__NotOwner();
 
     struct VaultItem {
         address originalOwner;
@@ -58,6 +59,9 @@ contract CollateralVault is Ownable {
             revert CollateralVault__AlreadyInVault();
         }
         vault[tokenId] = VaultItem(owner, loanId);
+        if (i_nft.ownerOf(tokenId) != address(this)) {
+            revert CollateralVault__NotOwner();
+        }
         emit NFTDeposited(tokenId, loanId, owner);
     }
 
