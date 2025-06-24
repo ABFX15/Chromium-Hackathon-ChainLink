@@ -125,7 +125,7 @@ contract LenderNFT is ERC721, Ownable {
         // In production, this would return proper metadata JSON
         return
             string(
-                abi.encode(
+                abi.encodePacked(
                     "data:application/json;base64,",
                     "eyJuYW1lIjoiUldBIExlbmRlciBQb3NpdGlvbiAj",
                     tokenId.toString(),
