@@ -18,6 +18,7 @@ import { CompleteWorkflowModal } from "./CompleteWorkflowModal";
 import { useAccount } from "wagmi";
 import { useContracts } from "../contexts/ContractsContext";
 import { NFT as ContractNFT } from "../hooks/useContracts";
+import { useAIAssessment } from "../hooks/use-ai-assessment";
 
 interface PropertyNFTCardProps {
   nft: ContractNFT;
@@ -38,6 +39,8 @@ export function PropertyNFTCard({
   const [imageLoaded, setImageLoaded] = useState(false);
   const { address } = useAccount();
   const { allLoans } = useContracts();
+  const { getAssessment } = useAIAssessment();
+  const aiAssessment = getAssessment(nft.tokenId.toString());
 
   const handleCardClick = () => {
     setIsModalOpen(true);
@@ -106,8 +109,11 @@ export function PropertyNFTCard({
   );
   const isOwner = address === nft.owner;
   const canBorrow = isOwner && !nft.isCollateral;
+  // For demo: always allow lending for the demo property (tokenId 9100)
+  const isDemoLend = nft.tokenId === 9100;
   const canLend =
-    !isOwner && nft.isCollateral && relevantLoan && !relevantLoan.isFunded;
+    isDemoLend ||
+    (!isOwner && nft.isCollateral && relevantLoan && !relevantLoan.isFunded);
 
   return (
     <>
@@ -132,6 +138,12 @@ export function PropertyNFTCard({
               <Star className="w-3 h-3 mr-1 text-yellow-400" />
               Chain-Verified
             </Badge>
+            {aiAssessment && (
+              <Badge className="bg-purple-400/10 text-purple-400 border-purple-400/30 border font-semibold text-xs px-3 py-1 ml-2">
+                <Zap className="w-3 h-3 mr-1" />
+                AI Risk: {aiAssessment.riskScore}/100
+              </Badge>
+            )}
           </div>
         </div>
 

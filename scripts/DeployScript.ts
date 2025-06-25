@@ -26,7 +26,7 @@ async function main() {
     // 2. Deploy CollateralVault
     console.log("\n📦 Deploying CollateralVault...");
     const CollateralVault = await ethers.getContractFactory("CollateralVault");
-    const collateralVault = await CollateralVault.deploy(propertyNFTAddress);
+    const collateralVault = await CollateralVault.deploy(propertyNFTAddress, deployer.address);
     await collateralVault.waitForDeployment();
     const collateralVaultAddress = await collateralVault.getAddress();
     console.log("✅ CollateralVault deployed to:", collateralVaultAddress);
@@ -41,14 +41,8 @@ async function main() {
 
     // 4. Deploy PropertyOracle
     console.log("\n📦 Deploying PropertyOracle...");
-    const functionsRouter = "0x6eed6a1c74bb1ea4e6cc7e0201c7ba8db6bdaba0"; // Sepolia Functions Router
-    const linkToken = "0x779877A7B0D9E8603169DdbD7836e478b4624789"; // Sepolia LINK
     const PropertyOracle = await ethers.getContractFactory("PropertyOracle");
-    const propertyOracle = await PropertyOracle.deploy(
-        functionsRouter,
-        linkToken,
-        collateralVaultAddress
-    );
+    const propertyOracle = await PropertyOracle.deploy();
     await propertyOracle.waitForDeployment();
     const propertyOracleAddress = await propertyOracle.getAddress();
     console.log("✅ PropertyOracle deployed to:", propertyOracleAddress);
@@ -83,10 +77,9 @@ async function main() {
     // 7. Configure contracts
     console.log("\n🔧 Configuring contracts...");
 
-    // Set Oracle and LoanManager in CollateralVault
-    await collateralVault.setOracle(propertyOracleAddress);
+    // Set LoanManager in CollateralVault
     await collateralVault.setLoanManager(loanManagerAddress);
-    console.log("✅ CollateralVault oracle and loanManager set.");
+    console.log("✅ CollateralVault loanManager set.");
 
     // Set LoanManager in LenderNFT
     await lenderNFT.setLoanManager(loanManagerAddress);

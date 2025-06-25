@@ -15,7 +15,7 @@ interface LoanCardProps {
 }
 
 export function LoanCard({ loan }: LoanCardProps) {
-  const { repayLoan, isProcessing } = useContracts();
+  const { repayLoan, isProcessing, lendLoan } = useContracts();
   const { toast } = useToast();
 
   const handleRepayLoan = async () => {
@@ -38,6 +38,30 @@ export function LoanCard({ loan }: LoanCardProps) {
         description:
           error.shortMessage ||
           "There was an error processing your loan repayment",
+        variant: "destructive",
+      });
+    }
+  };
+
+  const handleLendLoan = async () => {
+    if (!loan?.loanId) return;
+    try {
+      const success = await lendLoan(loan.loanId);
+      if (success) {
+        toast({
+          title: "Lending Transaction Initiated",
+          description: "Your lending transaction has been submitted",
+          variant: "success",
+        });
+      } else {
+        throw new Error("Lending transaction failed.");
+      }
+    } catch (error: any) {
+      toast({
+        title: "Lending Failed",
+        description:
+          error.shortMessage ||
+          "There was an error processing your lending transaction",
         variant: "destructive",
       });
     }
@@ -134,6 +158,20 @@ export function LoanCard({ loan }: LoanCardProps) {
             />
           </div>
         </div>
+
+        {loan.isActive && !loan.isFunded && (
+          <div className="pt-4">
+            <Button
+              onClick={handleLendLoan}
+              disabled={isProcessing}
+              className="w-full bg-gradient-to-r from-green-600/20 to-blue-600/20 border border-green-500/50 
+                         hover:from-green-500/30 hover:to-blue-500/30 text-green-300 font-mono text-xs py-2 rounded-lg
+                         transition-all duration-200 hover:shadow-lg hover:shadow-green-400/20 mb-2"
+            >
+              {isProcessing ? "Processing..." : "./lend_loan"}
+            </Button>
+          </div>
+        )}
 
         {loan.isActive && (
           <div className="pt-4">

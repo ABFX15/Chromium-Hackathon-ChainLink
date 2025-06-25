@@ -65,7 +65,7 @@ contract LoanManager is
     uint256 public constant SECONDS_PER_YEAR = 365 days;
     uint256 public constant LENDER_SHARE_BPS = 8000; // 80%
     uint256 public constant PROTOCOL_SHARE_BPS = 2000; // 20%
-    uint256 public constant GAS_LIMIT_CROSS_CHAIN = 200000;
+    uint256 public constant GAS_LIMIT_CROSS_CHAIN = 200_000;
 
     struct Loan {
         uint256 loanId;
@@ -112,6 +112,10 @@ contract LoanManager is
     );
     event PropertyOracleUpdated(address indexed newOracle);
     event LoanCancelled(uint256 indexed loanId);
+    event YieldSet();
+    event YieldWithdrawn(address indexed recipient, uint256 amount);
+    event YieldLenderWithdrawn(address indexed lender, uint256 amount);
+    event AvalancheVaultSet(address indexed vaultAddress);
 
     constructor(
         address nft,
@@ -134,14 +138,26 @@ contract LoanManager is
     // Allow contract to receive Ether
     receive() external payable {}
 
+    /**
+     * @notice Pauses the contract, disabling core loan actions.
+     * @dev Only callable by the owner.
+     */
     function pause() external onlyOwner {
         _pause();
     }
 
+    /**
+     * @notice Unpauses the contract, enabling core loan actions.
+     * @dev Only callable by the owner.
+     */
     function unpause() external onlyOwner {
         _unpause();
     }
 
+    /**
+     * @notice Withdraws all Ether from the contract to the owner.
+     * @dev Only callable by the owner.
+     */
     function withdrawEther() external onlyOwner {
         (bool success, ) = payable(owner()).call{value: address(this).balance}(
             ""
@@ -149,6 +165,11 @@ contract LoanManager is
         if (!success) revert LoanManager__FailedToWithdrawEther();
     }
 
+    /**
+     * @notice Sets the property oracle contract address.
+     * @dev Only callable by the owner. Reverts if address is zero.
+     * @param _propertyOracle The address of the new property oracle contract.
+     */
     function setPropertyOracle(
         address _propertyOracle
     ) external onlyOwner nonReentrant {
@@ -158,22 +179,36 @@ contract LoanManager is
         emit PropertyOracleUpdated(_propertyOracle);
     }
 
+    /**
+     * @notice Sets the yield vault contract address.
+     * @dev Only callable by the owner. Reverts if address is zero.
+     * @param _yieldVaultAddress The address of the new yield vault contract.
+     */
     function setYieldVault(
         address _yieldVaultAddress
     ) external onlyOwner nonReentrant {
         if (_yieldVaultAddress == address(0))
             revert LoanManager__InvalidVaultAddress();
         yieldVaultAddress = _yieldVaultAddress;
+        emit YieldSet();
     }
 
     // --- Core Loan Workflow ---
 
+    /**
+     * @notice Deposits an NFT as collateral and creates a new loan request.
+     * @dev Transfers NFT to CollateralVault and records loan details.
+     * @param tokenId The NFT token ID to deposit as collateral.
+     * @param requestedAmount The requested loan principal amount.
+     * @param assetType The asset type (reserved for future use).
+     * @param interestRate The fixed interest rate (basis points).
+     */
     function depositNFTCollateral(
         uint256 tokenId,
         uint256 requestedAmount,
         uint256 assetType, // Retained for future use
         uint256 interestRate
-    ) external whenNotPaused nonReentrant {
+    ) external nonReentrant whenNotPaused {
         if (address(propertyOracle) == address(0))
             revert LoanManager__OracleNotSet();
         if (nftIsCollateral[tokenId])
@@ -210,9 +245,14 @@ contract LoanManager is
         emit LoanCreated(loanId, tokenId, msg.sender, requestedAmount);
     }
 
+    /**
+     * @notice Funds a loan cross-chain as a lender, transferring USDC and minting a LenderNFT.
+     * @dev Sends a CCIP message to the yield vault and records the lender.
+     * @param loanId The loan ID to fund.
+     */
     function fundLoanCrossChain(
         uint256 loanId
-    ) external payable whenNotPaused nonReentrant {
+    ) external payable nonReentrant whenNotPaused {
         Loan storage loan = loans[loanId];
         if (!loan.isActive || loan.isFunded)
             revert LoanManager__LoanNotActive();
@@ -263,7 +303,12 @@ contract LoanManager is
         emit CCIPMessageSent(messageId, loanId, i_destinationChainSelector);
     }
 
-    function repayLoan(uint256 loanId) external whenNotPaused nonReentrant {
+    /**
+     * @notice Repays an active loan, transferring principal and interest from the borrower.
+     * @dev Transfers funds, releases collateral, and burns LenderNFT.
+     * @param loanId The loan ID to repay.
+     */
+    function repayLoan(uint256 loanId) external nonReentrant whenNotPaused {
         Loan storage loan = loans[loanId];
         if (loan.borrower == address(0) || !loan.isActive)
             revert LoanManager__LoanNotActive();
@@ -293,9 +338,14 @@ contract LoanManager is
         emit LoanRepaid(loanId, totalRepayment);
     }
 
+    /**
+     * @notice Cancels an unfunded loan and releases the NFT collateral.
+     * @dev Only the borrower can call. Reverts if loan is already funded.
+     * @param loanId The loan ID to cancel.
+     */
     function cancelUnfundedLoan(
         uint256 loanId
-    ) external whenNotPaused nonReentrant {
+    ) external nonReentrant whenNotPaused {
         Loan storage loan = loans[loanId];
         if (!loan.isActive) revert LoanManager__LoanNotActive();
         if (msg.sender != loan.borrower) revert LoanManager__NotAuthorized();
@@ -312,12 +362,14 @@ contract LoanManager is
     // --- Automation & Liquidation ---
 
     /**
-     * @dev The checkUpkeep function is gas-intensive in its current form.
-     * For production, this should be optimized by tracking active loans in a
-     * separate data structure to avoid iterating through all historical loans.
+     * @notice Chainlink Automation check for undercollateralized loans.
+     * @dev Iterates through all loans to find any needing liquidation.
+     * @param checkData Not used in current implementation.
+     * @return upkeepNeeded True if any loan needs liquidation.
+     * @return performData Encoded loanId to liquidate.
      */
     function checkUpkeep(
-        bytes calldata
+        bytes calldata checkData
     )
         external
         view
@@ -340,13 +392,13 @@ contract LoanManager is
     }
 
     /**
-     * @dev The liquidation logic is simplified. The lender receives the collateral
-     * regardless of its value relative to the debt. A more advanced implementation
-     * would involve an auction mechanism to make the lender and borrower whole.
+     * @notice Performs liquidation on an undercollateralized loan.
+     * @dev Transfers NFT to lender and emits liquidation event.
+     * @param performData Encoded loanId to liquidate.
      */
     function performUpkeep(
         bytes calldata performData
-    ) external override whenNotPaused nonReentrant {
+    ) external override nonReentrant whenNotPaused {
         uint256 loanId = abi.decode(performData, (uint256));
         uint256 healthFactor = getHealthFactor(loanId);
 
@@ -369,43 +421,58 @@ contract LoanManager is
 
     // --- Yield Withdrawal ---
 
+    /**
+     * @notice Withdraws protocol yield (interest fees) to the owner.
+     * @dev Only callable if yield is available.
+     */
     function withdrawProtocolYield() external nonReentrant {
         uint256 yieldAmount = protocolYield[address(this)];
         if (yieldAmount == 0) revert LoanManager__NoYieldToWithdraw();
         protocolYield[address(this)] = 0;
         i_usdc.safeTransfer(owner(), yieldAmount);
+        emit YieldWithdrawn(owner(), yieldAmount);
     }
 
+    /**
+     * @notice Withdraws lender yield (interest earnings) to the caller.
+     * @dev Only callable if yield is available.
+     */
     function withdrawLenderYield() external nonReentrant {
         uint256 yieldAmount = lenderYield[msg.sender];
         if (yieldAmount == 0) revert LoanManager__NoYieldToWithdraw();
         lenderYield[msg.sender] = 0;
         i_usdc.safeTransfer(msg.sender, yieldAmount);
+        emit YieldLenderWithdrawn(msg.sender, yieldAmount);
     }
 
+    /**
+     * @notice Sets the Avalanche vault address for cross-chain yield.
+     * @dev Only callable by the owner. Reverts if address is zero.
+     * @param vaultAddress The Avalanche vault address.
+     */
     function setAvalancheVault(
         address vaultAddress
     ) external onlyOwner nonReentrant {
         if (vaultAddress == address(0))
             revert LoanManager__InvalidVaultAddress();
         yieldVaultAddress = vaultAddress;
-    }
-
-    // --- TEST-ONLY: Set protocol or lender yield for testing purposes ---
-    function setTestYield(
-        address who,
-        uint256 amount,
-        bool isProtocol
-    ) external {
-        if (isProtocol) {
-            protocolYield[who] = amount;
-        } else {
-            lenderYield[who] = amount;
-        }
+        emit AvalancheVaultSet(vaultAddress);
     }
 
     // --- View Functions ---
 
+    /**
+     * @notice Gets details for a specific loan.
+     * @param loanId The loan ID to query.
+     * @return tokenId The NFT token ID.
+     * @return principalAmount The principal amount.
+     * @return interestRate The interest rate (basis points).
+     * @return startTimestamp The loan start timestamp.
+     * @return borrower The borrower address.
+     * @return lender The lender address.
+     * @return isActive Whether the loan is active.
+     * @return isFunded Whether the loan is funded.
+     */
     function getLoanDetails(
         uint256 loanId
     )
@@ -435,6 +502,12 @@ contract LoanManager is
         );
     }
 
+    /**
+     * @notice Calculates accrued interest for a loan.
+     * @dev Internal view function.
+     * @param loan The loan struct to calculate interest for.
+     * @return The accrued interest amount.
+     */
     function _calculateAccruedInterest(
         Loan memory loan
     ) internal view returns (uint256) {
@@ -445,6 +518,11 @@ contract LoanManager is
             (SECONDS_PER_YEAR * PRECISION);
     }
 
+    /**
+     * @notice Gets the health factor for a loan (collateral/debt ratio).
+     * @param loanId The loan ID to check.
+     * @return The health factor (scaled by PRECISION, e.g., 1e4 = 1.0).
+     */
     function getHealthFactor(uint256 loanId) public view returns (uint256) {
         Loan memory loan = loans[loanId];
         if (!loan.isActive) return type(uint256).max;
@@ -458,5 +536,24 @@ contract LoanManager is
 
         // Health Factor = (Collateral Value * Liquidation Threshold) / Total Debt
         return (propertyValue * LIQUIDATION_THRESHOLD) / totalDebt;
+    }
+
+    // --- TEST-ONLY: Set protocol or lender yield for testing purposes ---
+    /**
+     * @notice TEST-ONLY: Sets protocol or lender yield for testing.
+     * @param who The address to set yield for.
+     * @param amount The yield amount to set.
+     * @param isProtocol True for protocol yield, false for lender yield.
+     */
+    function setTestYield(
+        address who,
+        uint256 amount,
+        bool isProtocol
+    ) external {
+        if (isProtocol) {
+            protocolYield[who] = amount;
+        } else {
+            lenderYield[who] = amount;
+        }
     }
 }

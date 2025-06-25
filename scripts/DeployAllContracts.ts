@@ -5,6 +5,8 @@ import { ethers } from "hardhat";
 async function main() {
     console.log("🚀 Starting deployment of Private Credit Vault contracts...\n");
 
+    const [owner] = await ethers.getSigners();
+
     // 1. Deploy PropertyNFT
     console.log("📦 Deploying PropertyNFT...");
     const PropertyNFT = await ethers.getContractFactory("PropertyNFT");
@@ -20,7 +22,7 @@ async function main() {
     // 2. Deploy CollateralVault
     console.log("\n📦 Deploying CollateralVault...");
     const CollateralVault = await ethers.getContractFactory("CollateralVault");
-    const collateralVault = await CollateralVault.deploy(propertyNFTAddress);
+    const collateralVault = await CollateralVault.deploy(propertyNFTAddress, owner.address);
     await collateralVault.waitForDeployment();
     const collateralVaultAddress = await collateralVault.getAddress();
     console.log("✅ CollateralVault deployed to:", collateralVaultAddress);
@@ -63,8 +65,9 @@ async function main() {
     // 6. Deploy YieldVault (for destination chain simulation)
     console.log("\n📦 Deploying YieldVault (for Avalanche Fuji)...");
     const YieldVault = await ethers.getContractFactory("YieldVault");
-    // The router here would be the Avalanche Fuji CCIP router, but for address generation, any is fine.
-    const yieldVault = await YieldVault.deploy(ccipRouter);
+    // You need to provide a valid aavePool address. If you have a mock, deploy it here, otherwise use a placeholder.
+    const aavePool = "0x0000000000000000000000000000000000000001"; // TODO: Replace with actual or mock Aave Pool address
+    const yieldVault = await YieldVault.deploy(ccipRouter, aavePool, usdc);
     await yieldVault.waitForDeployment();
     const yieldVaultAddress = await yieldVault.getAddress();
     console.log("✅ YieldVault deployed to:", yieldVaultAddress);

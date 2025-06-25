@@ -50,6 +50,7 @@ contract LenderNFT is ERC721, Ownable {
 
     /**
      * @notice Sets the loan manager address (owner only)
+     * @dev Only callable by the contract owner. Reverts if address is zero.
      * @param _loanManager Loan manager contract address
      */
     function setLoanManager(address _loanManager) external onlyOwner {
@@ -59,6 +60,7 @@ contract LenderNFT is ERC721, Ownable {
 
     /**
      * @notice Mints NFT representing lender position (loan manager only)
+     * @dev Only callable by the loan manager. Records loan and amount.
      * @param lender Address of the lender
      * @param loanId Associated loan ID
      * @param amount Amount lent
@@ -71,7 +73,7 @@ contract LenderNFT is ERC721, Ownable {
     ) external onlyLoanManager returns (uint256) {
         uint256 tokenId = nextTokenId++;
 
-        _mint(lender, tokenId);
+        _safeMint(lender, tokenId);
 
         tokenIdToLoan[tokenId] = loanId;
         loanIdToToken[loanId] = tokenId;
@@ -83,6 +85,7 @@ contract LenderNFT is ERC721, Ownable {
 
     /**
      * @notice Burns lender NFT when loan is repaid/liquidated (loan manager only)
+     * @dev Only callable by the loan manager. Cleans up mappings and burns NFT.
      * @param tokenId NFT token ID to burn
      */
     function burnLenderPosition(uint256 tokenId) external onlyLoanManager {

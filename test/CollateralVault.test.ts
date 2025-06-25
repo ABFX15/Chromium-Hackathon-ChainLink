@@ -12,7 +12,7 @@ describe("CollateralVault", function () {
         [owner, addr1, loanManager] = await ethers.getSigners();
         const ERC721Mock = await ethers.getContractFactory("MockERC721", owner);
         nft = await ERC721Mock.deploy("MockNFT", "MNFT");
-        vault = await (await ethers.getContractFactory("CollateralVault", owner)).deploy(nft.target);
+        vault = await (await ethers.getContractFactory("CollateralVault", owner)).deploy(nft.target, owner.address);
     });
 
     it("should deploy with correct NFT address", async function () {

@@ -8,6 +8,12 @@ import {IERC20} from "@openzeppelin/contracts/token/ERC20/IERC20.sol";
 import {SafeERC20} from "@openzeppelin/contracts/token/ERC20/utils/SafeERC20.sol";
 import {Ownable} from "@openzeppelin/contracts/access/Ownable.sol";
 
+/**
+ * @title CrossChainLiquidityPool
+ * @author ABFX15
+ * @notice Manages liquidity across multiple chains for lending protocol.
+ * @dev Allows adding/removing liquidity, supports cross-chain messaging via Chainlink CCIP.
+ */
 contract CrossChainLiquidityPool is Ownable {
     using SafeERC20 for IERC20;
 
@@ -23,6 +29,9 @@ contract CrossChainLiquidityPool is Ownable {
     // State variables
     IRouterClient public immutable i_ccipRouter;
     IERC20 public immutable i_usdc;
+
+    uint256 private constant BASIS_POINTS_DENOMINATOR = 1e4;
+    uint256 private constant DEFAULT_GAS_LIMIT = 2e5;
 
     struct ChainLiquidity {
         uint256 totalLiquidity;
@@ -59,6 +68,12 @@ contract CrossChainLiquidityPool is Ownable {
         i_usdc = IERC20(usdc);
     }
 
+    /**
+     * @notice Adds a supported chain and its vault address.
+     * @dev Only callable by the owner. Reverts if chainSelector or vault is zero.
+     * @param chainSelector The chain selector for the supported chain.
+     * @param vault The vault address for the chain.
+     */
     function addSupportedChain(
         uint64 chainSelector,
         address vault
@@ -71,6 +86,11 @@ contract CrossChainLiquidityPool is Ownable {
         emit ChainAdded(chainSelector, vault);
     }
 
+    /**
+     * @notice Adds liquidity for a specific chain.
+     * @dev Transfers USDC from sender, updates liquidity, and sends cross-chain message.
+     * @param chainSelector The chain selector to add liquidity to.
+     */
     function addLiquidity(uint64 chainSelector) external payable {
         if (!chainLiquidity[chainSelector].isSupported)
             revert CrossChainLiquidityPool__ChainNotSupported();
@@ -86,7 +106,8 @@ contract CrossChainLiquidityPool is Ownable {
 
         // Calculate utilization rate
         chain.utilizationRate =
-            ((chain.totalLiquidity - chain.availableLiquidity) * 10000) /
+            ((chain.totalLiquidity - chain.availableLiquidity) *
+                BASIS_POINTS_DENOMINATOR) /
             chain.totalLiquidity;
 
         // Send liquidity to destination chain
@@ -96,7 +117,7 @@ contract CrossChainLiquidityPool is Ownable {
             tokenAmounts: new Client.EVMTokenAmount[](1),
             feeToken: address(0),
             extraArgs: Client._argsToBytes(
-                Client.EVMExtraArgsV1({gasLimit: 200000})
+                Client.EVMExtraArgsV1({gasLimit: DEFAULT_GAS_LIMIT})
             )
         });
 
@@ -105,7 +126,7 @@ contract CrossChainLiquidityPool is Ownable {
             amount: amount
         });
 
-        i_usdc.approve(address(i_ccipRouter), amount);
+        IERC20(address(i_usdc)).forceApprove(address(i_ccipRouter), amount);
         bytes32 messageId = i_ccipRouter.ccipSend{value: msg.value}(
             chainSelector,
             message
@@ -114,6 +135,12 @@ contract CrossChainLiquidityPool is Ownable {
         emit LiquidityAdded(msg.sender, chainSelector, amount, messageId);
     }
 
+    /**
+     * @notice Withdraws liquidity for a specific chain.
+     * @dev Transfers USDC back to the lender and updates liquidity.
+     * @param chainSelector The chain selector to withdraw from.
+     * @param amount The amount of liquidity to withdraw.
+     */
     function withdrawLiquidity(uint64 chainSelector, uint256 amount) external {
         ChainLiquidity storage chain = chainLiquidity[chainSelector];
         if (chain.lenderPositions[msg.sender] < amount)
@@ -128,18 +155,24 @@ contract CrossChainLiquidityPool is Ownable {
         // Recalculate utilization rate
         if (chain.totalLiquidity > 0) {
             chain.utilizationRate =
-                ((chain.totalLiquidity - chain.availableLiquidity) * 10000) /
+                ((chain.totalLiquidity - chain.availableLiquidity) *
+                    BASIS_POINTS_DENOMINATOR) /
                 chain.totalLiquidity;
         } else {
             chain.utilizationRate = 0;
         }
 
-        if (!i_usdc.transfer(msg.sender, amount))
-            revert CrossChainLiquidityPool__TransferFailed();
+        IERC20(address(i_usdc)).safeTransfer(msg.sender, amount);
 
         emit LiquidityWithdrawn(msg.sender, chainSelector, amount);
     }
 
+    /**
+     * @notice Gets the lender's position for a specific chain.
+     * @param lender The address of the lender.
+     * @param chainSelector The chain selector to query.
+     * @return The amount of liquidity provided by the lender.
+     */
     function getLenderPosition(
         address lender,
         uint64 chainSelector
@@ -147,6 +180,13 @@ contract CrossChainLiquidityPool is Ownable {
         return chainLiquidity[chainSelector].lenderPositions[lender];
     }
 
+    /**
+     * @notice Gets liquidity stats for a specific chain.
+     * @param chainSelector The chain selector to query.
+     * @return totalLiquidity The total liquidity for the chain.
+     * @return availableLiquidity The available liquidity for the chain.
+     * @return utilizationRate The utilization rate for the chain.
+     */
     function getChainLiquidity(
         uint64 chainSelector
     )
@@ -165,4 +205,21 @@ contract CrossChainLiquidityPool is Ownable {
             chain.utilizationRate
         );
     }
+
+    /**
+     * @notice Withdraws all Ether from the contract to the owner.
+     * @dev Only callable by the owner. Reverts if balance is zero or transfer fails.
+     */
+    function withdraw() external onlyOwner {
+        uint256 balance = address(this).balance;
+        if (balance == 0) revert CrossChainLiquidityPool__InsufficientBalance();
+
+        (bool success, ) = msg.sender.call{value: balance}("");
+        if (!success) revert CrossChainLiquidityPool__TransferFailed();
+    }
+
+    /**
+     * @notice Fallback function to receive Ether.
+     */
+    receive() external payable {}
 }

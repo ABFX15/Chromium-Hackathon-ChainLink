@@ -35,7 +35,7 @@ describe("LoanManager", function () {
         const ERC20Mock = await ethers.getContractFactory("MockERC20");
         usdc = await ERC20Mock.deploy("MockUSDC", "MUSDC");
         const CollateralVaultMock = await ethers.getContractFactory("CollateralVault");
-        collateralVault = await CollateralVaultMock.deploy(nft.target);
+        collateralVault = await CollateralVaultMock.deploy(nft.target, owner.address);
         const LenderNFTMock = await ethers.getContractFactory("LenderNFT");
         lenderNFT = await LenderNFTMock.deploy();
         const PropertyOracleMock = await ethers.getContractFactory("PropertyOracle");

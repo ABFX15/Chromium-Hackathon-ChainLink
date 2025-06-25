@@ -14,6 +14,7 @@ import {Client} from "@chainlink/contracts-ccip/contracts/libraries/Client.sol";
  * @author ABFX15
  * @notice Receives funds via CCIP, deposits them into Aave to earn yield,
  * and allows borrowers to claim their principal while lenders claim the yield.
+ * @dev Integrates with Aave and Chainlink CCIP for cross-chain yield management.
  */
 contract YieldVault is ICrossChainReceiver, Ownable, ReentrancyGuard {
     using SafeERC20 for IERC20;
@@ -25,7 +26,6 @@ contract YieldVault is ICrossChainReceiver, Ownable, ReentrancyGuard {
     // Custom Errors
     error YieldVault__NotAuthorized();
     error YieldVault__InvalidLoanId();
-    error YieldVault__LoanNotActive();
     error YieldVault__AlreadyClaimed();
 
     struct YieldLoan {
@@ -62,7 +62,9 @@ contract YieldVault is ICrossChainReceiver, Ownable, ReentrancyGuard {
     }
 
     /**
-     * @dev Main entry point for CCIP messages. Decodes the message and deposits funds.
+     * @notice Main entry point for CCIP messages. Decodes the message and deposits funds.
+     * @dev Only callable by the router. Decodes message and calls _depositFunds.
+     * @param message The CCIP message containing loanId, amount, borrower, and lender.
      */
     function _ccipReceive(
         Client.Any2EVMMessage memory message
@@ -74,7 +76,12 @@ contract YieldVault is ICrossChainReceiver, Ownable, ReentrancyGuard {
     }
 
     /**
-     * @dev Internal function to handle fund deposit and Aave supply.
+     * @notice Internal function to handle fund deposit and Aave supply.
+     * @dev Approves and supplies USDC to Aave, records the yield loan.
+     * @param loanId The protocol loan ID.
+     * @param amount The principal amount to deposit.
+     * @param borrower The address of the borrower.
+     * @param lender The address of the lender.
      */
     function _depositFunds(
         uint256 loanId,
@@ -85,7 +92,7 @@ contract YieldVault is ICrossChainReceiver, Ownable, ReentrancyGuard {
         if (yieldLoans[loanId].loanId != 0) revert YieldVault__InvalidLoanId();
 
         // Approve Aave pool to spend our USDC
-        USDC.approve(address(AAVE_POOL), amount);
+        IERC20(address(USDC)).forceApprove(address(AAVE_POOL), amount);
 
         // Supply USDC to Aave to start earning aUSDC
         AAVE_POOL.supply(address(USDC), amount, address(this), 0);
@@ -102,7 +109,9 @@ contract YieldVault is ICrossChainReceiver, Ownable, ReentrancyGuard {
     }
 
     /**
-     * @dev Allows the designated borrower to claim their loan principal.
+     * @notice Allows the designated borrower to claim their loan principal.
+     * @dev Only the borrower can call this. Withdraws principal from Aave and sends to borrower.
+     * @param loanId The protocol loan ID to claim principal for.
      */
     function claimPrincipal(uint256 loanId) external nonReentrant {
         YieldLoan storage loan = yieldLoans[loanId];
@@ -123,8 +132,9 @@ contract YieldVault is ICrossChainReceiver, Ownable, ReentrancyGuard {
     }
 
     /**
-     * @dev Allows the lender to claim the yield generated from the loan.
-     * Can only be called by the owner (our LoanManager contract).
+     * @notice Allows the lender to claim the yield generated from the loan.
+     * @dev Only callable by the owner (LoanManager contract). Withdraws yield from Aave and sends to lender.
+     * @param loanId The protocol loan ID to claim yield for.
      */
     function claimYield(uint256 loanId) external nonReentrant onlyOwner {
         YieldLoan memory loan = yieldLoans[loanId];
@@ -148,6 +158,11 @@ contract YieldVault is ICrossChainReceiver, Ownable, ReentrancyGuard {
 
 // --- TEST-ONLY CONTRACT ---
 // This contract is only for testing purposes and should not be deployed in production.
+/**
+ * @title TestYieldVault
+ * @notice Test-only extension of YieldVault for testing CCIP receive logic.
+ * @dev Not for production use.
+ */
 contract TestYieldVault is YieldVault {
     constructor(
         address router,
@@ -155,6 +170,10 @@ contract TestYieldVault is YieldVault {
         address usdc
     ) YieldVault(router, aavePool, usdc) {}
 
+    /**
+     * @notice Test function to call _ccipReceive externally.
+     * @param message The CCIP message to process.
+     */
     function testCcipReceive(Client.Any2EVMMessage memory message) external {
         _ccipReceive(message);
     }

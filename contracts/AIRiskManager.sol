@@ -5,6 +5,12 @@ import {Ownable} from "@openzeppelin/contracts/access/Ownable.sol";
 import {FunctionsClient} from "@chainlink/contracts/src/v0.8/functions/dev/v1_0_0/FunctionsClient.sol";
 import {FunctionsRequest} from "@chainlink/contracts/src/v0.8/functions/dev/v1_0_0/libraries/FunctionsRequest.sol";
 
+/**
+ * @title AIRiskManager
+ * @author ABFX15
+ * @notice Manages AI-based risk assessment for loans using Chainlink Functions.
+ * @dev Requests and stores risk scores, volatility, and recommended interest rates for loans.
+ */
 contract AIRiskManager is FunctionsClient, Ownable {
     using FunctionsRequest for FunctionsRequest.Request;
 
@@ -55,22 +61,34 @@ contract AIRiskManager is FunctionsClient, Ownable {
         _;
     }
 
+    /**
+     * @notice Sets the Chainlink Functions subscription ID.
+     * @dev Only callable by the owner. Reverts if subscriptionId is zero.
+     * @param _subscriptionId The Chainlink Functions subscription ID.
+     */
     function setSubscriptionId(uint64 _subscriptionId) external onlyOwner {
         if (_subscriptionId == 0) revert AIRiskManager__InvalidSubscriptionId();
         subscriptionId = _subscriptionId;
     }
 
+    /**
+     * @notice Sets the loan manager contract address.
+     * @dev Only callable by the owner. Reverts if address is zero.
+     * @param _loanManager The address of the loan manager contract.
+     */
     function setLoanManager(address _loanManager) external onlyOwner {
         if (_loanManager == address(0)) revert AIRiskManager__NotAuthorized();
         loanManager = _loanManager;
     }
 
     /**
-     * @notice Request AI risk assessment for a loan
-     * @param loanId The loan ID to assess
-     * @param borrowerData Encoded borrower data (credit score, income, etc.)
-     * @param collateralData Encoded collateral data (type, value, volatility)
-     * @param marketData Encoded market data (interest rates, economic indicators)
+     * @notice Request AI risk assessment for a loan.
+     * @dev Only callable by the loan manager. Initiates a Chainlink Functions request.
+     * @param loanId The loan ID to assess.
+     * @param borrowerData Encoded borrower data (credit score, income, etc.).
+     * @param collateralData Encoded collateral data (type, value, volatility).
+     * @param marketData Encoded market data (interest rates, economic indicators).
+     * @return requestId The Chainlink Functions request ID.
      */
     function requestRiskAssessment(
         uint256 loanId,
@@ -124,7 +142,11 @@ contract AIRiskManager is FunctionsClient, Ownable {
     }
 
     /**
-     * @notice Chainlink callback for fulfilled risk assessment requests
+     * @notice Chainlink callback for fulfilled risk assessment requests.
+     * @dev Internal override. Parses and stores risk assessment results.
+     * @param requestId The Chainlink Functions request ID.
+     * @param response The response data from the AI model.
+     * @param err Any error data from the request.
      */
     function fulfillRequest(
         bytes32 requestId,
@@ -164,9 +186,9 @@ contract AIRiskManager is FunctionsClient, Ownable {
     }
 
     /**
-     * @notice Calculate dynamic interest rate based on risk factors
-     * @param loanId The loan ID
-     * @return The calculated interest rate in basis points
+     * @notice Calculate dynamic interest rate based on risk factors.
+     * @param loanId The loan ID.
+     * @return The calculated interest rate in basis points.
      */
     function calculateDynamicInterestRate(
         uint256 loanId
@@ -191,11 +213,11 @@ contract AIRiskManager is FunctionsClient, Ownable {
     }
 
     /**
-     * @notice Get comprehensive risk assessment for a loan
-     * @param loanId The loan ID
-     * @return riskScore The risk score (0-100)
-     * @return volatilityScore The volatility score (0-100)
-     * @return interestRate The calculated interest rate
+     * @notice Get comprehensive risk assessment for a loan.
+     * @param loanId The loan ID.
+     * @return riskScore The risk score (0-100).
+     * @return volatilityScore The volatility score (0-100).
+     * @return interestRate The calculated interest rate.
      */
     function getRiskAssessment(
         uint256 loanId
@@ -215,12 +237,21 @@ contract AIRiskManager is FunctionsClient, Ownable {
         );
     }
 
-    // Helper functions for parsing AI response (simplified)
+    /**
+     * @notice Helper function to extract risk score from AI response.
+     * @dev Internal pure function. Used for demo parsing only.
+     * @param response The AI response string.
+     * @return The extracted risk score.
+     */
     function extractRiskScore(
         string memory response
     ) internal pure returns (uint256) {
         bytes memory responseBytes = bytes(response);
-        for (uint256 i = 0; i < responseBytes.length - PATTERN_LENGTH + 1; i++) {
+        for (
+            uint256 i = 0;
+            i < responseBytes.length - PATTERN_LENGTH + 1;
+            i++
+        ) {
             // Check for "riskScore" pattern
             if (i + PATTERN_LENGTH <= responseBytes.length) {
                 bytes memory pattern = new bytes(PATTERN_LENGTH);
@@ -252,23 +283,42 @@ contract AIRiskManager is FunctionsClient, Ownable {
         return DEFAULT_RISK_SCORE; // Default risk score
     }
 
+    /**
+     * @notice Helper function to extract volatility score from AI response.
+     * @dev Internal pure function. Used for demo parsing only.
+     * @param response The AI response string.
+     * @return The extracted volatility score.
+     */
     function extractVolatilityScore(
-        string memory /* response */
+        string memory response
     ) internal pure returns (uint256) {
         // Simplified implementation for now
         return DEFAULT_VOLATILITY_SCORE; // Default volatility score
     }
 
+    /**
+     * @notice Helper function to extract recommended interest rate from AI response.
+     * @dev Internal pure function. Used for demo parsing only.
+     * @param response The AI response string.
+     * @return The extracted interest rate.
+     */
     function extractInterestRate(
-        string memory /* response */
+        string memory response
     ) internal pure returns (uint256) {
         // Simplified implementation for now
         return DEFAULT_INTEREST_RATE; // Default interest rate (10%)
     }
 
-    function stringToUint(string memory s) internal pure returns (uint256) {
+    /**
+     * @notice Helper function to convert string to uint.
+     * @dev Internal pure function. Used for demo parsing only.
+     * @param s The string to convert.
+     * @return result The uint value.
+     */
+    function stringToUint(
+        string memory s
+    ) internal pure returns (uint256 result) {
         bytes memory b = bytes(s);
-        uint256 result = 0;
         for (uint256 i = 0; i < b.length; i++) {
             uint256 c = uint256(uint8(b[i]));
             if (c >= 48 && c <= 57) {

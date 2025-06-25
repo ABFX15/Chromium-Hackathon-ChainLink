@@ -237,13 +237,56 @@ export const useContracts = () => {
                     }
                 }
                 setAllProperties(nfts);
+                // Append the mock loan for the demo property
+                setAllLoans(prevLoans => [
+                    ...prevLoans.filter(loan => loan.tokenId !== 9100n),
+                    {
+                        loanId: 12345n,
+                        tokenId: 9100n,
+                        principalAmount: 500000n,
+                        interestRate: 5n,
+                        startTimestamp: BigInt(Math.floor(Date.now() / 1000)),
+                        borrower: "0xMockBorrower",
+                        lender: "0x0000000000000000000000000000000000000000",
+                        isActive: true,
+                        isFunded: false,
+                    },
+                ]);
             } else {
                 console.log("No on-chain properties found. Loading mock data.");
-                setAllProperties(getMockProperties(address));
+                const mockProps = getMockProperties(address);
+                setAllProperties(mockProps);
+                setAllLoans([
+                    {
+                        loanId: 12345n,
+                        tokenId: 9100n,
+                        principalAmount: 500000n,
+                        interestRate: 5n,
+                        startTimestamp: BigInt(Math.floor(Date.now() / 1000)),
+                        borrower: "0xMockBorrower",
+                        lender: "0x0000000000000000000000000000000000000000",
+                        isActive: true,
+                        isFunded: false,
+                    },
+                ]);
             }
         } catch (error) {
             console.error("Error loading all properties:", error);
-            setAllProperties(getMockProperties(address));
+            const mockProps = getMockProperties(address);
+            setAllProperties(mockProps);
+            setAllLoans([
+                {
+                    loanId: 12345n,
+                    tokenId: 9100n,
+                    principalAmount: 500000n,
+                    interestRate: 5n,
+                    startTimestamp: BigInt(Math.floor(Date.now() / 1000)),
+                    borrower: "0xMockBorrower",
+                    lender: "0x0000000000000000000000000000000000000000",
+                    isActive: true,
+                    isFunded: false,
+                },
+            ]);
         } finally {
             setLoading(false);
         }
@@ -277,7 +320,22 @@ export const useContracts = () => {
                 }
             }
 
-            setUserLoans(loans);
+            // --- Append mock demo loan for lending modal ---
+            const hasDemoLoan = allLoansTemp.some(loan => loan.tokenId === 9100n);
+            if (!hasDemoLoan) {
+                allLoansTemp.push({
+                    loanId: 12345n,
+                    tokenId: 9100n,
+                    principalAmount: 500000n,
+                    interestRate: 5n,
+                    startTimestamp: BigInt(Math.floor(Date.now() / 1000)),
+                    borrower: "0xMockBorrower",
+                    lender: "0x0000000000000000000000000000000000000000",
+                    isActive: true,
+                    isFunded: false,
+                });
+            }
+            console.log('DEBUG allLoansTemp:', allLoansTemp);
             setAllLoans(allLoansTemp);
 
             const balance = await readContract(config, { address: CONTRACT_ADDRESSES.PROPERTY_NFT as Address, abi: PropertyNFTABI.abi, functionName: 'balanceOf', args: [address] }) as bigint;
@@ -327,11 +385,74 @@ export const useContracts = () => {
                     console.warn(`Could not process NFT with index ${i}:`, e);
                 }
             }
+            // --- Append mock property and loan for portfolio/loan page ---
+            const hasMockPortfolio = nfts.some(nft => nft.tokenId === 9001);
+            if (!hasMockPortfolio) {
+                nfts.push({
+                    id: 'mock-portfolio',
+                    tokenId: 9001,
+                    name: 'Portfolio Demo Property',
+                    description: 'A mock property for portfolio demo.',
+                    image: '/properties/mock-1.jpg',
+                    owner: address,
+                    isCollateral: false,
+                    propertyValue: 500000,
+                    price: 500000,
+                    maxLoan: 500000 * 0.7,
+                    location: 'Demo City',
+                    riskScore: 30,
+                });
+            }
+            console.log('DEBUG userNFTs:', nfts);
             setUserNFTs(nfts);
+
+            const hasMockLoan = loans.some(loan => loan.tokenId === 9001n);
+            if (!hasMockLoan) {
+                loans.push({
+                    loanId: 54321n,
+                    tokenId: 9001n,
+                    principalAmount: 250000n,
+                    interestRate: 6n,
+                    startTimestamp: BigInt(Math.floor(Date.now() / 1000)),
+                    borrower: address,
+                    lender: "0x0000000000000000000000000000000000000000",
+                    isActive: true,
+                    isFunded: false,
+                });
+            }
+            console.log('DEBUG userLoans:', loans);
+            setUserLoans(loans);
         } catch (error) {
             console.error("Error loading user data:", error);
-            setUserNFTs([]);
-            setUserLoans([]);
+            setUserNFTs([
+                {
+                    id: 'mock-portfolio',
+                    tokenId: 9001,
+                    name: 'Portfolio Demo Property',
+                    description: 'A mock property for portfolio demo.',
+                    image: '/properties/mock-1.jpg',
+                    owner: address,
+                    isCollateral: false,
+                    propertyValue: 500000,
+                    price: 500000,
+                    maxLoan: 500000 * 0.7,
+                    location: 'Demo City',
+                    riskScore: 30,
+                },
+            ]);
+            setUserLoans([
+                {
+                    loanId: 54321n,
+                    tokenId: 9001n,
+                    principalAmount: 250000n,
+                    interestRate: 6n,
+                    startTimestamp: BigInt(Math.floor(Date.now() / 1000)),
+                    borrower: address,
+                    lender: "0x0000000000000000000000000000000000000000",
+                    isActive: true,
+                    isFunded: false,
+                },
+            ]);
         } finally {
             setLoading(false);
         }
@@ -351,7 +472,20 @@ export const useContracts = () => {
         }
     }, [isConnected, refreshAllData]);
 
-    return { userNFTs, userLoans, allLoans, loading, userUSDCBalance, minting, approving, creatingLoan, isProcessing, txSuccess, depositNFTCollateral, fundLoan, approveNFT, approveUSDC, mintPropertyNFT, allProperties, loadAllProperties, addCCIPLiquidity, estimateCCIPFee, addingLiquidity, repayLoan, refreshAllData };
+    // Lend/fund a loan: approve USDC, then call fundLoanCrossChain
+    const lendLoan = async (loanId: bigint | number): Promise<Address | undefined> => {
+        if (!address) {
+            toast.error("Please connect your wallet first.");
+            return undefined;
+        }
+        // For demo: approve a large amount of USDC
+        const approveTx = await approveUSDC(BigInt(1000000) * BigInt(10 ** 6)); // 1,000,000 USDC
+        if (!approveTx) return undefined;
+        // For demo: no fee, or set to 0n
+        return fundLoan(Number(loanId), BigInt(0));
+    };
+
+    return { userNFTs, userLoans, allLoans, loading, userUSDCBalance, minting, approving, creatingLoan, isProcessing, txSuccess, depositNFTCollateral, fundLoan, approveNFT, approveUSDC, mintPropertyNFT, allProperties, loadAllProperties, addCCIPLiquidity, estimateCCIPFee, addingLiquidity, repayLoan, refreshAllData, lendLoan };
 };
 
 const getMockProperties = (ownerAddress?: Address): NFTMetadata[] => {
@@ -411,6 +545,20 @@ const getMockProperties = (ownerAddress?: Address): NFTMetadata[] => {
             maxLoan: 2500000 * 0.7,
             location: 'New York, NY',
             riskScore: 85,
-        }
+        },
+        {
+            id: 'mock-lend-demo',
+            tokenId: 9100,
+            name: 'Demo Lending Property',
+            description: 'A mock property for demoing the lending and yield flow.',
+            image: '/properties/mock-1.jpg',
+            owner: ownerAddress || '0x000000000000000000000000000000000000dEaD',
+            isCollateral: true,
+            propertyValue: 1000000,
+            price: 1000000,
+            maxLoan: 1000000 * 0.7,
+            location: 'Demo City',
+            riskScore: 10,
+        },
     ];
 }; 

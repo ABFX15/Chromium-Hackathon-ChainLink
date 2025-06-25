@@ -36,11 +36,12 @@ contract PropertyNFT is ERC721, ERC721Enumerable, ERC721Burnable, Ownable {
         _baseTokenURI = baseURI;
     }
 
-    // ========== Public Functions ==========
     /**
      * @notice Mints a new property NFT to the specified address.
+     * @dev Only callable by the contract owner. Sets the token URI.
      * @param to The recipient address.
      * @param uri The metadata URI for the property.
+     * @return tokenId The minted token ID.
      */
     function safeMint(
         address to,
@@ -57,6 +58,7 @@ contract PropertyNFT is ERC721, ERC721Enumerable, ERC721Burnable, Ownable {
 
     /**
      * @notice Sets the base URI for all tokens.
+     * @dev Only callable by the contract owner.
      * @param baseURI The new base URI.
      */
     function setBaseURI(string memory baseURI) external onlyOwner {
@@ -66,6 +68,7 @@ contract PropertyNFT is ERC721, ERC721Enumerable, ERC721Burnable, Ownable {
 
     /**
      * @notice Returns the token URI for a given tokenId.
+     * @dev Returns custom URI if set, otherwise base URI + tokenId.
      * @param tokenId The token ID.
      * @return The token URI string.
      */
@@ -83,6 +86,7 @@ contract PropertyNFT is ERC721, ERC721Enumerable, ERC721Burnable, Ownable {
 
     /**
      * @notice Burns a token if called by owner or approved.
+     * @dev Only callable by owner or approved address.
      * @param tokenId The token ID to burn.
      */
     function burn(uint256 tokenId) public override {
@@ -92,20 +96,34 @@ contract PropertyNFT is ERC721, ERC721Enumerable, ERC721Burnable, Ownable {
         _burn(tokenId);
     }
 
-    // ========== Internal Functions ==========
+    /**
+     * @notice Internal function to set the token URI for a token.
+     * @dev Only callable internally. Reverts if token does not exist or URI is empty.
+     * @param tokenId The token ID.
+     * @param _tokenURI The token URI to set.
+     */
     function _setTokenURI(uint256 tokenId, string memory _tokenURI) internal {
         if (!_exists(tokenId)) revert NonexistentToken();
         if (bytes(_tokenURI).length == 0) revert InvalidTokenURI();
         _tokenURIs[tokenId] = _tokenURI;
     }
 
-    // ========== Overrides ==========
+    /**
+     * @notice Checks if the contract supports a given interface.
+     * @param interfaceId The interface ID to check.
+     * @return True if supported, false otherwise.
+     */
     function supportsInterface(
         bytes4 interfaceId
     ) public view override(ERC721, ERC721Enumerable) returns (bool) {
         return super.supportsInterface(interfaceId);
     }
 
+    /**
+     * @notice Internal override for increasing balance.
+     * @param account The account to increase balance for.
+     * @param value The value to increase.
+     */
     function _increaseBalance(
         address account,
         uint128 value
@@ -113,6 +131,13 @@ contract PropertyNFT is ERC721, ERC721Enumerable, ERC721Burnable, Ownable {
         super._increaseBalance(account, value);
     }
 
+    /**
+     * @notice Internal override for updating token ownership.
+     * @param to The new owner address.
+     * @param tokenId The token ID.
+     * @param auth The authorized address.
+     * @return The previous owner address.
+     */
     function _update(
         address to,
         uint256 tokenId,
@@ -121,11 +146,21 @@ contract PropertyNFT is ERC721, ERC721Enumerable, ERC721Burnable, Ownable {
         return super._update(to, tokenId, auth);
     }
 
-    // ========== Internal View Helpers ==========
+    /**
+     * @notice Internal view helper to check if a token exists.
+     * @param tokenId The token ID to check.
+     * @return True if token exists, false otherwise.
+     */
     function _exists(uint256 tokenId) internal view returns (bool) {
         return _ownerOf(tokenId) != address(0);
     }
 
+    /**
+     * @notice Internal view helper to check if a spender is approved or owner.
+     * @param spender The address to check.
+     * @param tokenId The token ID to check.
+     * @return True if spender is approved or owner, false otherwise.
+     */
     function _isApprovedOrOwner(
         address spender,
         uint256 tokenId

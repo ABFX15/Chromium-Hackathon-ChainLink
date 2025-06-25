@@ -9,11 +9,13 @@ import {Ownable} from "@openzeppelin/contracts/access/Ownable.sol";
  * @title CollateralVault
  * @author ABFX15
  * @notice Stores NFTs used as collateral for loans.
+ * @dev Only the LoanManager can deposit, release, or liquidate NFTs.
  */
 contract CollateralVault is Ownable {
     error CollateralVault__NotLoanManager();
     error CollateralVault__AlreadyInVault();
     error CollateralVault__NotOwner();
+    error CollateralVault__AddressZero();
 
     struct VaultItem {
         address originalOwner;
@@ -33,8 +35,12 @@ contract CollateralVault is Ownable {
     event NFTReleased(uint256 indexed tokenId);
     event NFTLiquidated(uint256 indexed tokenId, address indexed to);
     event LoanManagerSet(address indexed newLoanManager);
+    event DebugTokenIdCheck(uint256 tokenId);
 
-    constructor(address nftAddress) Ownable(msg.sender) {
+    constructor(
+        address nftAddress,
+        address initialOwner
+    ) Ownable(initialOwner) {
         i_nft = IERC721(nftAddress);
     }
 
@@ -45,11 +51,26 @@ contract CollateralVault is Ownable {
         _;
     }
 
+    /**
+     * @notice Sets the loan manager contract address.
+     * @dev Only callable by the owner. Reverts if address is zero.
+     * @param _loanManager The address of the loan manager contract.
+     */
     function setLoanManager(address _loanManager) external onlyOwner {
+        if (_loanManager == address(0)) {
+            revert CollateralVault__AddressZero();
+        }
         loanManager = _loanManager;
         emit LoanManagerSet(_loanManager);
     }
 
+    /**
+     * @notice Deposits an NFT as collateral for a loan.
+     * @dev Only callable by the loan manager. Records the original owner and loan ID.
+     * @param tokenId The NFT token ID to deposit.
+     * @param loanId The associated loan ID.
+     * @param owner The address of the original NFT owner.
+     */
     function depositNFT(
         uint256 tokenId,
         uint256 loanId,
@@ -59,12 +80,18 @@ contract CollateralVault is Ownable {
             revert CollateralVault__AlreadyInVault();
         }
         vault[tokenId] = VaultItem(owner, loanId);
+        emit DebugTokenIdCheck(tokenId);
         if (i_nft.ownerOf(tokenId) != address(this)) {
             revert CollateralVault__NotOwner();
         }
         emit NFTDeposited(tokenId, loanId, owner);
     }
 
+    /**
+     * @notice Releases an NFT back to its original owner after loan repayment or cancellation.
+     * @dev Only callable by the loan manager.
+     * @param tokenId The NFT token ID to release.
+     */
     function releaseNFT(uint256 tokenId) external onlyLoanManager {
         address owner = vault[tokenId].originalOwner;
         delete vault[tokenId];
@@ -72,6 +99,12 @@ contract CollateralVault is Ownable {
         emit NFTReleased(tokenId);
     }
 
+    /**
+     * @notice Liquidates an NFT and transfers it to a specified address (typically the lender).
+     * @dev Only callable by the loan manager.
+     * @param tokenId The NFT token ID to liquidate.
+     * @param to The address to transfer the NFT to.
+     */
     function liquidateAndTransfer(
         uint256 tokenId,
         address to
