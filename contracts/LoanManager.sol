@@ -234,9 +234,8 @@ contract LoanManager is
         if (i_nft.ownerOf(tokenId) != msg.sender)
             revert LoanManager__NotAuthorized();
 
-        uint256 propertyValue = propertyOracle.getPropertyValue(tokenId);
-        uint256 maxLoanAmount = (propertyValue * LIQUIDATION_THRESHOLD) /
-            PRECISION;
+        (uint256 propertyValue, , ) = propertyOracle.getPropertyValue(tokenId);
+        uint256 maxLoanAmount = (propertyValue * LIQUIDATION_THRESHOLD) / PRECISION;
         if (requestedAmount > maxLoanAmount)
             revert LoanManager__InsufficientCollateral();
 
@@ -528,7 +527,7 @@ contract LoanManager is
         Loan memory loan = loans[loanId];
         if (!loan.isActive) return type(uint256).max;
 
-        uint256 propertyValue = propertyOracle.getPropertyValue(loan.tokenId);
+        (uint256 propertyValue, ,) = propertyOracle.getPropertyValue(loan.tokenId);
 
         uint256 accruedInterest = _calculateAccruedInterest(loan);
         uint256 totalDebt = loan.principalAmount + accruedInterest;

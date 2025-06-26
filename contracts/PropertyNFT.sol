@@ -17,22 +17,29 @@ import {Strings} from "@openzeppelin/contracts/utils/Strings.sol";
 contract PropertyNFT is ERC721, ERC721Enumerable, ERC721Burnable, Ownable {
     using Strings for uint256;
 
-    error NotOwnerOrApproved();
-    error InvalidTokenURI();
-    error NonexistentToken();
-    error InvalidBaseURI();
-    error InvalidRecipient();
+    // Custom Errors
+    error PropertyNFT__NotOwnerOrApproved();
+    error PropertyNFT__InvalidTokenURI();
+    error PropertyNFT__NonexistentToken();
+    error PropertyNFT__InvalidBaseURI();
+    error PropertyNFT__InvalidRecipient();
 
+    // State Variables
     string private _baseTokenURI;
     uint256 private _nextTokenId = 1;
     mapping(uint256 => string) private _tokenURIs;
+
+    // Events
+    event BaseURIUpdated(string newBaseURI);
+    event TokenURIUpdated(uint256 indexed tokenId, string newTokenURI);
+    event PropertyMinted(address indexed to, uint256 indexed tokenId, string tokenURI);
 
     constructor(
         string memory name,
         string memory symbol,
         string memory baseURI
     ) ERC721(name, symbol) Ownable(msg.sender) {
-        if (bytes(baseURI).length == 0) revert InvalidBaseURI();
+        if (bytes(baseURI).length == 0) revert PropertyNFT__InvalidBaseURI();
         _baseTokenURI = baseURI;
     }
 
@@ -47,13 +54,45 @@ contract PropertyNFT is ERC721, ERC721Enumerable, ERC721Burnable, Ownable {
         address to,
         string memory uri
     ) external onlyOwner returns (uint256) {
-        if (to == address(0)) revert InvalidRecipient();
-        if (bytes(uri).length == 0) revert InvalidTokenURI();
+        if (to == address(0)) revert PropertyNFT__InvalidRecipient();
+        if (bytes(uri).length == 0) revert PropertyNFT__InvalidTokenURI();
 
         uint256 tokenId = _nextTokenId++;
         _safeMint(to, tokenId);
         _setTokenURI(tokenId, uri);
+        
+        emit PropertyMinted(to, tokenId, uri);
         return tokenId;
+    }
+
+    /**
+     * @notice Batch mints multiple property NFTs to specified addresses.
+     * @dev Only callable by the contract owner. More gas efficient for multiple mints.
+     * @param recipients Array of recipient addresses.
+     * @param uris Array of metadata URIs for the properties.
+     * @return tokenIds Array of minted token IDs.
+     */
+    function batchSafeMint(
+        address[] calldata recipients,
+        string[] calldata uris
+    ) external onlyOwner returns (uint256[] memory tokenIds) {
+        if (recipients.length != uris.length || recipients.length == 0) {
+            revert PropertyNFT__InvalidRecipient();
+        }
+
+        tokenIds = new uint256[](recipients.length);
+        
+        for (uint256 i = 0; i < recipients.length; i++) {
+            if (recipients[i] == address(0)) revert PropertyNFT__InvalidRecipient();
+            if (bytes(uris[i]).length == 0) revert PropertyNFT__InvalidTokenURI();
+
+            uint256 tokenId = _nextTokenId++;
+            _safeMint(recipients[i], tokenId);
+            _setTokenURI(tokenId, uris[i]);
+            tokenIds[i] = tokenId;
+            
+            emit PropertyMinted(recipients[i], tokenId, uris[i]);
+        }
     }
 
     /**
@@ -62,8 +101,23 @@ contract PropertyNFT is ERC721, ERC721Enumerable, ERC721Burnable, Ownable {
      * @param baseURI The new base URI.
      */
     function setBaseURI(string memory baseURI) external onlyOwner {
-        if (bytes(baseURI).length == 0) revert InvalidBaseURI();
+        if (bytes(baseURI).length == 0) revert PropertyNFT__InvalidBaseURI();
         _baseTokenURI = baseURI;
+        emit BaseURIUpdated(baseURI);
+    }
+
+    /**
+     * @notice Updates the token URI for an existing token.
+     * @dev Only callable by the contract owner.
+     * @param tokenId The token ID to update.
+     * @param newTokenURI The new token URI.
+     */
+    function setTokenURI(uint256 tokenId, string memory newTokenURI) external onlyOwner {
+        if (!_exists(tokenId)) revert PropertyNFT__NonexistentToken();
+        if (bytes(newTokenURI).length == 0) revert PropertyNFT__InvalidTokenURI();
+        
+        _tokenURIs[tokenId] = newTokenURI;
+        emit TokenURIUpdated(tokenId, newTokenURI);
     }
 
     /**
@@ -75,24 +129,64 @@ contract PropertyNFT is ERC721, ERC721Enumerable, ERC721Burnable, Ownable {
     function tokenURI(
         uint256 tokenId
     ) public view override returns (string memory) {
-        if (!_exists(tokenId)) revert NonexistentToken();
+        if (!_exists(tokenId)) revert PropertyNFT__NonexistentToken();
 
         string memory _tokenURI = _tokenURIs[tokenId];
         if (bytes(_tokenURI).length > 0) {
             return _tokenURI;
         }
-        return string(abi.encode(_baseTokenURI, tokenId.toString()));
+        
+        return bytes(_baseTokenURI).length > 0 
+            ? string(abi.encodePacked(_baseTokenURI, tokenId.toString()))
+            : "";
+    }
+
+    /**
+     * @notice Returns the base URI for tokens.
+     * @return The base URI string.
+     */
+    function baseURI() external view returns (string memory) {
+        return _baseTokenURI;
+    }
+
+    /**
+     * @notice Returns the next token ID that will be minted.
+     * @return The next token ID.
+     */
+    function getNextTokenId() external view returns (uint256) {
+        return _nextTokenId;
+    }
+
+    /**
+     * @notice Returns all token IDs owned by a specific address.
+     * @dev Uses enumerable extension for efficient querying.
+     * @param owner The owner address.
+     * @return tokenIds Array of token IDs owned by the address.
+     */
+    function getTokensByOwner(address owner) external view returns (uint256[] memory tokenIds) {
+        uint256 balance = balanceOf(owner);
+        tokenIds = new uint256[](balance);
+        
+        for (uint256 i = 0; i < balance; i++) {
+            tokenIds[i] = tokenOfOwnerByIndex(owner, i);
+        }
     }
 
     /**
      * @notice Burns a token if called by owner or approved.
-     * @dev Only callable by owner or approved address.
+     * @dev Only callable by owner or approved address. Clears token URI.
      * @param tokenId The token ID to burn.
      */
     function burn(uint256 tokenId) public override {
-        if (!_isApprovedOrOwner(_msgSender(), tokenId)) {
-            revert NotOwnerOrApproved();
+        if (!_isOwnerOrApproved(_msgSender(), tokenId)) {
+            revert PropertyNFT__NotOwnerOrApproved();
         }
+        
+        // Clear token URI before burning
+        if (bytes(_tokenURIs[tokenId]).length > 0) {
+            delete _tokenURIs[tokenId];
+        }
+        
         _burn(tokenId);
     }
 
@@ -103,8 +197,8 @@ contract PropertyNFT is ERC721, ERC721Enumerable, ERC721Burnable, Ownable {
      * @param _tokenURI The token URI to set.
      */
     function _setTokenURI(uint256 tokenId, string memory _tokenURI) internal {
-        if (!_exists(tokenId)) revert NonexistentToken();
-        if (bytes(_tokenURI).length == 0) revert InvalidTokenURI();
+        if (!_exists(tokenId)) revert PropertyNFT__NonexistentToken();
+        if (bytes(_tokenURI).length == 0) revert PropertyNFT__InvalidTokenURI();
         _tokenURIs[tokenId] = _tokenURI;
     }
 
@@ -117,18 +211,6 @@ contract PropertyNFT is ERC721, ERC721Enumerable, ERC721Burnable, Ownable {
         bytes4 interfaceId
     ) public view override(ERC721, ERC721Enumerable) returns (bool) {
         return super.supportsInterface(interfaceId);
-    }
-
-    /**
-     * @notice Internal override for increasing balance.
-     * @param account The account to increase balance for.
-     * @param value The value to increase.
-     */
-    function _increaseBalance(
-        address account,
-        uint128 value
-    ) internal override(ERC721, ERC721Enumerable) {
-        super._increaseBalance(account, value);
     }
 
     /**
@@ -147,7 +229,20 @@ contract PropertyNFT is ERC721, ERC721Enumerable, ERC721Burnable, Ownable {
     }
 
     /**
+     * @notice Internal override for increasing balance.
+     * @param account The account to increase balance for.
+     * @param value The value to increase.
+     */
+    function _increaseBalance(
+        address account,
+        uint128 value
+    ) internal override(ERC721, ERC721Enumerable) {
+        super._increaseBalance(account, value);
+    }
+
+    /**
      * @notice Internal view helper to check if a token exists.
+     * @dev Compatible with OpenZeppelin v5.x by using _ownerOf directly.
      * @param tokenId The token ID to check.
      * @return True if token exists, false otherwise.
      */
@@ -157,14 +252,17 @@ contract PropertyNFT is ERC721, ERC721Enumerable, ERC721Burnable, Ownable {
 
     /**
      * @notice Internal view helper to check if a spender is approved or owner.
+     * @dev Custom implementation compatible with OpenZeppelin v5.x.
      * @param spender The address to check.
      * @param tokenId The token ID to check.
      * @return True if spender is approved or owner, false otherwise.
      */
-    function _isApprovedOrOwner(
+    function _isOwnerOrApproved(
         address spender,
         uint256 tokenId
     ) internal view returns (bool) {
+        if (!_exists(tokenId)) return false;
+        
         address owner = _ownerOf(tokenId);
         return (spender == owner ||
             isApprovedForAll(owner, spender) ||
