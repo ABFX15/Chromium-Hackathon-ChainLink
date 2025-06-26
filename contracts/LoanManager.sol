@@ -131,6 +131,7 @@ contract LoanManager is
         i_ccipRouter = IRouterClient(ccipRouter);
         i_usdc = IERC20(usdc);
         i_destinationChainSelector = _destinationChainSelector;
+        i_collateralVault.setLoanManager(address(this));
     }
 
     // --- Admin Functions ---
@@ -240,7 +241,7 @@ contract LoanManager is
             revert LoanManager__InsufficientCollateral();
 
         i_nft.transferFrom(msg.sender, address(i_collateralVault), tokenId);
-        i_collateralVault.depositNFT(loanId, tokenId, msg.sender);
+        i_collateralVault.depositNFT(tokenId, loanId, msg.sender);
 
         emit LoanCreated(loanId, tokenId, msg.sender, requestedAmount);
     }

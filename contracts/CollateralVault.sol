@@ -76,14 +76,18 @@ contract CollateralVault is Ownable {
         uint256 loanId,
         address owner
     ) external onlyLoanManager {
+        if (owner == address(0)) {
+            revert CollateralVault__AddressZero();
+        }
         if (vault[tokenId].originalOwner != address(0)) {
             revert CollateralVault__AlreadyInVault();
         }
         vault[tokenId] = VaultItem(owner, loanId);
-        emit DebugTokenIdCheck(tokenId);
+
         if (i_nft.ownerOf(tokenId) != address(this)) {
             revert CollateralVault__NotOwner();
         }
+        i_nft.transferFrom(owner, address(this), tokenId);
         emit NFTDeposited(tokenId, loanId, owner);
     }
 
