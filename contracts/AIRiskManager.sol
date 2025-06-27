@@ -2,28 +2,40 @@
 pragma solidity 0.8.30;
 
 import {Ownable} from "@openzeppelin/contracts/access/Ownable.sol";
+import {ReentrancyGuard} from "@openzeppelin/contracts/utils/ReentrancyGuard.sol";
+import {Pausable} from "@openzeppelin/contracts/utils/Pausable.sol";
 import {FunctionsClient} from "@chainlink/contracts/src/v0.8/functions/dev/v1_0_0/FunctionsClient.sol";
 import {FunctionsRequest} from "@chainlink/contracts/src/v0.8/functions/dev/v1_0_0/libraries/FunctionsRequest.sol";
+import {SafeCast} from "@openzeppelin/contracts/utils/math/SafeCast.sol";
 
 /**
  * @title AIRiskManager
  * @author ABFX15
- * @notice Manages AI-based risk assessment for loans using Chainlink Functions.
- * @dev Requests and stores risk scores, volatility, and recommended interest rates for loans.
+ * @notice Enhanced AI-based risk assessment for loans using Chainlink Functions with fallback mechanisms
+ * @dev Requests and stores risk scores, volatility, and recommended interest rates for loans with robust error handling
  */
-contract AIRiskManager is FunctionsClient, Ownable {
+contract AIRiskManager is FunctionsClient, Ownable, ReentrancyGuard, Pausable {
     using FunctionsRequest for FunctionsRequest.Request;
 
-    // Custom Errors
+    // Enhanced Custom Errors
     error AIRiskManager__InvalidLoanId();
     error AIRiskManager__InvalidRiskScore();
     error AIRiskManager__InvalidInterestRate();
     error AIRiskManager__NotAuthorized();
     error AIRiskManager__InvalidSubscriptionId();
+    error AIRiskManager__AIResponseParseFailed();
+    error AIRiskManager__RequestAlreadyPending();
+    error AIRiskManager__RateLimitExceeded();
+    error AIRiskManager__InvalidDataFormat();
+    error AIRiskManager__FallbackModeActive();
 
-    // State Variables
+    // Enhanced State Variables
     uint64 public subscriptionId;
     address public loanManager;
+    bool public fallbackMode;
+    uint256 public requestCount;
+    uint256 public maxRequestsPerHour;
+    uint256 public lastRequestTimestamp;
 
     // Risk scoring parameters
     uint256 public constant MIN_RISK_SCORE = 0;
@@ -33,38 +45,80 @@ contract AIRiskManager is FunctionsClient, Ownable {
     uint256 public constant DEFAULT_RISK_SCORE = 50;
     uint256 public constant DEFAULT_VOLATILITY_SCORE = 50;
     uint256 public constant DEFAULT_INTEREST_RATE = 1000; // 10%
-    uint256 public constant ASCII_ZERO = 48;
-    uint256 public constant ASCII_NINE = 57;
-    uint256 public constant PATTERN_LENGTH = 9;
-    uint256 public constant RISK_SCORE_OFFSET = 11;
-    uint256 public constant CHAINLINK_GAS_LIMIT = 200000;
+    uint256 public constant CHAINLINK_GAS_LIMIT = 300000; // Increased for better reliability
+    uint256 public constant REQUEST_TIMEOUT = 5 minutes;
+    uint256 public constant HOUR_IN_SECONDS = 3600;
 
-    // Mappings
-    mapping(uint256 => uint256) public loanRiskScores; // loanId => risk score
-    mapping(uint256 => uint256) public loanInterestRates; // loanId => interest rate
-    mapping(uint256 => uint256) public loanVolatilityScores; // loanId => volatility
-    mapping(bytes32 => uint256) public requestIdToLoanId;
+    // Enhanced Structs
+    struct RiskAssessment {
+        uint256 riskScore;
+        uint256 volatilityScore;
+        uint256 interestRate;
+        uint256 timestamp;
+        bool isValid;
+    }
+
+    struct PendingRequest {
+        uint256 loanId;
+        uint256 timestamp;
+        bool isActive;
+    }
+
+    // Enhanced Mappings
+    mapping(uint256 => RiskAssessment) public loanRiskAssessments;
+    mapping(bytes32 => PendingRequest) public pendingRequests;
+    mapping(uint256 => bool) public loanRequestPending;
+    mapping(uint256 => uint256) public hourlyRequestCount; // timestamp => count
 
     // Events
     event RiskScoreUpdated(
         uint256 indexed loanId,
         uint256 riskScore,
-        uint256 interestRate
+        uint256 interestRate,
+        uint256 volatilityScore,
+        uint256 timestamp
     );
-    event VolatilityUpdated(uint256 indexed loanId, uint256 volatilityScore);
-    event AIRiskRequested(bytes32 indexed requestId, uint256 loanId);
+    event AIRiskRequested(
+        bytes32 indexed requestId,
+        uint256 indexed loanId,
+        uint256 timestamp
+    );
+    event FallbackModeToggled(bool enabled, uint256 timestamp);
+    event RequestFailed(
+        bytes32 indexed requestId,
+        uint256 indexed loanId,
+        string reason
+    );
+    event RateLimitUpdated(uint256 newLimit);
 
-    constructor(address router) FunctionsClient(router) Ownable(msg.sender) {}
+    constructor(
+        address router,
+        uint256 _maxRequestsPerHour
+    ) FunctionsClient(router) Ownable(msg.sender) {
+        maxRequestsPerHour = _maxRequestsPerHour;
+    }
 
     modifier onlyLoanManager() {
         if (msg.sender != loanManager) revert AIRiskManager__NotAuthorized();
         _;
     }
 
+    modifier rateLimited() {
+        uint256 currentHour = block.timestamp / HOUR_IN_SECONDS;
+        if (hourlyRequestCount[currentHour] >= maxRequestsPerHour) {
+            revert AIRiskManager__RateLimitExceeded();
+        }
+        _;
+        hourlyRequestCount[currentHour]++;
+    }
+
+    modifier validLoanId(uint256 loanId) {
+        if (loanId == 0) revert AIRiskManager__InvalidLoanId();
+        _;
+    }
+
     /**
-     * @notice Sets the Chainlink Functions subscription ID.
-     * @dev Only callable by the owner. Reverts if subscriptionId is zero.
-     * @param _subscriptionId The Chainlink Functions subscription ID.
+     * @notice Sets the Chainlink Functions subscription ID with enhanced validation
      */
     function setSubscriptionId(uint64 _subscriptionId) external onlyOwner {
         if (_subscriptionId == 0) revert AIRiskManager__InvalidSubscriptionId();
@@ -72,9 +126,7 @@ contract AIRiskManager is FunctionsClient, Ownable {
     }
 
     /**
-     * @notice Sets the loan manager contract address.
-     * @dev Only callable by the owner. Reverts if address is zero.
-     * @param _loanManager The address of the loan manager contract.
+     * @notice Sets the loan manager contract address with validation
      */
     function setLoanManager(address _loanManager) external onlyOwner {
         if (_loanManager == address(0)) revert AIRiskManager__NotAuthorized();
@@ -82,42 +134,74 @@ contract AIRiskManager is FunctionsClient, Ownable {
     }
 
     /**
-     * @notice Request AI risk assessment for a loan.
-     * @dev Only callable by the loan manager. Initiates a Chainlink Functions request.
-     * @param loanId The loan ID to assess.
-     * @param borrowerData Encoded borrower data (credit score, income, etc.).
-     * @param collateralData Encoded collateral data (type, value, volatility).
-     * @param marketData Encoded market data (interest rates, economic indicators).
-     * @return requestId The Chainlink Functions request ID.
+     * @notice Toggle fallback mode for emergency situations
+     */
+    function toggleFallbackMode() external onlyOwner {
+        fallbackMode = !fallbackMode;
+        emit FallbackModeToggled(fallbackMode, block.timestamp);
+    }
+
+    /**
+     * @notice Update rate limiting parameters
+     */
+    function setMaxRequestsPerHour(uint256 _maxRequests) external onlyOwner {
+        maxRequestsPerHour = _maxRequests;
+        emit RateLimitUpdated(_maxRequests);
+    }
+
+    /**
+     * @notice Pause contract in emergency
+     */
+    function pause() external onlyOwner {
+        _pause();
+    }
+
+    /**
+     * @notice Unpause contract
+     */
+    function unpause() external onlyOwner {
+        _unpause();
+    }
+
+    /**
+     * @notice Enhanced risk assessment request with better error handling and validation
      */
     function requestRiskAssessment(
         uint256 loanId,
         string calldata borrowerData,
         string calldata collateralData,
         string calldata marketData
-    ) external onlyLoanManager returns (bytes32) {
-        if (loanId == 0) revert AIRiskManager__InvalidLoanId();
+    )
+        external
+        nonReentrant
+        onlyLoanManager
+        whenNotPaused
+        rateLimited
+        validLoanId(loanId)
+        returns (bytes32)
+    {
+        if (fallbackMode) {
+            _setFallbackRiskAssessment(loanId);
+            revert AIRiskManager__FallbackModeActive();
+        }
 
-        string memory source = string(
-            abi.encode(
-                "const AWS = require('aws-sdk');",
-                "const bedrock = new AWS.BedrockRuntime();",
-                "const borrowerData = args[0];",
-                "const collateralData = args[1];",
-                "const marketData = args[2];",
-                "const prompt = `Analyze loan risk for borrower: ${borrowerData}, collateral: ${collateralData}, market: ${marketData}. Return JSON with riskScore (0-100), volatilityScore (0-100), and recommendedInterestRate (basis points).`;",
-                "const response = await bedrock.invokeModel({",
-                "  modelId: 'anthropic.claude-3-sonnet-20240229-v1:0',",
-                "  body: JSON.stringify({",
-                "    prompt: prompt,",
-                "    max_tokens: 1000,",
-                "    temperature: 0.1",
-                "  })",
-                "});",
-                "const result = JSON.parse(response.body.toString());",
-                "return Functions.encodeString(JSON.stringify(result));"
-            )
-        );
+        if (loanRequestPending[loanId]) {
+            revert AIRiskManager__RequestAlreadyPending();
+        }
+
+        // Validate input data format
+        if (
+            bytes(borrowerData).length == 0 ||
+            bytes(collateralData).length == 0 ||
+            bytes(marketData).length == 0
+        ) {
+            revert AIRiskManager__InvalidDataFormat();
+        }
+
+        loanRequestPending[loanId] = true;
+        requestCount++;
+        // Enhanced JavaScript source with better error handling
+        string memory source = _buildEnhancedJavaScriptSource();
 
         FunctionsRequest.Request memory req;
         req.initializeRequestForInlineJavaScript(source);
@@ -131,200 +215,323 @@ contract AIRiskManager is FunctionsClient, Ownable {
         bytes32 requestId = _sendRequest(
             req.encodeCBOR(),
             subscriptionId,
-            uint32(CHAINLINK_GAS_LIMIT),
+            SafeCast.toUint32(CHAINLINK_GAS_LIMIT),
             bytes32(0)
         );
 
-        requestIdToLoanId[requestId] = loanId;
-        emit AIRiskRequested(requestId, loanId);
+        // Track pending request
+        pendingRequests[requestId] = PendingRequest({
+            loanId: loanId,
+            timestamp: block.timestamp,
+            isActive: true
+        });
 
+        emit AIRiskRequested(requestId, loanId, block.timestamp);
         return requestId;
     }
 
     /**
-     * @notice Chainlink callback for fulfilled risk assessment requests.
-     * @dev Internal override. Parses and stores risk assessment results.
-     * @param requestId The Chainlink Functions request ID.
-     * @param response The response data from the AI model.
-     * @param err Any error data from the request.
+     * @notice Enhanced fulfillRequest with robust error handling and JSON parsing
      */
     function fulfillRequest(
         bytes32 requestId,
         bytes memory response,
         bytes memory err
     ) internal override {
-        if (err.length > 0) {
-            revert AIRiskManager__InvalidRiskScore();
+        PendingRequest storage request = pendingRequests[requestId];
+
+        if (!request.isActive) {
+            return; // Ignore if request is not active
         }
 
-        uint256 loanId = requestIdToLoanId[requestId];
-        if (loanId == 0) revert AIRiskManager__InvalidLoanId();
+        uint256 loanId = request.loanId;
+        loanRequestPending[loanId] = false;
+        request.isActive = false;
 
-        // Decode AI response
-        string memory result = string(response);
-        // Parse JSON response (simplified - in production use proper JSON parsing)
-        // Expected format: {"riskScore": 75, "volatilityScore": 60, "recommendedInterestRate": 1200}
+        if (err.length > 0) {
+            _handleRequestError(requestId, loanId, string(err));
+            return;
+        }
 
-        // For demo purposes, extract values from response
-        uint256 riskScore = extractRiskScore(result);
-        uint256 volatilityScore = extractVolatilityScore(result);
-        uint256 recommendedRate = extractInterestRate(result);
+        if (response.length == 0) {
+            _handleRequestError(requestId, loanId, "Empty response");
+            return;
+        }
 
-        // Validate scores
-        if (riskScore > MAX_RISK_SCORE)
-            revert AIRiskManager__InvalidRiskScore();
-        if (recommendedRate > MAX_INTEREST_RATE)
-            revert AIRiskManager__InvalidInterestRate();
-
-        // Store results
-        loanRiskScores[loanId] = riskScore;
-        loanVolatilityScores[loanId] = volatilityScore;
-        loanInterestRates[loanId] = recommendedRate;
-
-        emit RiskScoreUpdated(loanId, riskScore, recommendedRate);
-        emit VolatilityUpdated(loanId, volatilityScore);
+        _parseAndStoreResponse(loanId, response);
     }
 
     /**
-     * @notice Calculate dynamic interest rate based on risk factors.
-     * @param loanId The loan ID.
-     * @return The calculated interest rate in basis points.
+     * @notice Enhanced dynamic interest rate calculation with non-linear adjustments
      */
     function calculateDynamicInterestRate(
         uint256 loanId
-    ) external view returns (uint256) {
-        uint256 riskScore = loanRiskScores[loanId];
-        uint256 volatilityScore = loanVolatilityScores[loanId];
+    ) external view validLoanId(loanId) returns (uint256) {
+        RiskAssessment memory assessment = loanRiskAssessments[loanId];
 
-        // Base rate + risk adjustment + volatility adjustment
-        uint256 riskAdjustment = (riskScore * 10); // 0-1000 basis points
-        uint256 volatilityAdjustment = (volatilityScore * 5); // 0-500 basis points
+        if (!assessment.isValid) {
+            return DEFAULT_INTEREST_RATE;
+        }
+
+        // Non-linear risk adjustment - higher penalties for very risky loans
+        uint256 riskMultiplier = assessment.riskScore > 80
+            ? 15
+            : assessment.riskScore > 60
+            ? 12
+            : 10;
+
+        uint256 riskAdjustment = (assessment.riskScore * riskMultiplier) / 10;
+
+        // Volatility adjustment with exponential scaling for high volatility
+        uint256 volatilityAdjustment = assessment.volatilityScore > 70
+            ? (assessment.volatilityScore * 8)
+            : (assessment.volatilityScore * 5);
+
+        // Time-based adjustment - older assessments get higher rates
+        uint256 timeAdjustment = 0;
+        if (block.timestamp > assessment.timestamp + 7 days) {
+            timeAdjustment = 50; // 0.5% increase for week-old assessments
+        }
 
         uint256 totalRate = BASE_INTEREST_RATE +
             riskAdjustment +
-            volatilityAdjustment;
+            volatilityAdjustment +
+            timeAdjustment;
 
-        // Cap at maximum rate
-        if (totalRate > MAX_INTEREST_RATE) {
-            totalRate = MAX_INTEREST_RATE;
-        }
-
-        return totalRate;
+        return totalRate > MAX_INTEREST_RATE ? MAX_INTEREST_RATE : totalRate;
     }
 
     /**
-     * @notice Get comprehensive risk assessment for a loan.
-     * @param loanId The loan ID.
-     * @return riskScore The risk score (0-100).
-     * @return volatilityScore The volatility score (0-100).
-     * @return interestRate The calculated interest rate.
+     * @notice Get comprehensive risk assessment with validity check
      */
     function getRiskAssessment(
         uint256 loanId
     )
         external
         view
+        validLoanId(loanId)
+        returns (
+            uint256 riskScore,
+            uint256 volatilityScore,
+            uint256 interestRate,
+            uint256 timestamp,
+            bool isValid
+        )
+    {
+        RiskAssessment memory assessment = loanRiskAssessments[loanId];
+        return (
+            assessment.riskScore,
+            assessment.volatilityScore,
+            assessment.interestRate,
+            assessment.timestamp,
+            assessment.isValid
+        );
+    }
+
+    /**
+     * @notice Check if assessment is stale and needs refresh
+     */
+    function isAssessmentStale(uint256 loanId) external view returns (bool) {
+        RiskAssessment memory assessment = loanRiskAssessments[loanId];
+        return
+            !assessment.isValid ||
+            (block.timestamp > assessment.timestamp + 7 days);
+    }
+
+    /**
+     * @notice Clean up expired pending requests (callable by anyone)
+     */
+    function cleanupExpiredRequests(bytes32[] calldata requestIds) external {
+        for (uint256 i = 0; i < requestIds.length; i++) {
+            PendingRequest storage request = pendingRequests[requestIds[i]];
+            if (
+                request.isActive &&
+                block.timestamp > request.timestamp + REQUEST_TIMEOUT
+            ) {
+                loanRequestPending[request.loanId] = false;
+                request.isActive = false;
+
+                emit RequestFailed(requestIds[i], request.loanId, "Timeout");
+            }
+        }
+    }
+
+    // Internal Functions
+
+    function _buildEnhancedJavaScriptSource()
+        internal
+        pure
+        returns (string memory)
+    {
+        return
+            string(
+                abi.encodePacked(
+                    "try {",
+                    "const AWS = require('aws-sdk');",
+                    "const bedrock = new AWS.BedrockRuntime();",
+                    "const borrowerData = args[0];",
+                    "const collateralData = args[1];",
+                    "const marketData = args[2];",
+                    "const prompt = `Analyze loan risk. Borrower: ${borrowerData}, Collateral: ${collateralData}, Market: ${marketData}. ",
+                    'Return valid JSON: {"riskScore": 0-100, "volatilityScore": 0-100, "recommendedInterestRate": basis points}`;',
+                    "const response = await bedrock.invokeModel({",
+                    "modelId: 'anthropic.claude-3-sonnet-20240229-v1:0',",
+                    "body: JSON.stringify({prompt, max_tokens: 1000, temperature: 0.1})",
+                    "});",
+                    "const result = JSON.parse(response.body.toString());",
+                    "const parsed = typeof result === 'string' ? JSON.parse(result) : result;",
+                    "return Functions.encodeString(JSON.stringify({",
+                    "riskScore: Math.max(0, Math.min(100, parsed.riskScore || 50)),",
+                    "volatilityScore: Math.max(0, Math.min(100, parsed.volatilityScore || 50)),",
+                    "recommendedInterestRate: Math.max(500, Math.min(2000, parsed.recommendedInterestRate || 1000))",
+                    "}));",
+                    "} catch (error) {",
+                    "return Functions.encodeString(JSON.stringify({error: error.message}));",
+                    "}"
+                )
+            );
+    }
+
+    function _parseAndStoreResponse(
+        uint256 loanId,
+        bytes memory response
+    ) internal {
+        string memory responseStr = string(response);
+
+        // Enhanced JSON parsing with error handling
+        (
+            uint256 riskScore,
+            uint256 volatilityScore,
+            uint256 interestRate
+        ) = _parseJSONResponse(responseStr);
+
+        // Validate parsed values
+        if (riskScore > MAX_RISK_SCORE || interestRate > MAX_INTEREST_RATE) {
+            revert AIRiskManager__InvalidRiskScore();
+        }
+
+        // Store the assessment
+        loanRiskAssessments[loanId] = RiskAssessment({
+            riskScore: riskScore,
+            volatilityScore: volatilityScore,
+            interestRate: interestRate,
+            timestamp: block.timestamp,
+            isValid: true
+        });
+
+        emit RiskScoreUpdated(
+            loanId,
+            riskScore,
+            interestRate,
+            volatilityScore,
+            block.timestamp
+        );
+    }
+
+    function _parseJSONResponse(
+        string memory response
+    )
+        internal
+        pure
         returns (
             uint256 riskScore,
             uint256 volatilityScore,
             uint256 interestRate
         )
     {
-        return (
-            loanRiskScores[loanId],
-            loanVolatilityScores[loanId],
-            loanInterestRates[loanId]
+        // Enhanced JSON parsing - production would use a proper JSON library
+        riskScore = _extractValueFromJSON(response, "riskScore");
+        volatilityScore = _extractValueFromJSON(response, "volatilityScore");
+        interestRate = _extractValueFromJSON(
+            response,
+            "recommendedInterestRate"
+        );
+
+        // Apply defaults if parsing failed
+        if (riskScore == 0) riskScore = DEFAULT_RISK_SCORE;
+        if (volatilityScore == 0) volatilityScore = DEFAULT_VOLATILITY_SCORE;
+        if (interestRate == 0) interestRate = DEFAULT_INTEREST_RATE;
+    }
+
+    function _extractValueFromJSON(
+        string memory json,
+        string memory key
+    ) internal pure returns (uint256) {
+        bytes memory jsonBytes = bytes(json);
+        bytes memory keyBytes = bytes(key);
+
+        for (uint256 i = 0; i < jsonBytes.length - keyBytes.length; i++) {
+            bool found = true;
+            for (uint256 j = 0; j < keyBytes.length; j++) {
+                if (jsonBytes[i + j] != keyBytes[j]) {
+                    found = false;
+                    break;
+                }
+            }
+
+            if (found) {
+                // Look for the value after the key
+                uint256 start = i + keyBytes.length;
+                while (
+                    start < jsonBytes.length &&
+                    (jsonBytes[start] == '"' ||
+                        jsonBytes[start] == ":" ||
+                        jsonBytes[start] == " ")
+                ) {
+                    start++;
+                }
+
+                uint256 end = start;
+                while (
+                    end < jsonBytes.length &&
+                    jsonBytes[end] >= "0" &&
+                    jsonBytes[end] <= "9"
+                ) {
+                    end++;
+                }
+
+                if (end > start) {
+                    return _bytesToUint(jsonBytes, start, end);
+                }
+            }
+        }
+        return 0;
+    }
+
+    function _bytesToUint(
+        bytes memory data,
+        uint256 start,
+        uint256 end
+    ) internal pure returns (uint256 result) {
+        for (uint256 i = start; i < end; i++) {
+            result = result * 10 + (uint256(uint8(data[i])) - 48);
+        }
+    }
+
+    function _setFallbackRiskAssessment(uint256 loanId) internal {
+        loanRiskAssessments[loanId] = RiskAssessment({
+            riskScore: DEFAULT_RISK_SCORE,
+            volatilityScore: DEFAULT_VOLATILITY_SCORE,
+            interestRate: DEFAULT_INTEREST_RATE,
+            timestamp: block.timestamp,
+            isValid: true
+        });
+
+        emit RiskScoreUpdated(
+            loanId,
+            DEFAULT_RISK_SCORE,
+            DEFAULT_INTEREST_RATE,
+            DEFAULT_VOLATILITY_SCORE,
+            block.timestamp
         );
     }
 
-    /**
-     * @notice Helper function to extract risk score from AI response.
-     * @dev Internal pure function. Used for demo parsing only.
-     * @param response The AI response string.
-     * @return The extracted risk score.
-     */
-    function extractRiskScore(
-        string memory response
-    ) internal pure returns (uint256) {
-        bytes memory responseBytes = bytes(response);
-        for (
-            uint256 i = 0;
-            i < responseBytes.length - PATTERN_LENGTH + 1;
-            i++
-        ) {
-            // Check for "riskScore" pattern
-            if (i + PATTERN_LENGTH <= responseBytes.length) {
-                bytes memory pattern = new bytes(PATTERN_LENGTH);
-                for (uint256 j = 0; j < PATTERN_LENGTH; j++) {
-                    pattern[j] = responseBytes[i + j];
-                }
-                if (keccak256(pattern) == keccak256("riskScore")) {
-                    // Extract number after "riskScore":
-                    uint256 start = i + RISK_SCORE_OFFSET;
-                    uint256 end = start;
-                    while (
-                        end < responseBytes.length &&
-                        uint8(responseBytes[end]) >= ASCII_ZERO &&
-                        uint8(responseBytes[end]) <= ASCII_NINE
-                    ) {
-                        end++;
-                    }
-                    if (end > start) {
-                        bytes memory scoreBytes = new bytes(end - start);
-                        for (uint256 k = 0; k < end - start; k++) {
-                            scoreBytes[k] = responseBytes[start + k];
-                        }
-                        string memory scoreStr = string(scoreBytes);
-                        return stringToUint(scoreStr);
-                    }
-                }
-            }
-        }
-        return DEFAULT_RISK_SCORE; // Default risk score
-    }
-
-    /**
-     * @notice Helper function to extract volatility score from AI response.
-     * @dev Internal pure function. Used for demo parsing only.
-     * @param response The AI response string.
-     * @return The extracted volatility score.
-     */
-    function extractVolatilityScore(
-        string memory response
-    ) internal pure returns (uint256) {
-        // Simplified implementation for now
-        return DEFAULT_VOLATILITY_SCORE; // Default volatility score
-    }
-
-    /**
-     * @notice Helper function to extract recommended interest rate from AI response.
-     * @dev Internal pure function. Used for demo parsing only.
-     * @param response The AI response string.
-     * @return The extracted interest rate.
-     */
-    function extractInterestRate(
-        string memory response
-    ) internal pure returns (uint256) {
-        // Simplified implementation for now
-        return DEFAULT_INTEREST_RATE; // Default interest rate (10%)
-    }
-
-    /**
-     * @notice Helper function to convert string to uint.
-     * @dev Internal pure function. Used for demo parsing only.
-     * @param s The string to convert.
-     * @return result The uint value.
-     */
-    function stringToUint(
-        string memory s
-    ) internal pure returns (uint256 result) {
-        bytes memory b = bytes(s);
-        for (uint256 i = 0; i < b.length; i++) {
-            uint256 c = uint256(uint8(b[i]));
-            if (c >= 48 && c <= 57) {
-                result = result * 10 + (c - 48);
-            }
-        }
-        return result;
+    function _handleRequestError(
+        bytes32 requestId,
+        uint256 loanId,
+        string memory reason
+    ) internal {
+        emit RequestFailed(requestId, loanId, reason);
+        _setFallbackRiskAssessment(loanId);
     }
 }
