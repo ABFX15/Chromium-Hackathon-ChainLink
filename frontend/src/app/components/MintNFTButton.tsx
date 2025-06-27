@@ -1,7 +1,11 @@
 import { useState } from 'react'
 import { useAccount, useWriteContract, useWaitForTransactionReceipt } from 'wagmi'
-import { Button } from '@/components/ui/button'
-import { CONTRACT_ADDRESSES, PROPERTY_NFT_ABI } from '@/lib/contracts'
+import { Button } from '@/app/components/ui/button'
+import { CONTRACT_ADDRESSES } from '@/lib/contracts'
+import LoanManagerABI from '@/abis/LoanManager.json'
+import PropertyNFTABI from '@/abis/PropertyNFT.json'
+import CollateralVaultABI from '@/abis/CollateralVault.json'
+import MockUSDCABI from '@/abis/MockUSDC.json'
 
 const PROPERTY_ORACLE_ABI = [
   {
@@ -31,7 +35,7 @@ export function MintNFTButton() {
       // Mint NFT with property metadata
       const hash = await writeContract({
         address: CONTRACT_ADDRESSES.PROPERTY_NFT,
-        abi: PROPERTY_NFT_ABI,
+        abi: PropertyNFTABI.abi,
         functionName: 'safeMint',
         args: [
           address,

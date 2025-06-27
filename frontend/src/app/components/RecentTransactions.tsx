@@ -1,7 +1,7 @@
 'use client'
 
-import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
-import { Button } from '@/components/ui/button'
+import { Card, CardContent, CardHeader, CardTitle } from '@/app/components/ui/card'
+import { Button } from '@/app/components/ui/button'
 import { ArrowRight, ArrowDown, ArrowUp, RefreshCw, ExternalLink } from 'lucide-react'
 import { formatCurrency, formatAddress } from '@/lib/utils'
 import { useContractEvents } from '@/hooks/use-contract-events'

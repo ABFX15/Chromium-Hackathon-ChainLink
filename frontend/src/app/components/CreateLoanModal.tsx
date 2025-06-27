@@ -23,12 +23,13 @@ import { Input } from "./ui/input";
 import { Label } from "./ui/label";
 import { useWriteContract } from "wagmi";
 import { useToast } from "../hooks/use-toast";
-import { CONTRACT_ADDRESSES, LOAN_MANAGER_ABI } from "../lib/contracts";
+import { CONTRACT_ADDRESSES } from "../lib/contracts";
+import LoanManagerABI from "@/abis/LoanManager.json";
 import { Property } from "../../types/property";
 import { formatCurrency } from "../lib/utils";
-import { AIRiskAssessment } from "./AIRiskAssessment";
+import { AIAnalytics } from "./AIAnalytics";
 import { RiskAssessment } from "../lib/bedrock-ai";
-import { usePropertyNFTs } from "../hooks/use-property-nfts";
+// import { usePropertyNFTs } from "../hooks/use-property-nfts";
 
 // Constants
 const ORIGINATION_FEE_BPS = 100; // 1% fee
@@ -63,9 +64,9 @@ export function CreateLoanModal({
   const mappedNFTs = availableNFTs.map((nft) => ({
     tokenId: BigInt(nft.tokenId),
     propertyValue: nft.value,
-    isCollateral: nft.status === "collateral",
+    isCollateral: false, // assume not collateral for now
     maxLoan: nft.value * 0.7, // 70% LTV
-    tokenURI: nft.imageUrl,
+    tokenURI: nft.image,
   }));
 
   const form = useForm<CreateLoanForm>({
@@ -109,7 +110,7 @@ export function CreateLoanModal({
         },
         body: JSON.stringify({
           propertyValue: property.value,
-          propertyType: property.type || 'Residential',
+          propertyType: property.propertyType || 'Residential',
           location: property.location || 'Unknown',
           yearBuilt: 2020, // Default if not available
           squareFootage: 2000, // Default if not available
@@ -158,7 +159,7 @@ export function CreateLoanModal({
 
       await writeContract({
         address: CONTRACT_ADDRESSES.LOAN_MANAGER,
-        abi: LOAN_MANAGER_ABI,
+        abi: LoanManagerABI.abi,
         functionName: "depositNFTCollateral",
         args: [BigInt(data.tokenId), adjustedAmount],
       });

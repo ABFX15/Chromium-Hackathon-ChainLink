@@ -1,7 +1,7 @@
 import { useState } from "react";
 import { formatCurrency } from "@/lib/utils";
 import { NFTDetailModal } from "./NFTDetailModal";
-import { Badge } from "@/components/ui/badge";
+import { Badge } from "@/app/components/ui/badge";
 import {
   MapPin,
   TrendingUp,

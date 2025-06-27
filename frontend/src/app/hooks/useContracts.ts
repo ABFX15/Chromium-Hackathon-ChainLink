@@ -9,6 +9,11 @@ import { toast } from "react-hot-toast";
 import { SupportedChainKey } from "@/app/lib/chains";
 
 import { CONTRACT_ADDRESSES } from "@/lib/contracts";
+import { 
+  getContractAddressesWithFallback, 
+  safeReadContract, 
+  checkDeploymentStatus 
+} from "../lib/enhanced-contracts";
 import { Loan, PropertyNFT as NFTMetadata } from "@/types/contracts";
 
 import LoanManagerABI from "@/abis/LoanManager.json";
@@ -156,11 +161,41 @@ export const useContracts = () => {
         console.log("Loading all properties...");
         setLoading(true);
         try {
-            const totalSupply = await readContract(config, {
+            // Check deployment status first
+            const deploymentStatus = await checkDeploymentStatus(31337); // Hardhat chainId
+            
+            if (!deploymentStatus.allDeployed) {
+                console.warn("Contracts not fully deployed, using mock data:", deploymentStatus);
+                const mockProps = getMockProperties(address);
+                setAllProperties(mockProps);
+                setAllLoans([
+                    {
+                        loanId: 12345n,
+                        tokenId: 9100n,
+                        principalAmount: 500000n,
+                        interestRate: 5n,
+                        startTimestamp: BigInt(Math.floor(Date.now() / 1000)),
+                        borrower: "0xMockBorrower",
+                        lender: "0x0000000000000000000000000000000000000000",
+                        isActive: true,
+                        isFunded: false,
+                    },
+                ]);
+                setLoading(false);
+                return;
+            }
+
+            const totalSupplyResult = await safeReadContract({
                 address: CONTRACT_ADDRESSES.PROPERTY_NFT as Address,
                 abi: PropertyNFTABI.abi,
                 functionName: "totalSupply",
-            }) as bigint;
+            });
+            
+            if (totalSupplyResult.error) {
+                throw new Error(`Failed to get totalSupply: ${totalSupplyResult.error}`);
+            }
+            
+            const totalSupply = totalSupplyResult.data as bigint;
 
             if (totalSupply > 0) {
                 const nextLoanId = await readContract(config, { address: CONTRACT_ADDRESSES.LOAN_MANAGER as Address, abi: LoanManagerABI.abi, functionName: "nextLoanId" }) as bigint;

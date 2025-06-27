@@ -1,8 +1,14 @@
 import { useState, useEffect } from 'react'
 import { useAccount, useReadContract } from 'wagmi'
 import { AlertTriangle, Shield, Clock, TrendingDown, Zap, Target } from 'lucide-react'
-import { CONTRACT_ADDRESSES, LOAN_MANAGER_ABI, LIQUIDATION_THRESHOLD } from '@/lib/contracts'
+import { CONTRACT_ADDRESSES } from '@/lib/contracts'
+import LoanManagerABI from '@/abis/LoanManager.json'
+import PropertyNFTABI from '@/abis/PropertyNFT.json'
+import CollateralVaultABI from '@/abis/CollateralVault.json'
+import MockUSDCABI from '@/abis/MockUSDC.json'
 import { formatCurrency } from '@/lib/utils'
+
+const LIQUIDATION_THRESHOLD = 8000; // 80% LTV
 
 interface LiquidationRisk {
   loanId: number

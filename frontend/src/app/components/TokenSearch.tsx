@@ -2,8 +2,8 @@
 
 import { useState } from 'react'
 import { Search, Hash, DollarSign } from 'lucide-react'
-import { Button } from '@/components/ui/button'
-import { Input } from '@/components/ui/input'
+import { Button } from '@/app/components/ui/button'
+import { Input } from '@/app/components/ui/input'
 import { usePropertyNFTs } from '@/hooks/use-property-nfts'
 import { useLoans } from '@/hooks/use-loans'
 import { PropertyNFTCard } from './PropertyNFTCard'

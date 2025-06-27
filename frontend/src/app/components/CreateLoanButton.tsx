@@ -1,7 +1,9 @@
 import { useState, useEffect } from 'react'
 import { useAccount, useWriteContract } from 'wagmi'
-import { Button } from '@/components/ui/button'
-import { CONTRACT_ADDRESSES, LOAN_MANAGER_ABI, PROPERTY_NFT_ABI } from '@/lib/contracts'
+import { Button } from '@/app/components/ui/button'
+import { CONTRACT_ADDRESSES } from '@/lib/contracts'
+import LoanManagerABI from '@/abis/LoanManager.json'
+import PropertyNFTABI from '@/abis/PropertyNFT.json'
 import { CreditCard, Loader2 } from 'lucide-react'
 import { usePropertyNFTs } from '@/hooks/use-property-nfts'
 
@@ -24,7 +26,7 @@ export function CreateLoanButton({ tokenId }: { tokenId?: number }) {
       // First approve the loan manager to use the NFT as collateral
       const approveHash = await writeContract({
         address: CONTRACT_ADDRESSES.PROPERTY_NFT,
-        abi: PROPERTY_NFT_ABI,
+        abi: PropertyNFTABI.abi,
         functionName: 'approve',
         args: [
           CONTRACT_ADDRESSES.LOAN_MANAGER,
@@ -37,7 +39,7 @@ export function CreateLoanButton({ tokenId }: { tokenId?: number }) {
       // Create loan for 70% of property value ($350K for $500K property)
       const loanHash = await writeContract({
         address: CONTRACT_ADDRESSES.LOAN_MANAGER,
-        abi: LOAN_MANAGER_ABI,
+        abi: LoanManagerABI.abi,
         functionName: 'createLoan',
         args: [
           BigInt(availableTokenId),

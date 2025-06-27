@@ -1,6 +1,6 @@
 import { useState } from 'react'
 import { useAccount } from 'wagmi'
-import { Button } from '@/components/ui/button'
+import { Button } from '@/app/components/ui/button'
 import { Building2, TrendingUp, MapPin } from 'lucide-react'
 
 const DEMO_PROPERTIES = [

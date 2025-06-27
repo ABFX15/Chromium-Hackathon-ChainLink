@@ -1,6 +1,8 @@
 import { useEffect, useState } from 'react'
 import { useWatchContractEvent } from 'wagmi'
-import { CONTRACT_ADDRESSES, LOAN_MANAGER_ABI, COLLATERAL_VAULT_ABI } from '@/lib/contracts'
+import { CONTRACT_ADDRESSES } from '@/lib/contracts'
+import LoanManagerABI from '@/abis/LoanManager.json'
+import CollateralVaultABI from '@/abis/CollateralVault.json'
 import { Transaction } from '@/types/contracts'
 
 export function useContractEvents() {
@@ -9,7 +11,7 @@ export function useContractEvents() {
   // Watch for LoanCreated events
   useWatchContractEvent({
     address: CONTRACT_ADDRESSES.LOAN_MANAGER,
-    abi: LOAN_MANAGER_ABI,
+    abi: LoanManagerABI.abi,
     eventName: 'LoanCreated',
     onLogs(logs) {
       logs.forEach((log) => {
@@ -30,7 +32,7 @@ export function useContractEvents() {
   // Watch for LoanRepaid events
   useWatchContractEvent({
     address: CONTRACT_ADDRESSES.LOAN_MANAGER,
-    abi: LOAN_MANAGER_ABI,
+    abi: LoanManagerABI.abi,
     eventName: 'LoanRepaid',
     onLogs(logs) {
       logs.forEach((log) => {
@@ -51,7 +53,7 @@ export function useContractEvents() {
   // Watch for PropertyValueUpdated events
   useWatchContractEvent({
     address: CONTRACT_ADDRESSES.COLLATERAL_VAULT,
-    abi: COLLATERAL_VAULT_ABI,
+    abi: CollateralVaultABI.abi,
     eventName: 'PropertyValueUpdated',
     onLogs(logs) {
       logs.forEach((log) => {

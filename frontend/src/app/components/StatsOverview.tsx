@@ -2,7 +2,7 @@
 
 import { useEffect, useState } from "react";
 import { useAccount } from "wagmi";
-import { Card, CardContent } from "@/components/ui/card";
+import { Card, CardContent } from "@/app/components/ui/card";
 import { TrendingUp, Handshake, CreditCard, PiggyBank } from "lucide-react";
 import { formatCurrency } from "@/lib/utils";
 import { usePropertyNFTs } from "@/hooks/use-property-nfts";

@@ -1,9 +1,12 @@
 import { useState, useEffect } from 'react'
 import { useAccount, useWriteContract, useReadContract } from 'wagmi'
-import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
-import { Button } from '@/components/ui/button'
-import { Badge } from '@/components/ui/badge'
-import { CONTRACT_ADDRESSES, LOAN_MANAGER_ABI, COLLATERAL_VAULT_ABI, MOCK_USDC_ABI } from '@/lib/contracts'
+import { Card, CardContent, CardHeader, CardTitle } from '@/app/components/ui/card'
+import { Button } from '@/app/components/ui/button'
+import { Badge } from '@/app/components/ui/badge'
+import { CONTRACT_ADDRESSES } from '@/lib/contracts'
+import LoanManagerABI from '@/abis/LoanManager.json'
+import CollateralVaultABI from '@/abis/CollateralVault.json'
+import MockUSDCABI from '@/abis/MockUSDC.json'
 import { Vault, DollarSign, RefreshCw, Unlock } from 'lucide-react'
 import { formatCurrency } from '@/lib/utils'
 
@@ -26,7 +29,7 @@ export function CollateralManagement() {
   // Get user's active loans to find collateral
   const { data: nextLoanId } = useReadContract({
     address: CONTRACT_ADDRESSES.LOAN_MANAGER,
-    abi: LOAN_MANAGER_ABI,
+    abi: LoanManagerABI.abi,
     functionName: 'nextLoanId',
   })
 
@@ -70,8 +73,8 @@ export function CollateralManagement() {
 
       // Approve USDC
       await writeContract({
-        address: CONTRACT_ADDRESSES.MOCK_USDC,
-        abi: MOCK_USDC_ABI,
+        address: CONTRACT_ADDRESSES.USDC,
+        abi: MockUSDCABI.abi,
         functionName: 'approve',
         args: [
           CONTRACT_ADDRESSES.LOAN_MANAGER,
@@ -82,7 +85,7 @@ export function CollateralManagement() {
       // Repay loan
       await writeContract({
         address: CONTRACT_ADDRESSES.LOAN_MANAGER,
-        abi: LOAN_MANAGER_ABI,
+        abi: LoanManagerABI.abi,
         functionName: 'repayLoan',
         args: [BigInt(loanId)],
       })

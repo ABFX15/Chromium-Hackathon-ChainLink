@@ -1,8 +1,12 @@
 import { useState } from 'react'
 import { useAccount, useWriteContract } from 'wagmi'
-import { Button } from '@/components/ui/button'
-import { Input } from '@/components/ui/input'
-import { CONTRACT_ADDRESSES, COLLATERAL_VAULT_ABI, PROPERTY_NFT_ABI } from '@/lib/contracts'
+import { Button } from '@/app/components/ui/button'
+import { Input } from '@/app/components/ui/input'
+import { CONTRACT_ADDRESSES } from '@/lib/contracts'
+import LoanManagerABI from '@/abis/LoanManager.json'
+import PropertyNFTABI from '@/abis/PropertyNFT.json'
+import CollateralVaultABI from '@/abis/CollateralVault.json'
+import MockUSDCABI from '@/abis/MockUSDC.json'
 import { Lock, Loader2 } from 'lucide-react'
 
 export function DepositNFTButton() {
@@ -25,7 +29,7 @@ export function DepositNFTButton() {
       // First approve the CollateralVault to transfer the NFT
       const approveHash = await writeContract({
         address: CONTRACT_ADDRESSES.PROPERTY_NFT,
-        abi: PROPERTY_NFT_ABI,
+        abi: PropertyNFTABI.abi,
         functionName: 'approve',
         args: [
           CONTRACT_ADDRESSES.COLLATERAL_VAULT,

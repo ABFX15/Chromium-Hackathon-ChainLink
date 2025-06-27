@@ -1,7 +1,7 @@
 "use client";
 
 import { useState } from "react";
-import { AIRiskAssessment } from "@/app/components/AIRiskAssessment";
+import { AIAnalytics } from "@/app/components/AIAnalytics";
 
 export default function RiskAnalysisPage() {
   const [selectedProperty, setSelectedProperty] = useState({
@@ -114,13 +114,7 @@ export default function RiskAnalysisPage() {
         </div>
 
         {/* AI Risk Assessment */}
-        <AIRiskAssessment
-          propertyData={selectedProperty}
-          loanAmount={loanAmount}
-          onAssessmentComplete={(assessment) => {
-            console.log("Assessment complete:", assessment);
-          }}
-        />
+        <AIAnalytics />
       </div>
     </div>
   );
