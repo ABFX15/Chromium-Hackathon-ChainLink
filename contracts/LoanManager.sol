@@ -57,6 +57,7 @@ contract LoanManager is
     uint64 public immutable i_destinationChainSelector;
     address public yieldVaultAddress;
     uint256 public nextLoanId = 1;
+    address public insurancePool;
 
     // Constants
     uint256 public constant PRECISION = 1e4;
@@ -116,6 +117,7 @@ contract LoanManager is
     event YieldWithdrawn(address indexed recipient, uint256 amount);
     event YieldLenderWithdrawn(address indexed lender, uint256 amount);
     event AvalancheVaultSet(address indexed vaultAddress);
+    event InsurancePoolSet(address indexed insurancePool);
 
     constructor(
         address nft,
@@ -131,7 +133,6 @@ contract LoanManager is
         i_ccipRouter = IRouterClient(ccipRouter);
         i_usdc = IERC20(usdc);
         i_destinationChainSelector = _destinationChainSelector;
-        i_collateralVault.setLoanManager(address(this));
     }
 
     // --- Admin Functions ---
@@ -194,6 +195,16 @@ contract LoanManager is
         emit YieldSet();
     }
 
+    /**
+     * @notice Sets the insurance pool contract address.
+     * @dev Only callable by the owner. Reverts if address is zero.
+     * @param _insurancePool The address of the new insurance pool contract.
+     */
+    function setInsurancePool(address _insurancePool) external onlyOwner {
+        insurancePool = _insurancePool;
+        emit InsurancePoolSet(_insurancePool);
+    }
+
     // --- Core Loan Workflow ---
 
     /**
@@ -235,7 +246,8 @@ contract LoanManager is
             revert LoanManager__NotAuthorized();
 
         (uint256 propertyValue, , ) = propertyOracle.getPropertyValue(tokenId);
-        uint256 maxLoanAmount = (propertyValue * LIQUIDATION_THRESHOLD) / PRECISION;
+        uint256 maxLoanAmount = (propertyValue * LIQUIDATION_THRESHOLD) /
+            PRECISION;
         if (requestedAmount > maxLoanAmount)
             revert LoanManager__InsufficientCollateral();
 
@@ -417,6 +429,8 @@ contract LoanManager is
         uint256 finalDebt = totalDebt + penalty;
 
         emit CollateralLiquidated(loanId, loan.lender, finalDebt);
+
+        _handleDefault(loanId, loan.principalAmount);
     }
 
     // --- Yield Withdrawal ---
@@ -527,7 +541,9 @@ contract LoanManager is
         Loan memory loan = loans[loanId];
         if (!loan.isActive) return type(uint256).max;
 
-        (uint256 propertyValue, ,) = propertyOracle.getPropertyValue(loan.tokenId);
+        (uint256 propertyValue, , ) = propertyOracle.getPropertyValue(
+            loan.tokenId
+        );
 
         uint256 accruedInterest = _calculateAccruedInterest(loan);
         uint256 totalDebt = loan.principalAmount + accruedInterest;
@@ -554,6 +570,20 @@ contract LoanManager is
             protocolYield[who] = amount;
         } else {
             lenderYield[who] = amount;
+        }
+    }
+
+    function _handleDefault(uint256 loanId, uint256 principal) internal {
+        if (insurancePool != address(0)) {
+            // Check if insured and call processDefault
+            (bool success, ) = insurancePool.call(
+                abi.encodeWithSignature(
+                    "processDefault(uint256,uint256)",
+                    loanId,
+                    principal
+                )
+            );
+            // Ignore failure for now (MVP)
         }
     }
 }

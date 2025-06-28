@@ -7,7 +7,16 @@ async function main() {
 
     const [owner] = await ethers.getSigners();
 
-    // 1. Deploy PropertyNFT
+    // 1. Deploy MockUSDC
+    console.log("\n📦 Deploying MockUSDC...");
+    const MockUSDC = await ethers.getContractFactory("MockUSDC");
+    const initialSupply = ethers.parseUnits("1000000", 6); // 1,000,000 USDC
+    const mockUSDC = await MockUSDC.deploy(initialSupply);
+    await mockUSDC.waitForDeployment();
+    const usdc = await mockUSDC.getAddress();
+    console.log("✅ MockUSDC deployed to:", usdc);
+
+    // 2. Deploy PropertyNFT
     console.log("📦 Deploying PropertyNFT...");
     const PropertyNFT = await ethers.getContractFactory("PropertyNFT");
     const propertyNFT = await PropertyNFT.deploy(
@@ -19,7 +28,7 @@ async function main() {
     const propertyNFTAddress = await propertyNFT.getAddress();
     console.log("✅ PropertyNFT deployed to:", propertyNFTAddress);
 
-    // 2. Deploy CollateralVault
+    // 3. Deploy CollateralVault
     console.log("\n📦 Deploying CollateralVault...");
     const CollateralVault = await ethers.getContractFactory("CollateralVault");
     const collateralVault = await CollateralVault.deploy(propertyNFTAddress, owner.address);
@@ -27,7 +36,7 @@ async function main() {
     const collateralVaultAddress = await collateralVault.getAddress();
     console.log("✅ CollateralVault deployed to:", collateralVaultAddress);
 
-    // 3. Deploy LenderNFT
+    // 4. Deploy LenderNFT
     console.log("\n📦 Deploying LenderNFT...");
     const LenderNFT = await ethers.getContractFactory("LenderNFT");
     const lenderNFT = await LenderNFT.deploy();
@@ -35,19 +44,26 @@ async function main() {
     const lenderNFTAddress = await lenderNFT.getAddress();
     console.log("✅ LenderNFT deployed to:", lenderNFTAddress);
 
-    // 4. Deploy PropertyOracle
+    // 5. Deploy PropertyOracle
     console.log("\n📦 Deploying PropertyOracle...");
     const PropertyOracle = await ethers.getContractFactory("PropertyOracle");
-    const propertyOracle = await PropertyOracle.deploy();
+    const propertyOracle = await PropertyOracle.deploy(propertyNFTAddress);
     await propertyOracle.waitForDeployment();
     const propertyOracleAddress = await propertyOracle.getAddress();
     console.log("✅ PropertyOracle deployed to:", propertyOracleAddress);
 
-    // 5. Deploy LoanManager
+    // 6. Deploy LoanManager
     console.log("\n📦 Deploying LoanManager...");
     const ccipRouter = "0xD0daae2231E9CB96b94C8512223533293C3693Bf"; // Sepolia CCIP Router
-    const usdc = "0x4d06f916930877A66530913AF69c3890c431D892"; // Mock USDC on Sepolia
     const destinationChainSelector = 12532609583862916517n; // Avalanche Fuji testnet
+
+    // Debug: Print all addresses before LoanManager deployment
+    console.log("\n🔎 LoanManager constructor arguments:");
+    console.log("NFT:", propertyNFTAddress);
+    console.log("CollateralVault:", collateralVaultAddress);
+    console.log("LenderNFT:", lenderNFTAddress);
+    console.log("CCIP Router:", ccipRouter);
+    console.log("DestinationChainSelector:", destinationChainSelector);
 
     const LoanManager = await ethers.getContractFactory("LoanManager");
     const loanManager = await LoanManager.deploy(
@@ -62,17 +78,44 @@ async function main() {
     const loanManagerAddress = await loanManager.getAddress();
     console.log("✅ LoanManager deployed to:", loanManagerAddress);
 
-    // 6. Deploy YieldVault (for destination chain simulation)
+    // Deploy MockAavePool
+    console.log("\n📦 Deploying MockAavePool...");
+    const MockAavePool = await ethers.getContractFactory("MockAavePool");
+    const mockAavePool = await MockAavePool.deploy(usdc);
+    await mockAavePool.waitForDeployment();
+    const mockAavePoolAddress = await mockAavePool.getAddress();
+    console.log("✅ MockAavePool deployed to:", mockAavePoolAddress);
+
+    // Deploy MockERC20 as aUSDC
+    console.log("\n📦 Deploying MockERC20 as aUSDC...");
+    const MockERC20 = await ethers.getContractFactory("MockERC20");
+    const aUSDC = await MockERC20.deploy("Aave USDC", "aUSDC");
+    await aUSDC.waitForDeployment();
+    const aUSDCAddress = await aUSDC.getAddress();
+    console.log("✅ aUSDC deployed to:", aUSDCAddress);
+
+    // 7. Deploy YieldVault (for destination chain simulation)
     console.log("\n📦 Deploying YieldVault (for Avalanche Fuji)...");
     const YieldVault = await ethers.getContractFactory("YieldVault");
-    // You need to provide a valid aavePool address. If you have a mock, deploy it here, otherwise use a placeholder.
-    const aavePool = "0x0000000000000000000000000000000000000001"; // TODO: Replace with actual or mock Aave Pool address
-    const yieldVault = await YieldVault.deploy(ccipRouter, aavePool, usdc);
+    const yieldVault = await YieldVault.deploy(
+        ccipRouter,
+        mockAavePoolAddress,
+        usdc,
+        aUSDCAddress
+    );
     await yieldVault.waitForDeployment();
     const yieldVaultAddress = await yieldVault.getAddress();
     console.log("✅ YieldVault deployed to:", yieldVaultAddress);
 
-    // 7. Configure contracts
+    // 8. Deploy InsurancePool
+    console.log("\n📦 Deploying InsurancePool...");
+    const InsurancePool = await ethers.getContractFactory("InsurancePool");
+    const insurancePool = await InsurancePool.deploy(usdc);
+    await insurancePool.waitForDeployment();
+    const insurancePoolAddress = await insurancePool.getAddress();
+    console.log("✅ InsurancePool deployed to:", insurancePoolAddress);
+
+    // 9. Configure contracts
     console.log("\n🔧 Configuring contracts...");
 
     // Set LoanManager in CollateralVault
@@ -91,7 +134,7 @@ async function main() {
     await loanManager.setYieldVault(yieldVaultAddress);
     console.log("✅ LoanManager yieldVault set.");
 
-    // 8. Mint some demo NFTs
+    // 10. Mint some demo NFTs
     console.log("\n🎨 Minting demo NFTs...");
     const demoURIs = [
         "https://ipfs.io/ipfs/QmDemo1",
@@ -99,18 +142,25 @@ async function main() {
         "https://ipfs.io/ipfs/QmDemo3"
     ];
 
-    const [signer] = await ethers.getSigners();
-    const signerAddress = await signer.getAddress();
+    // Get PropertyNFT owner
+    const propertyNFTOwner = await propertyNFT.owner();
+    const propertyNFTOwnerSigner = await ethers.getSigner(propertyNFTOwner);
+    const propertyNFTWithOwner = propertyNFT.connect(propertyNFTOwnerSigner);
+    const signerAddress = await propertyNFTOwnerSigner.getAddress();
 
     for (let i = 0; i < demoURIs.length; i++) {
-        await propertyNFT.safeMint(
-            signerAddress,
-            demoURIs[i]
-        );
-        console.log(`✅ Demo NFT ${i + 1} minted.`);
+        try {
+            await propertyNFTWithOwner.safeMint(
+                signerAddress,
+                demoURIs[i]
+            );
+            console.log(`✅ Demo NFT ${i + 1} minted: ${demoURIs[i]}`);
+        } catch (error) {
+            console.error(`❌ Failed to mint NFT ${i + 1} (${demoURIs[i]}):`, error);
+        }
     }
 
-    // 9. Set property values for demo NFTs
+    // 11. Set property values for demo NFTs
     console.log("\n💰 Setting demo property values...");
     const demoValues = [500000, 750000, 1000000]; // $500k, $750k, $1M
 
@@ -119,7 +169,7 @@ async function main() {
         console.log(`✅ Property value set for NFT ${i + 1}: $${demoValues[i].toLocaleString()}`);
     }
 
-    // 10. Print deployment summary
+    // 12. Print deployment summary
     console.log("\n" + "=".repeat(60));
     console.log("🎉 DEPLOYMENT COMPLETE!");
     console.log("=".repeat(60));
@@ -130,6 +180,9 @@ async function main() {
     console.log(`PropertyOracle: ${propertyOracleAddress}`);
     console.log(`LoanManager: ${loanManagerAddress}`);
     console.log(`YieldVault (Avalanche Fuji): ${yieldVaultAddress}`);
+    console.log(`InsurancePool: ${insurancePoolAddress}`);
+    console.log(`MockAavePool: ${mockAavePoolAddress}`);
+    console.log(`aUSDC: ${aUSDCAddress}`);
 
     console.log("\n🔗 Next Steps:");
     console.log("1. Update frontend/src/lib/contracts.ts with these addresses");

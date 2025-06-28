@@ -41,12 +41,21 @@ Borrower ◀─────────────── receives principal fro
 
 ## Smart Contracts
 
-- `PropertyNFT.sol`: ERC721 for tokenized properties
-- `CollateralVault.sol`: Holds NFT collateral
-- `LenderNFT.sol`: Represents lender positions
-- `PropertyOracle.sol`: Key-value store for property values
-- `LoanManager.sol`: Main protocol logic, cross-chain messaging, liquidation
-- `YieldVault.sol`: Receives funds cross-chain, deposits into Aave, manages yield
+- `PropertyNFT.sol`: ERC721 for tokenized properties, supports batch minting and metadata management.
+- `CollateralVault.sol`: Holds NFT collateral during loans.
+- `LenderNFT.sol`: Represents lender positions as NFTs.
+- `PropertyOracle.sol`: Advanced oracle for property values, supports multiple appraisers, price history, and staleness checks.
+- `LoanManager.sol`: Main protocol logic, orchestrates loans, collateral, cross-chain messaging, and liquidation.
+- `YieldVault.sol`: Receives funds cross-chain, deposits into Aave, manages yield and principal distribution.
+- `AIRiskManager.sol`: AI-powered risk assessment using Chainlink Functions and AWS Bedrock/Claude-3, with fallback and rate limiting.
+- `CrossChainLiquidityPool.sol`: Manages cross-chain liquidity, supports adding/removing liquidity, and authorizes vaults for loan funding.
+- `DepositNftTypes.sol`: Library for NFT collateral deposit data structures (used by CollateralVault).
+- `InsurancePool.sol`: Lender insurance pool. Lenders can buy insurance for loans, premiums are pooled, and claims are paid out on default. Integrated with LoanManager for automatic claim processing.
+- **Mocks (for testing):**
+  - `MockUSDC.sol`, `MockERC20.sol`: Mock ERC20 tokens.
+  - `MockERC721.sol`: Mock ERC721 token.
+  - `MockAavePool.sol`: Mock Aave pool for local yield simulation.
+  - `MockRouter.sol`: Mock Chainlink CCIP router.
 
 ---
 
@@ -103,6 +112,7 @@ npm run dev
 2. **AI Risk Assessment**
 3. **AI Strategy Step**: See projected yield from cross-chain Aave deposit
 4. **Fund Loan** (USDC sent cross-chain, yield farming begins)
+5. **Buy Insurance**: On the loan detail or dashboard, a "Buy Insurance" button is visible for each loan that is not already insured. Once purchased, insurance status and claim info are displayed in real time.
 
 ---
 
@@ -116,17 +126,21 @@ npm run dev
 
 ---
 
+## Insurance Feature (How it Works)
+
+- **Smart Contract:** `InsurancePool.sol` allows lenders to buy insurance for any active loan. Premiums are pooled and paid out to the lender if the loan defaults.
+- **Frontend:**
+  - The insurance status and actions are visible on the loan detail view and/or lender dashboard.
+  - If a loan is not insured, a "Buy Insurance" button is shown. If insured, the status and claim info are displayed.
+  - The insurance UI is powered by the `InsuranceActions` component and uses the `buyInsurance` and `getPolicy` hooks.
+
+---
+
 ## Testing
 
 - Use the Sepolia testnet for end-to-end testing.
 - Use the provided mock data and demo NFTs for quick setup.
 - For real cross-chain testing, deploy `YieldVault` on Avalanche Fuji and update the address in `LoanManager`.
-
----
-
-## Contributing
-
-PRs and issues welcome!
 
 ---
 

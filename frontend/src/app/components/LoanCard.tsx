@@ -9,6 +9,7 @@ import {
 import { Loan } from "@/types/contracts";
 import { useToast } from "@/hooks/use-toast";
 import { useContracts } from "../contexts/ContractsContext";
+import { InsuranceActions } from "./InsuranceActions";
 
 interface LoanCardProps {
   loan: Loan;
@@ -174,7 +175,7 @@ export function LoanCard({ loan }: LoanCardProps) {
         )}
 
         {loan.isActive && (
-          <div className="pt-4">
+          <div className="pt-4 space-y-2">
             <Button
               onClick={handleRepayLoan}
               disabled={isProcessing}
@@ -184,6 +185,11 @@ export function LoanCard({ loan }: LoanCardProps) {
             >
               {isProcessing ? "Processing..." : "./repay_loan"}
             </Button>
+            {/* Insurance Actions */}
+            <InsuranceActions
+              loanId={BigInt(loan.loanId)}
+              principal={BigInt(loan.principalAmount)}
+            />
           </div>
         )}
       </div>

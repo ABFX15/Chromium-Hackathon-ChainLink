@@ -9,10 +9,10 @@ import { toast } from "react-hot-toast";
 import { SupportedChainKey } from "@/app/lib/chains";
 
 import { CONTRACT_ADDRESSES } from "@/lib/contracts";
-import { 
-  getContractAddressesWithFallback, 
-  safeReadContract, 
-  checkDeploymentStatus 
+import {
+    getContractAddressesWithFallback,
+    safeReadContract,
+    checkDeploymentStatus
 } from "../lib/enhanced-contracts";
 import { Loan, PropertyNFT as NFTMetadata } from "@/types/contracts";
 
@@ -20,6 +20,7 @@ import LoanManagerABI from "@/abis/LoanManager.json";
 import PropertyNFTABI from "@/abis/PropertyNFT.json";
 import MockUSDCABI from "@/abis/MockUSDC.json";
 import CrossChainLiquidityPoolABI from "@/abis/CrossChainLiquidityPool.json";
+import InsurancePoolABI from "@/abis/InsurancePool.json";
 
 // --- Helper function for fetching with retry ---
 const fetchWithRetry = async (url: string, retries = 5, delay = 2000): Promise<Response> => {
@@ -49,7 +50,7 @@ export const useContracts = () => {
     const [allLoans, setAllLoans] = useState<Loan[]>([]);
 
     const { data: userUSDCBalance } = useReadContract({
-        address: CONTRACT_ADDRESSES.USDC as Address,
+        address: CONTRACT_ADDRESSES.MOCK_USDC as Address,
         abi: MockUSDCABI.abi,
         functionName: "balanceOf",
         args: address ? [address] : undefined,
@@ -63,6 +64,13 @@ export const useContracts = () => {
     const [approving, setApproving] = useState(false);
     const [creatingLoan, setCreatingLoan] = useState(false);
     const [addingLiquidity, setAddingLiquidity] = useState(false);
+
+    // Add InsurancePool contract instance
+    const insurancePoolAddress = CONTRACT_ADDRESSES.INSURANCE_POOL as Address;
+    const insurancePool = {
+        address: insurancePoolAddress,
+        abi: InsurancePoolABI.abi,
+    };
 
     const executeContractWrite = async (setLoadingState: (loading: boolean) => void, params: any): Promise<Address | undefined> => {
         if (!address) {
@@ -94,7 +102,7 @@ export const useContracts = () => {
     });
 
     const approveUSDC = (amount: bigint): Promise<Address | undefined> => executeContractWrite(setApproving, {
-        address: CONTRACT_ADDRESSES.USDC as Address,
+        address: CONTRACT_ADDRESSES.MOCK_USDC as Address,
         abi: MockUSDCABI.abi,
         functionName: "approve",
         args: [CONTRACT_ADDRESSES.LOAN_MANAGER as Address, amount],
@@ -133,7 +141,7 @@ export const useContracts = () => {
 
     const addCCIPLiquidity = async (destinationChainSelector: bigint, amount: bigint, fee: bigint): Promise<Address | undefined> => {
         return executeContractWrite(setAddingLiquidity, {
-            address: CONTRACT_ADDRESSES.CROSS_CHAIN_LIQUIDITY_POOL as Address,
+            address: CONTRACT_ADDRESSES.MOCK_AAVE_POOL as Address,
             abi: CrossChainLiquidityPoolABI as any,
             functionName: 'addLiquidity',
             args: [destinationChainSelector, amount],
@@ -145,7 +153,7 @@ export const useContracts = () => {
         if (!address) return BigInt(0);
         try {
             const fee = await readContract(config, {
-                address: CONTRACT_ADDRESSES.CROSS_CHAIN_LIQUIDITY_POOL as Address,
+                address: CONTRACT_ADDRESSES.MOCK_AAVE_POOL as Address,
                 abi: CrossChainLiquidityPoolABI as any,
                 functionName: "estimateFee",
                 args: [destinationChain],
@@ -163,7 +171,7 @@ export const useContracts = () => {
         try {
             // Check deployment status first
             const deploymentStatus = await checkDeploymentStatus(31337); // Hardhat chainId
-            
+
             if (!deploymentStatus.allDeployed) {
                 console.warn("Contracts not fully deployed, using mock data:", deploymentStatus);
                 const mockProps = getMockProperties(address);
@@ -190,11 +198,11 @@ export const useContracts = () => {
                 abi: PropertyNFTABI.abi,
                 functionName: "totalSupply",
             });
-            
+
             if (totalSupplyResult.error) {
                 throw new Error(`Failed to get totalSupply: ${totalSupplyResult.error}`);
             }
-            
+
             const totalSupply = totalSupplyResult.data as bigint;
 
             if (totalSupply > 0) {
@@ -520,7 +528,45 @@ export const useContracts = () => {
         return fundLoan(Number(loanId), BigInt(0));
     };
 
-    return { userNFTs, userLoans, allLoans, loading, userUSDCBalance, minting, approving, creatingLoan, isProcessing, txSuccess, depositNFTCollateral, fundLoan, approveNFT, approveUSDC, mintPropertyNFT, allProperties, loadAllProperties, addCCIPLiquidity, estimateCCIPFee, addingLiquidity, repayLoan, refreshAllData, lendLoan };
+    // Buy insurance for a loan
+    const buyInsurance = async (loanId: bigint, principal: bigint) => {
+        if (!address) {
+            toast.error("Please connect your wallet first.");
+            return undefined;
+        }
+        try {
+            const hash = await writeContractAsync({
+                address: insurancePoolAddress,
+                abi: InsurancePoolABI.abi,
+                functionName: "buyInsurance",
+                args: [loanId, principal],
+            });
+            toast.loading("Buying insurance...", { id: hash });
+            await waitForTransactionReceipt(config, { hash });
+            toast.success("Insurance purchased!", { id: hash });
+            return hash;
+        } catch (error: any) {
+            toast.error(error.shortMessage || error.message);
+            return undefined;
+        }
+    };
+
+    // Get insurance policy for a loan
+    const getPolicy = async (loanId: bigint) => {
+        try {
+            const policy = await readContract(config, {
+                address: insurancePoolAddress,
+                abi: InsurancePoolABI.abi,
+                functionName: "policies",
+                args: [loanId],
+            });
+            return policy;
+        } catch (error) {
+            return null;
+        }
+    };
+
+    return { userNFTs, userLoans, allLoans, loading, userUSDCBalance, minting, approving, creatingLoan, isProcessing, txSuccess, depositNFTCollateral, fundLoan, approveNFT, approveUSDC, mintPropertyNFT, allProperties, loadAllProperties, addCCIPLiquidity, estimateCCIPFee, addingLiquidity, repayLoan, refreshAllData, lendLoan, buyInsurance, getPolicy };
 };
 
 const getMockProperties = (ownerAddress?: Address): NFTMetadata[] => {
