@@ -19,6 +19,9 @@ import {
   DollarSign,
   AlertCircle,
   Info,
+  CheckCircle,
+  Loader2,
+  RefreshCw,
 } from "lucide-react";
 import {
   supportedChains,
@@ -63,6 +66,10 @@ export function CrossChainLending() {
   const [loanAmount, setLoanAmount] = useState("");
   const [estimatedFee, setEstimatedFee] = useState<bigint>(BigInt(0));
   const [isEstimating, setIsEstimating] = useState(false);
+  const [step, setStep] = useState<number>(1);
+  const [success, setSuccess] = useState<boolean>(false);
+  const [error, setError] = useState<string | null>(null);
+  const [executing, setExecuting] = useState(false);
 
   const handleChainSwitch = (newChainId: number) => {
     if (switchChain) {
@@ -119,251 +126,286 @@ export function CrossChainLending() {
     }
   };
 
+  // Stepper logic
+  const resetStepper = () => {
+    setStep(1);
+    setSelectedDestination("");
+    setLoanAmount("");
+    setEstimatedFee(BigInt(0));
+    setSuccess(false);
+    setError(null);
+  };
+
+  // Step 3: Execute
+  const handleExecute = async () => {
+    setExecuting(true);
+    setError(null);
+    try {
+      const destChainKey = Object.keys(supportedChains).find(
+        (key) => key.toLowerCase() === selectedDestination.toLowerCase()
+      );
+      if (destChainKey) {
+        const chainSelector = BigInt(
+          supportedChains[destChainKey as SupportedChainKey].ccipChainSelector
+        );
+        const amount = BigInt(loanAmount) * BigInt(10 ** 6);
+        // Approve USDC first
+        const approved = await approveUSDC(amount);
+        if (approved) {
+          await addCCIPLiquidity(chainSelector, amount, estimatedFee);
+          setSuccess(true);
+        }
+      }
+    } catch (e: any) {
+      setError(e?.message || "Transaction failed");
+    } finally {
+      setExecuting(false);
+    }
+  };
+
   return (
-    <div className="space-y-6">
-      {/* Chain Status */}
-      <Card className="bg-gray-900/50 border-cyan-500/30 backdrop-blur-sm">
-        <CardHeader>
-          <CardTitle className="text-cyan-400 font-mono flex items-center gap-2">
-            <Network className="w-5 h-5" />
-            Chain Status
-          </CardTitle>
-        </CardHeader>
-        <CardContent>
-          {currentChain ? (
-            <div className="flex items-center gap-3">
-              <span className={`text-2xl ${getChainColor(currentChain.name)}`}>
-                {getChainIcon(currentChain.name)}
-              </span>
-              <div className="flex-1">
-                <div className="text-cyan-300 font-mono">
-                  {currentChain.name}
-                </div>
-                <div className="text-cyan-500/70 font-mono text-sm">
-                  chain_id: {currentChain.id}
-                </div>
-              </div>
-              <div className="text-green-400 font-mono text-sm flex items-center gap-1">
-                <span className="animate-pulse">●</span>
-                connected
-              </div>
-            </div>
-          ) : (
-            <div className="text-red-400 font-mono text-sm flex items-center gap-2">
-              <AlertCircle className="w-4 h-4" />
-              unsupported_chain
-            </div>
-          )}
-        </CardContent>
-      </Card>
-
-      {/* Available Chains */}
-      <Card className="bg-gray-900/50 border-cyan-500/30 backdrop-blur-sm">
-        <CardHeader>
-          <CardTitle className="text-cyan-400 font-mono flex items-center gap-2">
-            <Globe className="w-5 h-5" />
-            Available Networks
-          </CardTitle>
-        </CardHeader>
-        <CardContent>
-          <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
-            {Object.values(supportedChains).map((chain: Chain) => (
-              <div
-                key={chain.id}
-                className={`p-4 rounded-lg border cursor-pointer transition-all duration-200 ${
-                  chainId === chain.id
-                    ? "border-cyan-500/50 bg-cyan-500/10"
-                    : "border-gray-600/30 hover:border-cyan-500/30 hover:bg-gray-800/50"
-                }`}
-                onClick={() => handleChainSwitch(chain.id)}
-              >
-                <div className="flex items-center gap-2 mb-2">
-                  <span className={`text-xl ${getChainColor(chain.name)}`}>
-                    {getChainIcon(chain.name)}
-                  </span>
-                  <span className="text-cyan-300 font-mono text-sm">
-                    {chain.name}
-                  </span>
-                </div>
-                <div className="text-cyan-500/70 font-mono text-xs">
-                  {chain.nativeCurrency.symbol}
-                </div>
-                {chainId === chain.id && (
-                  <div className="text-green-400 font-mono text-xs mt-1">
-                    current
-                  </div>
-                )}
-              </div>
-            ))}
+    <div className="space-y-8">
+      {/* Stepper Progress */}
+      <div className="flex items-center justify-center gap-4 mb-6">
+        <div
+          className={`flex flex-col items-center ${
+            step >= 1 ? "text-cyan-400" : "text-gray-500"
+          }`}
+        >
+          <div
+            className={`w-8 h-8 rounded-full flex items-center justify-center border-2 ${
+              step >= 1
+                ? "border-cyan-400 bg-cyan-900/40"
+                : "border-gray-500 bg-gray-800/40"
+            }`}
+          >
+            1
           </div>
-        </CardContent>
-      </Card>
+          <span className="text-xs mt-1">Destination</span>
+        </div>
+        <div
+          className={`h-1 w-8 ${step >= 2 ? "bg-cyan-400" : "bg-gray-500"}`}
+        ></div>
+        <div
+          className={`flex flex-col items-center ${
+            step >= 2 ? "text-cyan-400" : "text-gray-500"
+          }`}
+        >
+          <div
+            className={`w-8 h-8 rounded-full flex items-center justify-center border-2 ${
+              step >= 2
+                ? "border-cyan-400 bg-cyan-900/40"
+                : "border-gray-500 bg-gray-800/40"
+            }`}
+          >
+            2
+          </div>
+          <span className="text-xs mt-1">Amount</span>
+        </div>
+        <div
+          className={`h-1 w-8 ${step >= 3 ? "bg-cyan-400" : "bg-gray-500"}`}
+        ></div>
+        <div
+          className={`flex flex-col items-center ${
+            step === 3 ? "text-cyan-400" : "text-gray-500"
+          }`}
+        >
+          <div
+            className={`w-8 h-8 rounded-full flex items-center justify-center border-2 ${
+              step === 3
+                ? "border-cyan-400 bg-cyan-900/40"
+                : "border-gray-500 bg-gray-800/40"
+            }`}
+          >
+            3
+          </div>
+          <span className="text-xs mt-1">Review</span>
+        </div>
+      </div>
 
-      {/* Cross-Chain Lending Interface */}
-      <Card className="bg-gray-900/50 border-cyan-500/30 backdrop-blur-sm">
+      <Card className="bg-gray-900/50 border-cyan-500/30 backdrop-blur-sm rounded-2xl shadow-xl">
         <CardHeader>
           <CardTitle className="text-cyan-400 font-mono flex items-center gap-2">
             <Zap className="w-5 h-5" />
-            Add Cross-Chain Liquidity
+            Cross-Chain Lending
           </CardTitle>
         </CardHeader>
-        <CardContent className="space-y-4">
-          {currentChain?.name === "Sepolia" ? (
+        <CardContent className="space-y-6">
+          {success ? (
+            <div className="flex flex-col items-center justify-center py-12 gap-4">
+              <CheckCircle className="w-12 h-12 text-green-400 animate-bounce" />
+              <div className="text-xl text-green-300 font-bold">Success!</div>
+              <div className="text-cyan-200">
+                Your cross-chain liquidity was added successfully.
+              </div>
+              <Button
+                onClick={resetStepper}
+                className="mt-4 bg-gradient-to-r from-cyan-500 to-blue-500 text-white font-bold px-6 py-2 rounded-lg"
+              >
+                Add More Liquidity
+              </Button>
+            </div>
+          ) : (
             <>
-              {/* Source Chain (Collateral) */}
-              <div className="space-y-2">
-                <label className="text-cyan-500 font-mono text-sm">
-                  collateral_chain
-                </label>
-                <div className="flex items-center gap-3 p-3 bg-gray-800/50 rounded-lg border border-cyan-500/30">
-                  <span
-                    className={`text-xl ${getChainColor(currentChain.name)}`}
-                  >
-                    {getChainIcon(currentChain.name)}
-                  </span>
-                  <div className="flex-1">
-                    <div className="text-cyan-300 font-mono">
-                      {currentChain.name}
-                    </div>
-                    <div className="text-cyan-500/70 font-mono text-xs">
-                      nft_collateral_deposits
-                    </div>
+              {step === 1 && (
+                <div className="space-y-4 animate-fade-in">
+                  <div className="text-cyan-200 text-base font-semibold flex items-center gap-2">
+                    <Globe className="w-5 h-5 text-cyan-400" /> Step 1: Select
+                    Destination Chain
                   </div>
-                </div>
-              </div>
-
-              <div className="flex items-center justify-center py-2">
-                <ArrowRight className="w-6 h-6 text-cyan-400" />
-              </div>
-
-              {/* Destination Chain (Lending Pool) */}
-              <div className="space-y-2">
-                <label className="text-cyan-500 font-mono text-sm">
-                  lending_pool_chain
-                </label>
-                <Select
-                  value={selectedDestination}
-                  onValueChange={setSelectedDestination}
-                >
-                  <SelectTrigger className="bg-gray-800/50 border-cyan-500/30 text-cyan-300 font-mono">
-                    <SelectValue placeholder="Select Destination Chain" />
-                  </SelectTrigger>
-                  <SelectContent className="bg-gray-800 border-cyan-500/30">
-                    {destinationChains.map((chain: Chain) => (
-                      <SelectItem
-                        key={chain.id}
-                        value={
-                          Object.keys(supportedChains).find(
-                            (key) =>
-                              supportedChains[key as SupportedChainKey].id ===
-                              chain.id
-                          ) || ""
-                        }
-                      >
-                        <div className="flex items-center gap-2">
-                          <span className={getChainColor(chain.name)}>
-                            {getChainIcon(chain.name)}
-                          </span>
-                          <span>{chain.name}</span>
-                        </div>
-                      </SelectItem>
-                    ))}
-                  </SelectContent>
-                </Select>
-              </div>
-
-              {/* Loan Amount */}
-              <div className="space-y-2">
-                <label className="text-cyan-500 font-mono text-sm">
-                  loan_amount_usdc
-                </label>
-                <Input
-                  type="number"
-                  placeholder="10000"
-                  value={loanAmount}
-                  onChange={(e) => setLoanAmount(e.target.value)}
-                  className="bg-gray-800/50 border-cyan-500/30 text-cyan-300 font-mono"
-                />
-              </div>
-
-              {/* CCIP Fee Estimation */}
-              {selectedDestination && (
-                <div className="space-y-2">
-                  <label className="text-cyan-500 font-mono text-sm">
-                    estimated_ccip_fee
-                  </label>
-                  <div className="p-3 bg-gray-800/50 rounded-lg border border-cyan-500/30">
-                    {isEstimating ? (
-                      <div className="text-cyan-300 font-mono text-sm">
-                        calculating...
-                      </div>
-                    ) : (
-                      <div className="text-cyan-300 font-mono">
-                        {(Number(estimatedFee) / 1e18).toFixed(6)} ETH
-                      </div>
-                    )}
-                    <div className="text-cyan-500/70 font-mono text-xs">
-                      cross_chain_message_fee
-                    </div>
+                  <div className="text-gray-400 text-sm mb-2">
+                    Choose the blockchain network where you want to provide
+                    liquidity for lending.
+                  </div>
+                  <Select
+                    value={selectedDestination}
+                    onValueChange={(val) => setSelectedDestination(val)}
+                  >
+                    <SelectTrigger className="bg-gray-800/50 border-cyan-500/30 text-cyan-300 font-mono">
+                      <SelectValue placeholder="Select Destination Chain" />
+                    </SelectTrigger>
+                    <SelectContent className="bg-gray-800 border-cyan-500/30">
+                      {destinationChains.map((chain: Chain) => (
+                        <SelectItem
+                          key={chain.id}
+                          value={
+                            Object.keys(supportedChains).find(
+                              (key) =>
+                                supportedChains[key as SupportedChainKey].id ===
+                                chain.id
+                            ) || ""
+                          }
+                        >
+                          <div className="flex items-center gap-2">
+                            <span className={getChainColor(chain.name)}>
+                              {getChainIcon(chain.name)}
+                            </span>
+                            <span>{chain.name}</span>
+                          </div>
+                        </SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                  <div className="flex gap-2 mt-4">
+                    <Button
+                      onClick={() => setStep(2)}
+                      disabled={!selectedDestination}
+                      className="bg-gradient-to-r from-cyan-500 to-blue-500 text-white font-bold px-6 py-2 rounded-lg"
+                    >
+                      Next
+                    </Button>
+                    <Button
+                      variant="outline"
+                      onClick={resetStepper}
+                      className="border-cyan-500/50 text-cyan-400 font-bold px-6 py-2 rounded-lg"
+                    >
+                      Reset
+                    </Button>
                   </div>
                 </div>
               )}
-
-              {/* Execute Cross-Chain Loan */}
-              <Button
-                disabled={
-                  !selectedDestination ||
-                  !loanAmount ||
-                  !address ||
-                  addingLiquidity ||
-                  isProcessing
-                }
-                onClick={async () => {
-                  if (selectedDestination && loanAmount) {
-                    const destChainKey = Object.keys(supportedChains).find(
-                      (key) =>
-                        key.toLowerCase() === selectedDestination.toLowerCase()
-                    );
-
-                    if (destChainKey) {
-                      const chainSelector = BigInt(
-                        supportedChains[destChainKey as SupportedChainKey]
-                          .ccipChainSelector
-                      );
-                      const amount = BigInt(loanAmount) * BigInt(10 ** 6);
-                      // Approve USDC first
-                      const approved = await approveUSDC(amount);
-                      if (approved) {
-                        await addCCIPLiquidity(
-                          chainSelector,
-                          amount,
-                          estimatedFee
-                        );
+              {step === 2 && (
+                <div className="space-y-4 animate-fade-in">
+                  <div className="text-cyan-200 text-base font-semibold flex items-center gap-2">
+                    <DollarSign className="w-5 h-5 text-cyan-400" /> Step 2:
+                    Enter Amount
+                  </div>
+                  <div className="text-gray-400 text-sm mb-2">
+                    Specify the amount of USDC you want to provide as
+                    cross-chain liquidity.
+                  </div>
+                  <Input
+                    type="number"
+                    placeholder="10000"
+                    value={loanAmount}
+                    onChange={(e) => setLoanAmount(e.target.value)}
+                    className="bg-gray-800/50 border-cyan-500/30 text-cyan-300 font-mono"
+                  />
+                  <div className="flex gap-2 mt-4">
+                    <Button
+                      onClick={() => setStep(1)}
+                      variant="outline"
+                      className="border-cyan-500/50 text-cyan-400 font-bold px-6 py-2 rounded-lg"
+                    >
+                      Back
+                    </Button>
+                    <Button
+                      onClick={() => setStep(3)}
+                      disabled={!loanAmount || Number(loanAmount) <= 0}
+                      className="bg-gradient-to-r from-cyan-500 to-blue-500 text-white font-bold px-6 py-2 rounded-lg"
+                    >
+                      Next
+                    </Button>
+                  </div>
+                </div>
+              )}
+              {step === 3 && (
+                <div className="space-y-4 animate-fade-in">
+                  <div className="text-cyan-200 text-base font-semibold flex items-center gap-2">
+                    <Zap className="w-5 h-5 text-cyan-400" /> Step 3: Review &
+                    Confirm
+                  </div>
+                  <div className="bg-cyan-900/20 border border-cyan-700/20 rounded-lg p-4">
+                    <div className="flex items-center gap-2 mb-2">
+                      <span className="text-cyan-400 font-bold">
+                        Destination:
+                      </span>
+                      <span className="text-cyan-200">
+                        {selectedDestination}
+                      </span>
+                    </div>
+                    <div className="flex items-center gap-2 mb-2">
+                      <span className="text-cyan-400 font-bold">Amount:</span>
+                      <span className="text-cyan-200">{loanAmount} USDC</span>
+                    </div>
+                    <div className="flex items-center gap-2 mb-2">
+                      <span className="text-cyan-400 font-bold">
+                        Estimated CCIP Fee:
+                      </span>
+                      {isEstimating ? (
+                        <span className="text-cyan-200 flex items-center gap-1">
+                          <Loader2 className="w-4 h-4 animate-spin" />{" "}
+                          Calculating...
+                        </span>
+                      ) : (
+                        <span className="text-cyan-200">
+                          {(Number(estimatedFee) / 1e18).toFixed(6)} ETH
+                        </span>
+                      )}
+                    </div>
+                  </div>
+                  {error && (
+                    <div className="text-red-400 font-bold">{error}</div>
+                  )}
+                  <div className="flex gap-2 mt-4">
+                    <Button
+                      onClick={() => setStep(2)}
+                      variant="outline"
+                      className="border-cyan-500/50 text-cyan-400 font-bold px-6 py-2 rounded-lg"
+                    >
+                      Back
+                    </Button>
+                    <Button
+                      onClick={handleExecute}
+                      disabled={
+                        executing ||
+                        isEstimating ||
+                        !loanAmount ||
+                        !selectedDestination
                       }
-                    }
-                  }
-                }}
-                className="w-full bg-cyan-500/20 hover:bg-cyan-500/30 border border-cyan-500/50 text-cyan-300 font-mono"
-              >
-                <Zap className="w-4 h-4 mr-2" />
-                {addingLiquidity || isProcessing
-                  ? "Executing..."
-                  : "Add Liquidity Cross-Chain"}
-              </Button>
+                      className="bg-gradient-to-r from-green-500 to-blue-500 text-white font-bold px-6 py-2 rounded-lg flex items-center gap-2"
+                    >
+                      {executing ? (
+                        <Loader2 className="w-4 h-4 animate-spin" />
+                      ) : (
+                        <Zap className="w-4 h-4" />
+                      )}
+                      {executing ? "Processing..." : "Confirm & Add Liquidity"}
+                    </Button>
+                  </div>
+                </div>
+              )}
             </>
-          ) : (
-            <div className="text-center py-8">
-              <div className="text-cyan-500/70 font-mono text-sm mb-4">
-                Switch to Sepolia to provide collateral or liquidity.
-              </div>
-              <Button
-                onClick={() => handleChainSwitch(supportedChains.sepolia.id)}
-                className="bg-blue-500/20 hover:bg-blue-500/30 border border-blue-500/50 text-blue-300 font-mono"
-              >
-                <Network className="w-4 h-4 mr-2" />
-                Switch to Sepolia
-              </Button>
-            </div>
           )}
         </CardContent>
       </Card>

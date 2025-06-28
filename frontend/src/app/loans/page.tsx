@@ -98,8 +98,30 @@ export default function LoansPage() {
           </p>
         </div>
 
+        {/* Top Actions */}
+        <div className="flex flex-col md:flex-row md:justify-between md:items-center gap-4 mb-6">
+          <div className="text-2xl font-semibold text-cyan-300 tracking-tight">
+            Loan Stats
+          </div>
+          <div className="flex gap-2 justify-end">
+            <Button
+              onClick={() => router.push("/marketplace")}
+              className="bg-gradient-to-r from-cyan-500 to-blue-500 text-white font-bold px-6 py-2 rounded-lg"
+            >
+              Create Loan
+            </Button>
+            <Button
+              variant="outline"
+              onClick={() => window.location.reload()}
+              className="border-cyan-500/50 text-cyan-400 font-bold px-6 py-2 rounded-lg"
+            >
+              Refresh
+            </Button>
+          </div>
+        </div>
+
         {/* Stats Grid */}
-        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
+        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6 mb-10">
           {stats.map((stat) => (
             <Card
               key={stat.title}
@@ -124,10 +146,18 @@ export default function LoansPage() {
           ))}
         </div>
 
+        {/* Divider */}
+        <div className="border-t border-cyan-900/40 my-8"></div>
+        <div className="flex items-center gap-3 mb-4">
+          <h2 className="text-2xl font-bold text-cyan-200">Your Loans</h2>
+        </div>
+
         {/* Main Content */}
         {loading ? (
           <div className="flex justify-center items-center h-64">
-            <p className="text-white/60">Loading your loans...</p>
+            <p className="text-white/60 text-lg animate-pulse">
+              Loading your loans...
+            </p>
           </div>
         ) : userLoans.length > 0 ? (
           <ActiveLoans loans={userLoans} />

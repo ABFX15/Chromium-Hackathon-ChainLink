@@ -1,7 +1,7 @@
 "use client";
 
 import { CrossChainLending } from "@/app/components/CrossChainLending";
-import { Globe, Network } from "lucide-react";
+import { Globe, Network, DollarSign } from "lucide-react";
 
 export default function CrossChainPage() {
   return (
@@ -27,8 +27,46 @@ export default function CrossChainPage() {
           </p>
         </div>
 
+        {/* How it works / Quick Guide */}
+        <div className="bg-cyan-900/10 border border-cyan-700/20 rounded-xl p-6 mb-8 text-cyan-100">
+          <h2 className="text-xl font-bold mb-2 flex items-center gap-2">
+            <Globe className="w-5 h-5 text-cyan-400" /> How Cross-Chain Lending
+            Works
+          </h2>
+          <ul className="list-disc pl-6 space-y-1 text-cyan-200">
+            <li>Deposit liquidity on your source chain (e.g., Sepolia).</li>
+            <li>Select a destination chain to provide cross-chain loans.</li>
+            <li>Approve USDC and pay the CCIP fee to bridge liquidity.</li>
+            <li>
+              Monitor your cross-chain positions and recent activity below.
+            </li>
+          </ul>
+        </div>
+
+        {/* Section Heading */}
+        <div className="flex items-center gap-3 mb-4">
+          <h2 className="text-2xl font-bold text-cyan-200">
+            Cross-Chain Lending
+          </h2>
+        </div>
+
         {/* CrossChainLending Component */}
         <CrossChainLending />
+
+        {/* Recent Activity Placeholder */}
+        <div className="mt-10">
+          <div className="flex items-center gap-2 mb-2">
+            <DollarSign className="w-5 h-5 text-cyan-400" />
+            <span className="text-lg font-bold text-cyan-200">
+              Recent Activity
+            </span>
+          </div>
+          <div className="bg-cyan-900/10 border border-cyan-700/20 rounded-xl p-6 text-cyan-100 text-center">
+            <span className="text-cyan-400">
+              No recent cross-chain transactions yet.
+            </span>
+          </div>
+        </div>
       </div>
     </div>
   );
